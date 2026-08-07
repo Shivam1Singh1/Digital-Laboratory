@@ -117,13 +117,16 @@ app_license = "mit"
 # -----------
 # Permissions evaluated in scripted ways
 
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
+# Employee Function is a shared master, so field-level scoping cannot isolate
+# one employee's templates from another's. Isolation is owner-based and applied
+# to both list/report queries and direct single-document access.
+permission_query_conditions = {
+	"Experiment Template": "elab_notebook.permissions.get_permission_query_conditions",
+}
+
+has_permission = {
+	"Experiment Template": "elab_notebook.permissions.has_permission",
+}
 
 # DocType Class
 # ---------------

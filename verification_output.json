@@ -1,0 +1,697 @@
+{
+    "Administrator": {
+        "scope": "all",
+        "projects": [
+            {
+                "name": "PLTP-2025-0001",
+                "project_name": "Autologous - CAR-T - BCell Derived Disorders - CD19"
+            },
+            {
+                "name": "PLTP-2025-0003",
+                "project_name": "Stem Cell/CRISPR - Diabetes - Beta Cell"
+            },
+            {
+                "name": "PROJ-0003",
+                "project_name": "ERPNext Enhancement"
+            },
+            {
+                "name": "PLTP-2025-0023",
+                "project_name": "CAR-T - Multiple Myeloma - BCMA"
+            },
+            {
+                "name": "MCPL/LTP/DL/0009",
+                "project_name": "Antibody Development"
+            },
+            {
+                "name": "PLTP-2025-0004",
+                "project_name": "CRISPR - Ex Vivo- Sickle Cell Disease and Beta Thalassemia "
+            },
+            {
+                "name": "PROJ-0010",
+                "project_name": "NOT APPLICABLE"
+            },
+            {
+                "name": "PLTP-2025-0065",
+                "project_name": "Peptide - Obesity and Diabetes - GLP1"
+            },
+            {
+                "name": "PLTP-2025-0015",
+                "project_name": "mRNA - Phenylketonuria - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0027",
+                "project_name": "siRNA - Atherosclerotic Cardiovascular Disease - LPA"
+            },
+            {
+                "name": "PLTP-2025-0013",
+                "project_name": "Personalized Cancer Vaccine - TBD - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0057",
+                "project_name": "Bispecific - Antibody - Muscle Wasting - ActivinA_Myostatin"
+            },
+            {
+                "name": "PLTP-2025-0070",
+                "project_name": "siRNA - APOC3 - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0044",
+                "project_name": "AAV - Huntington Disease - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0041",
+                "project_name": "Lentiviral Vector - CAR-T InVivo - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0028",
+                "project_name": "CAR-T - Solid Tumor - TAG72_mbIL12"
+            },
+            {
+                "name": "PLTP-2025-0042",
+                "project_name": "Organoid - Vitiligo Skin Model - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0021",
+                "project_name": "CAR-T - Neuroblastoma - GD2"
+            },
+            {
+                "name": "PLTP-2025-0076",
+                "project_name": "Peptide-Obesity and Diabetes-Amylin"
+            },
+            {
+                "name": "PLTP-2025-0067",
+                "project_name": "Peptide - Geographic Atrophy - C3"
+            },
+            {
+                "name": "PLTP-2025-0092",
+                "project_name": "Engineered Bacteria platform- Solid tumors"
+            },
+            {
+                "name": "PLTP-2025-0018",
+                "project_name": "AAV - Spinal Muscular Atrophy - SMN1"
+            },
+            {
+                "name": "PLTP-2025-0002",
+                "project_name": "Allogeneic - CAR-T - BCell Derived Disorders - CD19"
+            },
+            {
+                "name": "PLTP-2025-0020",
+                "project_name": "CAR-T - T-Cell Acute Lymphoblastic Leukemia - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0029",
+                "project_name": "Bispecific - CAR-T - Prostate Cancer - PSMA_sIL8"
+            },
+            {
+                "name": "PLTP-2025-0061",
+                "project_name": "Antibody - Immunotherapy - CD3"
+            },
+            {
+                "name": "PLTP-2025-0006",
+                "project_name": "CRISPR InVivo - ATTR - TTR"
+            },
+            {
+                "name": "PLTP-2025-0026",
+                "project_name": "siRNA - Hemophilia - SerpinC1"
+            },
+            {
+                "name": "PLTP-2025-0038",
+                "project_name": "siRNA - Familial Hypercholesterolemia - PCSK9"
+            },
+            {
+                "name": "PLTP-2025-0060",
+                "project_name": "Nanocarrier - Cargo Delivery - Ferritin"
+            },
+            {
+                "name": "PLTP-2025-0024",
+                "project_name": "siRNA - Hypertension - AGT"
+            },
+            {
+                "name": "PLTP-2025-0049",
+                "project_name": "AAV - Alzheimer\u2019s Disease - APOE2"
+            },
+            {
+                "name": "PLTP-2025-0019",
+                "project_name": "ASO - Spinal Muscular Atrophy - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0100",
+                "project_name": "AAV - Progressive central vison loss  - ABCA4"
+            },
+            {
+                "name": "PLTP-2025-0099",
+                "project_name": "AAV - Progressive vison loss  - AMD"
+            },
+            {
+                "name": "PAGR-2025-0017",
+                "project_name": "Genome Edited - Soybean - High Oleic - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0017",
+                "project_name": "AAV - Spinal Muscular Atrophy - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0007",
+                "project_name": "CRISPR InVivo - Hypercholesterolemia - PCSK9"
+            },
+            {
+                "name": "PLTP-2025-0043",
+                "project_name": "Organoid -Alzheimer's Disease Model - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0022",
+                "project_name": "Bispecific - CAR-T - Multiple Myeloma - BCMA_CD19"
+            },
+            {
+                "name": "PLTP-2025-0033",
+                "project_name": "siRNA - Non-Alcoholic Fatty Liver Disease and Lipid Metabolism Disorder - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0072",
+                "project_name": "Small molecule- Oncology - WRN"
+            },
+            {
+                "name": "PXEN-2025-0002",
+                "project_name": "GM - Xenotransplantation Pigs - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0069",
+                "project_name": "siRNA - MASH - discovery"
+            },
+            {
+                "name": "PLTP-2025-0058",
+                "project_name": "siRNA - Vitiligo - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0002",
+                "project_name": "Genome Edited - Mustard - Low Erucic Acid - Giriraj"
+            },
+            {
+                "name": "PAGR-2025-0001",
+                "project_name": "Genome Edited - Mustard - Low Erucic Acid - GDM5"
+            },
+            {
+                "name": "PLTP-2025-0014",
+                "project_name": "mRNA - Gaucher Disease - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0018",
+                "project_name": "Herbicide Development - Weeds - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0007",
+                "project_name": "Genome Edited - Wheat - Low Gluten - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0077",
+                "project_name": "Lentivirus"
+            },
+            {
+                "name": "PAGR-2025-0004",
+                "project_name": "Genome Edited - Rice - Low Glycemic Index - PB1121"
+            },
+            {
+                "name": "PLTP-2025-0045",
+                "project_name": "AAV - Huntington Disease - HTT"
+            },
+            {
+                "name": "PLTP-2025-0016",
+                "project_name": "AAV - Hemophilia B - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0010",
+                "project_name": "Proteomics - CRISPR Proteins - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0031",
+                "project_name": "CRISPR InVivo - Hepatitis B Virus - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0098",
+                "project_name": "siRNA - Psoriasis - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0074",
+                "project_name": "Autologous CarT_Ovarian cancer"
+            },
+            {
+                "name": "PLTP-2025-0097",
+                "project_name": "CRISPR- In-Vivo - SCD and B-thalassemia"
+            },
+            {
+                "name": "PLTP-2025-0025",
+                "project_name": "siRNA - ATTR - TTR"
+            },
+            {
+                "name": "PAGR-2025-0011",
+                "project_name": "Genome Edited - Tomato - GABA"
+            },
+            {
+                "name": "PLTP-2025-0096",
+                "project_name": "PEPTIDE - GLIOBLASTOMA - USP7"
+            },
+            {
+                "name": "PLTP-2025-0095",
+                "project_name": "Peptide - Obesity and Diabetes - Calcitonin"
+            },
+            {
+                "name": "PLTP-2025-0094",
+                "project_name": "Peptide - Obesity and Diabetes - GCGR"
+            },
+            {
+                "name": "PLTP-2025-0093",
+                "project_name": "Peptide - Obesity and Diabetes - GIPR"
+            },
+            {
+                "name": "PLTP-2025-0091",
+                "project_name": "Peptide - Hypertension - NPRA - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0059",
+                "project_name": "Nanocarrier - Kidney Delivery - siRNA_Peptide"
+            },
+            {
+                "name": "PXEN-2025-0003",
+                "project_name": "GM- Low cholestrol egg production- Chicken"
+            },
+            {
+                "name": "PLTP-2025-0068",
+                "project_name": "CRISPR InVivo - MASH - discovery"
+            },
+            {
+                "name": "PLTP-2025-0012",
+                "project_name": "mRNA - Cystic Fibrosis - Discovery"
+            },
+            {
+                "name": "PXEN-2025-0001",
+                "project_name": "GM - Hypoallergic Milk Cow "
+            },
+            {
+                "name": "PLTP-2025-0037",
+                "project_name": "ASO - Dravet Syndrome - Discovery"
+            },
+            {
+                "name": "PROJ-0014",
+                "project_name": "Employee Separation : 36363"
+            },
+            {
+                "name": "PLTP-2025-0035",
+                "project_name": "ASO - Cardiovascular Events - miR132"
+            },
+            {
+                "name": "PROJ-0013",
+                "project_name": "Employee Separation : 36200"
+            },
+            {
+                "name": "PLTP-2025-0039",
+                "project_name": "siRNA - Alzheimer Disease - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0008",
+                "project_name": "CRISPR InVivo - Hypertension - AGT"
+            },
+            {
+                "name": "PAGR-2025-0006",
+                "project_name": "Genome Edited - Wheat - Low Gluten - HD2967"
+            },
+            {
+                "name": "PAGR-2025-0005",
+                "project_name": "Genome Edited - Wheat - Low Gluten - DBW187"
+            },
+            {
+                "name": "PAGR-2025-0003",
+                "project_name": "Genome Edited - Rice - High Yield - IR64"
+            },
+            {
+                "name": "PLTP-2025-0090",
+                "project_name": "Universal Cancer Vaccine-Oncology-Discovery"
+            },
+            {
+                "name": "PLTP-2025-0089",
+                "project_name": "Antibody-Oncology-VEGF"
+            },
+            {
+                "name": "PLTP-2025-0088",
+                "project_name": "Antibody-Oncology-PD-1"
+            },
+            {
+                "name": "PLTP-2025-0087",
+                "project_name": "Antibody-Oncology-B7H3"
+            },
+            {
+                "name": "PLTP-2025-0086",
+                "project_name": "Small Molecule-Metabolic Disorder-NLRP3"
+            },
+            {
+                "name": "PLTP-2025-0085",
+                "project_name": "Small Molecule-Oncology-KRAS"
+            },
+            {
+                "name": "PLTP-2025-0084",
+                "project_name": "Antibody-Oncology-PDL-1"
+            },
+            {
+                "name": "PLTP-2025-0083",
+                "project_name": "Antibody-Oncology-Muc1c"
+            },
+            {
+                "name": "PLTP-2025-0082",
+                "project_name": "Antibody-Oncology-DLL3"
+            },
+            {
+                "name": "PLTP-2025-0081",
+                "project_name": "Antibody-Oncology-CD3L1"
+            },
+            {
+                "name": "PLTP-2025-0080",
+                "project_name": "Antibody-Oncology-CD3"
+            },
+            {
+                "name": "PLTP-2025-0011",
+                "project_name": "LNP - CAR-T InVivo - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0036",
+                "project_name": "siRNA - Cardiac Delivery - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0078",
+                "project_name": "AAV - Deafness Diseases - GJB2"
+            },
+            {
+                "name": "PROJ-0012",
+                "project_name": "Employee Onboarding : krutika.chauhan@microcrispr.com"
+            },
+            {
+                "name": "PLTP-2025-0079",
+                "project_name": "AAV - Hearing Loss - OTOF"
+            },
+            {
+                "name": "PROJ-0011",
+                "project_name": "Employee Onboarding : ayeshabegum7067@gmail.com"
+            },
+            {
+                "name": "PLTP-2025-0075",
+                "project_name": "CarT_Small lung cancer_CLDN18.2"
+            },
+            {
+                "name": "PLTP-2025-0073",
+                "project_name": "CarT_Gastric cancer_CLDN18.2"
+            },
+            {
+                "name": "PLTP-2025-0046",
+                "project_name": "AAV - Cardiomyopathy - MYBPC3"
+            },
+            {
+                "name": "PLTP-2025-0052",
+                "project_name": "AAV - Retinal Dystrophy - LCA2"
+            },
+            {
+                "name": "PLTP-2025-0063",
+                "project_name": "AAV - Duchenne Muscular Dystrophy - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0009",
+                "project_name": "CRISPR InVivo - Atherosclerotic Cardiovascular Disease - LPA"
+            },
+            {
+                "name": "PLTP-2025-0071",
+                "project_name": "Bispecific - Antibody - Multiple cancer - PD-1_VEGF"
+            },
+            {
+                "name": "PLTP-2025-0032",
+                "project_name": "siRNA - Dengue - Discovery"
+            },
+            {
+                "name": "PROJ-0008",
+                "project_name": "Plasmid CD19"
+            },
+            {
+                "name": "PLTP-2025-0005",
+                "project_name": "CRISPR - Sickle Cell Disease - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0010",
+                "project_name": "CRISPR InVivo - Hypercholesterolemia - ANGPTL3"
+            },
+            {
+                "name": "PLTP-2025-0030",
+                "project_name": "siRNA - Hepatitis B Virus - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0034",
+                "project_name": "siRNA - Central Nervous System Delivery - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0040",
+                "project_name": "siRNA - Type 2 Diabetes Mellitus - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0047",
+                "project_name": "AAV - Cardiomyopathy - PKP2"
+            },
+            {
+                "name": "PLTP-2025-0048",
+                "project_name": "AAV - Cardiomyopathy - BAG3"
+            },
+            {
+                "name": "PLTP-2025-0050",
+                "project_name": "AAV - Epilepsy - SCN1A"
+            },
+            {
+                "name": "PLTP-2025-0051",
+                "project_name": "AAV - Geographic Atrophy - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0053",
+                "project_name": "AAV - Retinal Dystrophy - LCA4"
+            },
+            {
+                "name": "PLTP-2025-0054",
+                "project_name": "AAV - Parkinson's Disease - AADC"
+            },
+            {
+                "name": "PLTP-2025-0055",
+                "project_name": "AAV - Parkinson's Disease - GAD"
+            },
+            {
+                "name": "PLTP-2025-0056",
+                "project_name": "AAV - Stroke - NEUROD1"
+            },
+            {
+                "name": "PAGR-2025-0008",
+                "project_name": "Genome Edited - Wheat - Resistant Starch - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0009",
+                "project_name": "Nanocarrier - Biopesticide Delivery - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0012",
+                "project_name": "Genome Edited - Tomato - Carotenoid"
+            },
+            {
+                "name": "PAGR-2025-0013",
+                "project_name": "Genome Edited - Tomato - ProvitaminD3"
+            },
+            {
+                "name": "PAGR-2025-0014",
+                "project_name": "Genome Edited - Tomato - Short Stature - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0015",
+                "project_name": "Genome Edited - Tomato - SweetFruit - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0016",
+                "project_name": "Genome Edited - Soybean - Low Anti-Nutritional Factor - Discovery"
+            },
+            {
+                "name": "PAGR-2025-0019",
+                "project_name": "Pesticide Development - Pests - Discovery"
+            },
+            {
+                "name": "PLTP-2025-0062",
+                "project_name": "Antibody - Immunotherapy - CD38"
+            },
+            {
+                "name": "PLTP-2025-0064",
+                "project_name": "mRNA - Systemic Lupus Erythematosus - CD19"
+            },
+            {
+                "name": "PLTP-2025-0066",
+                "project_name": "Preclinical Research Center (Animal House)"
+            },
+            {
+                "name": "PROJ-0009",
+                "project_name": "Test"
+            },
+            {
+                "name": "PROJ-0001",
+                "project_name": "AI based design of Antibodies"
+            },
+            {
+                "name": "MCPL/LTP/DL/0021",
+                "project_name": "CRISPR Cas based Cell / Gene Therapy"
+            },
+            {
+                "name": "MCPL/LTP/DL/0030",
+                "project_name": "Glioblastoma CAR T for Brain Cancer"
+            },
+            {
+                "name": "MCPL/LTP/DL/0023",
+                "project_name": "Development of CAR-NK cells"
+            },
+            {
+                "name": "MCPL/LTP/DL/0012",
+                "project_name": "Neuroblastoma CAR T for Brain Cancer"
+            },
+            {
+                "name": "MCPL/LTP/DL/0035",
+                "project_name": "Lipid Nanoparticle mediated delivery of CRISPR -Cas9 in-vivo gene editing"
+            },
+            {
+                "name": "MCPL/LTP/DL/0018",
+                "project_name": "SCD"
+            },
+            {
+                "name": "MCPL/siRNA/0007",
+                "project_name": "siRNA - PCSK9"
+            },
+            {
+                "name": "MCPL/LTP/DL/0039",
+                "project_name": "CD19 mRNA based CAR T Therapy for SLE"
+            },
+            {
+                "name": "MCPL/LTP/DL/0020",
+                "project_name": "Allogenic CAR T"
+            },
+            {
+                "name": "MCPL/LTP/DL/0019",
+                "project_name": "in-vivo gene editing"
+            },
+            {
+                "name": "MCPL/LTP/DL/0011",
+                "project_name": "Engineering lentiviral vectors for in vivo CAR T therapy"
+            },
+            {
+                "name": "MCPL/LTP/DL/0010",
+                "project_name": "Generation of CAR T cells for Prostate Cancer targeting PSMA"
+            },
+            {
+                "name": "MCPL/LTP/DL/0006",
+                "project_name": "Peptides- Obesity Diabetes"
+            },
+            {
+                "name": "MCPL/LTP/DL/0038",
+                "project_name": "Vitiligo - Pathogenesis & Innovative cell based therapies"
+            },
+            {
+                "name": "MCPL/LTP/DL/0007",
+                "project_name": "SiRNA"
+            },
+            {
+                "name": "MCPL/LTP/DL/0002",
+                "project_name": "AAV-mediated gene therapy"
+            },
+            {
+                "name": "MCPL/LTP/DL/0003",
+                "project_name": "Gene therapy for Duchenne muscular dystrophy (DMD)"
+            },
+            {
+                "name": "MCPL/LTP/DL/0004",
+                "project_name": "Design and validation of nanoplasmids for gene therapy "
+            },
+            {
+                "name": "MCPL/LTP/DL/0013",
+                "project_name": "Generation of BCMA Targeting CAR T cells for Multiple Myeloma"
+            },
+            {
+                "name": "MCPL/LTP/DL/0016",
+                "project_name": "Autologous CAR T therapy for ovarian cancer"
+            },
+            {
+                "name": "MCPL/LTP/DL/0017",
+                "project_name": "Rapid manufacturing of CAR T cell therapy"
+            },
+            {
+                "name": "MCPL/LTP/DL/0022",
+                "project_name": "Development of brain organoids using induced pluripotent stem cells (iPSCs) "
+            },
+            {
+                "name": "MCPL/LTP/DL/0028",
+                "project_name": "Peptides- Geographic Atrophy"
+            },
+            {
+                "name": "MCPL/LTP/DL/0029",
+                "project_name": "Peptides- Hypertension"
+            },
+            {
+                "name": "MCPL/LTP/DL/0032",
+                "project_name": "in-vivo CAR Ms for Hepatocellular Carcinoma (HCC)"
+            },
+            {
+                "name": "MCPL/LTP/DL/0036",
+                "project_name": "CD7 targetted CAR T for T-ALL"
+            },
+            {
+                "name": "MCPL/LTP/DL/0037",
+                "project_name": "Protein Expression & Purification"
+            },
+            {
+                "name": "MCPL/LTP/DL/0040",
+                "project_name": "Development of targeted LNP delivery system for in-vivo generation CAR T cells"
+            },
+            {
+                "name": "MCPLD/CAR/060",
+                "project_name": "GMCSF shRNA-based CART cells to limit CRS"
+            },
+            {
+                "name": "MCPL/LTP/DL/0027",
+                "project_name": "Neurological Diabetes Obesity"
+            },
+            {
+                "name": "MCPL/LTP/DL/0026",
+                "project_name": "Peptide based therapeutics (GA)"
+            },
+            {
+                "name": "MCPL/LTP/DL/0025",
+                "project_name": "Computational Based Gene Therapy"
+            },
+            {
+                "name": "MCPL/LTP/DL/0024",
+                "project_name": "Computational Based Drug Screening"
+            },
+            {
+                "name": "MCPL/LTP/DL/0005",
+                "project_name": "Developing Next-generation diagnostic toold for major depressive disorder using multi-omics and artificial intelligence"
+            },
+            {
+                "name": "PROJ-0002",
+                "project_name": "Employee Separation : 361001"
+            }
+        ]
+    },
+    "Function Scoped User (Rushikesh)": {
+        "scope": "function",
+        "projects": [
+            {
+                "name": "PLTP-2025-0001",
+                "project_name": "Autologous - CAR-T - BCell Derived Disorders - CD19"
+            },
+            {
+                "name": "PLTP-2025-0023",
+                "project_name": "CAR-T - Multiple Myeloma - BCMA"
+            },
+            {
+                "name": "PLTP-2025-0004",
+                "project_name": "CRISPR - Ex Vivo- Sickle Cell Disease and Beta Thalassemia "
+            }
+        ]
+    },
+    "No Function Assigned User (Nadeem)": {
+        "scope": "no_function",
+        "projects": [],
+        "message": "No function assigned"
+    }
+}

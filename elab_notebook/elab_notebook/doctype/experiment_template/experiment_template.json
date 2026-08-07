@@ -1,0 +1,340 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:ET-{project_id}-{######}",
+ "creation": "2026-08-07 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "type",
+  "description",
+  "disable",
+  "employee_function",
+  "head_name",
+  "column_break_main",
+  "allowed_roles",
+  "project",
+  "project_id",
+  "remark",
+  "section_break_aim",
+  "aim",
+  "sub_aim",
+  "column_break_aim",
+  "rationale",
+  "section_break_material",
+  "material_required",
+  "section_break_equipment",
+  "equipment_details",
+  "section_break_methodology",
+  "methodology",
+  "total_duration",
+  "methodology_comments",
+  "section_break_protocol",
+  "steps",
+  "section_break_observation",
+  "observation_table",
+  "observation_comments",
+  "section_break_status",
+  "amended_from",
+  "section_break_legacy",
+  "template_name",
+  "category",
+  "version",
+  "status",
+  "objective_hypothesis",
+  "created_by",
+  "department",
+  "template_ingredients",
+  "template_parameters",
+  "template_protocol_steps"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1
+  },
+  {
+   "fieldname": "type",
+   "fieldtype": "Select",
+   "label": "Type",
+   "options": "\nR&D-Early Stage\nR&D-Analytical\nValidation\nScale-Up\nProcess Development"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  },
+  {
+   "default": "0",
+   "fieldname": "disable",
+   "fieldtype": "Check",
+   "label": "Disable"
+  },
+  {
+   "fieldname": "employee_function",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Employee Function",
+   "options": "Employee Function",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "employee_function.function_head_name",
+   "fieldname": "head_name",
+   "fieldtype": "Data",
+   "label": "Head Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "allowed_roles",
+   "fieldtype": "Link",
+   "label": "Department",
+   "options": "Department"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Project",
+   "options": "Project",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "project.name",
+   "fieldname": "project_id",
+   "fieldtype": "Data",
+   "label": "Project ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Small Text",
+   "label": "Remark"
+  },
+  {
+   "fieldname": "section_break_aim",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "aim",
+   "fieldtype": "Data",
+   "label": "Aim"
+  },
+  {
+   "fieldname": "sub_aim",
+   "fieldtype": "Small Text",
+   "label": "Sub Aim"
+  },
+  {
+   "fieldname": "column_break_aim",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rationale",
+   "fieldtype": "Long Text",
+   "label": "Rationale"
+  },
+  {
+   "fieldname": "section_break_material",
+   "fieldtype": "Section Break",
+   "label": "Material Required"
+  },
+  {
+   "fieldname": "material_required",
+   "fieldtype": "Table",
+   "label": "Material Required",
+   "options": "Material Required CT"
+  },
+  {
+   "fieldname": "section_break_equipment",
+   "fieldtype": "Section Break",
+   "label": "Equipment Details"
+  },
+  {
+   "fieldname": "equipment_details",
+   "fieldtype": "Table",
+   "label": "Equipment Details",
+   "options": "Equipment Details CT"
+  },
+  {
+   "fieldname": "section_break_methodology",
+   "fieldtype": "Section Break",
+   "label": "Methodology"
+  },
+  {
+   "fieldname": "methodology",
+   "fieldtype": "Table",
+   "label": "Methodology",
+   "options": "Methodology CT"
+  },
+  {
+   "description": "Sum of Time to Complete across all Methodology rows. Recalculated on every save.",
+   "fieldname": "total_duration",
+   "fieldtype": "Int",
+   "label": "Total Duration (Minutes)",
+   "no_copy": 1,
+   "non_negative": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "methodology_comments",
+   "fieldtype": "Text Editor",
+   "label": "Methodology Comments"
+  },
+  {
+   "fieldname": "section_break_protocol",
+   "fieldtype": "Section Break",
+   "label": "Protocol"
+  },
+  {
+   "fieldname": "steps",
+   "fieldtype": "Text Editor",
+   "label": "Steps"
+  },
+  {
+   "fieldname": "section_break_observation",
+   "fieldtype": "Section Break",
+   "label": "Observation"
+  },
+  {
+   "fieldname": "observation_table",
+   "fieldtype": "Table",
+   "label": "Observation Table",
+   "options": "Observations CT"
+  },
+  {
+   "fieldname": "observation_comments",
+   "fieldtype": "Text Editor",
+   "label": "Observation Comments"
+  },
+  {
+   "fieldname": "section_break_status",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Experiment Template",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_legacy",
+   "fieldtype": "Section Break",
+   "label": "Legacy Template Fields"
+  },
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "label": "Template Name"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Data",
+   "label": "Category/Programme"
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Data",
+   "label": "Version"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nActive\nArchived"
+  },
+  {
+   "fieldname": "objective_hypothesis",
+   "fieldtype": "Small Text",
+   "label": "Objective & Hypothesis"
+  },
+  {
+   "fieldname": "created_by",
+   "fieldtype": "Data",
+   "label": "Created By"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Department"
+  },
+  {
+   "fieldname": "template_ingredients",
+   "fieldtype": "Table",
+   "label": "Ingredients",
+   "options": "Template Ingredient"
+  },
+  {
+   "fieldname": "template_parameters",
+   "fieldtype": "Table",
+   "label": "Parameters",
+   "options": "Template Parameter"
+  },
+  {
+   "fieldname": "template_protocol_steps",
+   "fieldtype": "Table",
+   "label": "Protocol Steps",
+   "options": "Template Protocol Step"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Elab Notebook",
+ "name": "Experiment Template",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Employee",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "track_changes": 1
+}

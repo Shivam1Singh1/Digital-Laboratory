@@ -1,0 +1,17 @@
+{
+    "scope": "function",
+    "projects": [
+        {
+            "name": "PLTP-2025-0023",
+            "project_name": "CAR-T - Multiple Myeloma - BCMA"
+        },
+        {
+            "name": "PLTP-2025-0001",
+            "project_name": "Autologous - CAR-T - BCell Derived Disorders - CD19"
+        },
+        {
+            "name": "PLTP-2025-0004",
+            "project_name": "CRISPR - Ex Vivo- Sickle Cell Disease and Beta Thalassemia "
+        }
+    ]
+}
