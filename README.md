@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Elab Notebook
 
 A modern, high-fidelity, and enterprise-grade Experiment Tracker and Laboratory Management application built on top of the [Frappe Framework](https://github.com/frappe/frappe).
@@ -220,3 +221,7 @@ Also verified: autoname → `ET-PLTP-2025-0041-022229`; `head_name` auto-fetch �
 
 ## 📄 License
 MIT License
+=======
+# Digital-Laboratory
+An enterprise-grade laboratory experiment management platform for planning, executing, tracking, and analyzing experiments.
+>>>>>>> 8c58dd6d784ece8c01d205a2ee6097c2d0bbffc6

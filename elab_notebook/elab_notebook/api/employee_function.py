@@ -123,6 +123,47 @@ def get_projects_for_employee_function(employee_function: str) -> list[str]:
 
 
 @frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def project_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Link-field query: only Projects mapped to the given Employee Function.
+
+	Used from experiment_template.js via `frm.set_query`.
+	"""
+	employee_function = (filters or {}).get("employee_function")
+	allowed = get_projects_for_employee_function(employee_function)
+
+	if not allowed:
+		return []
+
+	if txt:
+		lowered = txt.lower()
+		matched = frappe.get_all(
+			"Project",
+			filters={"name": ("in", allowed)},
+			fields=["name", "project_name"],
+			limit_page_length=0,
+		)
+		allowed = [
+			p.name
+			for p in matched
+			if lowered in (p.name or "").lower()
+			or lowered in (p.project_name or "").lower()
+		]
+		if not allowed:
+			return []
+
+	return frappe.get_all(
+		"Project",
+		filters={"name": ("in", allowed)},
+		fields=["name", "project_name"],
+		order_by="name asc",
+		start=start,
+		page_length=page_len,
+		as_list=True,
+	)
+
+
+@frappe.whitelist()
 def get_employee_function_project_options(
 	employee_function: str, txt: str | None = None
 ):

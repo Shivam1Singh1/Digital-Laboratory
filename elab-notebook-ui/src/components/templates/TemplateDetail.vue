@@ -3,9 +3,9 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import LinkField from '../common/LinkField.vue'
-import DurationInput from '../common/DurationInput.vue'
+import MinutesInput from '../common/MinutesInput.vue'
 import RichTextEditor from '../common/RichTextEditor.vue'
-import { formatDuration } from '../../utils/duration'
+import { formatMinutes } from '../../utils/duration'
 import { extractFrappeError } from '../../utils/frappeError'
 import './TemplateDetail.css'
 
@@ -51,7 +51,6 @@ const materialRequired = ref([])
 const equipmentDetails = ref([])
 const methodology = ref([])
 const methodologyComments = ref('')
-const protocolSteps = ref([])
 const steps = ref('')
 const observationTable = ref([])
 const observationComments = ref('')
@@ -86,7 +85,6 @@ const resetForm = () => {
   equipmentDetails.value = []
   methodology.value = []
   methodologyComments.value = ''
-  protocolSteps.value = []
   steps.value = ''
   observationTable.value = []
   observationComments.value = ''
@@ -116,7 +114,6 @@ const applyDoc = (data) => {
   equipmentDetails.value = data.equipment_details || []
   methodology.value = data.methodology || []
   methodologyComments.value = data.methodology_comments || ''
-  protocolSteps.value = data.protocol_steps || []
   steps.value = data.steps || ''
   observationTable.value = data.observation_table || []
   observationComments.value = data.observation_comments || ''
@@ -145,32 +142,92 @@ const fetchTemplateDetail = async () => {
 
 // ------------------------------------------------------------- link behaviour
 
+// The employee picks their Employee Function first; Projects are then scoped to
+// the projects mapped to that function.
+const myFunctions = ref([])
+const functionsLoaded = ref(false)
+
 const employeeFunctionSearch = async (txt) => {
-  if (!project.value) return []
+  const term = (txt || '').toLowerCase()
+  if (!term) return myFunctions.value
+  return myFunctions.value.filter(
+    (f) =>
+      f.name.toLowerCase().includes(term) ||
+      String(f.function_name || '').toLowerCase().includes(term)
+  )
+}
+
+const projectSearch = async (txt) => {
+  if (!employeeFunction.value) return []
   const res = await axios.get(
-    '/api/method/elab_notebook.elab_notebook.api.employee_function.get_project_employee_function_options',
-    { params: { project: project.value, txt: txt || '' } }
+    '/api/method/elab_notebook.elab_notebook.api.employee_function.get_employee_function_project_options',
+    { params: { employee_function: employeeFunction.value, txt: txt || '' } }
   )
   return res.data.message || []
 }
 
 const employeeFunctionHint = computed(() =>
-  project.value
-    ? 'No Employee Function is mapped to this Project'
-    : 'Select a Project first'
+  functionsLoaded.value && !myFunctions.value.length
+    ? 'No Employee Function is assigned to you'
+    : 'No matches found'
 )
 
-const onProjectSelect = (opt) => {
-  projectId.value = opt ? opt.name : ''
-  // An Employee Function is only valid for the project it is mapped to, so a
-  // stale selection must not survive a project change.
-  employeeFunction.value = ''
-  headName.value = ''
+const projectHint = computed(() =>
+  employeeFunction.value
+    ? 'No Project is mapped to this Employee Function'
+    : 'Select an Employee Function first'
+)
+
+// Head Name mirrors the function's head — never typed by hand.
+const applyHeadName = (opt) => {
+  headName.value = opt ? opt.function_head_name || '' : ''
 }
 
 const onEmployeeFunctionSelect = (opt) => {
-  headName.value = opt ? opt.function_head_name || '' : ''
+  applyHeadName(opt)
+  // A Project is only valid for the function it is mapped to, so a stale
+  // selection must not survive a function change.
+  project.value = ''
+  projectId.value = ''
+  allowedRoles.value = ''
 }
+
+const onProjectSelect = (opt) => {
+  projectId.value = opt ? opt.name : ''
+  // Department follows the Project. The option already carries it, so no
+  // second round trip is needed.
+  allowedRoles.value = opt ? opt.department || '' : ''
+}
+
+// Load the signed-in employee's functions once, and pre-select when there is
+// exactly one — an unambiguous answer shouldn't need a click.
+const loadMyFunctions = async () => {
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.employee_function.get_current_employee_function'
+    )
+    myFunctions.value = (res.data.message || {}).functions || []
+  } catch (err) {
+    console.error('Failed to load employee functions', err)
+    myFunctions.value = []
+  } finally {
+    functionsLoaded.value = true
+  }
+
+  if (isNew.value && !employeeFunction.value && myFunctions.value.length === 1) {
+    const only = myFunctions.value[0]
+    employeeFunction.value = only.name
+    applyHeadName(only)
+  }
+}
+
+// On an existing doc the function is already set, so back-fill the head name
+// from the loaded list rather than leaving the read-only field blank.
+watch([employeeFunction, myFunctions], () => {
+  if (!employeeFunction.value || headName.value) return
+  const match = myFunctions.value.find((f) => f.name === employeeFunction.value)
+  if (match) applyHeadName(match)
+})
 
 const onItemSelect = (row, opt) => {
   row.item_name = opt ? opt.item_name || '' : ''
@@ -193,14 +250,6 @@ const addEquipmentRow = () =>
 const addMethodologyRow = () =>
   methodology.value.push({ method: '', time_to_complete: 0 })
 
-const addProtocolRow = () =>
-  protocolSteps.value.push({
-    step_no: protocolSteps.value.length + 1,
-    instruction: '',
-    expected_duration: 0,
-    is_critical: 0
-  })
-
 const addObservationRow = () =>
   observationTable.value.push({
     parameter: '',
@@ -210,13 +259,6 @@ const addObservationRow = () =>
   })
 
 const removeRow = (rows, idx) => rows.splice(idx, 1)
-
-const removeProtocolRow = (idx) => {
-  protocolSteps.value.splice(idx, 1)
-  protocolSteps.value.forEach((row, i) => {
-    row.step_no = i + 1
-  })
-}
 
 // ----------------------------------------------------------------- datetime IO
 
@@ -262,17 +304,11 @@ const buildPayload = () => ({
   ),
   methodology: methodology.value.map((row) => ({
     ...rowPayload(row, ['method']),
-    // Duration is stored in seconds — DurationInput already emits seconds.
+    // Stored as a plain Int number of minutes.
     time_to_complete: Number(row.time_to_complete) || 0
   })),
   methodology_comments: methodologyComments.value,
 
-  protocol_steps: protocolSteps.value.map((row) => ({
-    ...rowPayload(row, ['instruction']),
-    step_no: Number(row.step_no) || 0,
-    expected_duration: Number(row.expected_duration) || 0,
-    is_critical: row.is_critical ? 1 : 0
-  })),
   steps: steps.value,
 
   observation_table: observationTable.value.map((row) => ({
@@ -284,8 +320,8 @@ const buildPayload = () => ({
 
 const validateForm = () => {
   if (!title.value.trim()) return 'Title is required.'
-  if (!project.value) return 'Project is required.'
   if (!employeeFunction.value) return 'Employee Function is required.'
+  if (!project.value) return 'Project is required.'
 
   const badMaterial = materialRequired.value.findIndex((r) => !r.item_code || !r.qty)
   if (badMaterial !== -1) {
@@ -334,7 +370,10 @@ const saveTemplate = async () => {
 }
 
 watch(() => route.params.id, fetchTemplateDetail)
-onMounted(fetchTemplateDetail)
+onMounted(async () => {
+  await fetchTemplateDetail()
+  await loadMyFunctions()
+})
 </script>
 
 <template>
@@ -421,21 +460,56 @@ onMounted(fetchTemplateDetail)
         <h3 class="section-title">Ownership</h3>
         <div class="meta-form-grid">
           <div class="form-group">
-            <label class="form-label">Project *</label>
+            <label class="form-label">Employee Function *</label>
             <LinkField
-              v-model="project"
-              doctype="Project"
-              :fields="['project_name']"
-              :search-fields="['name', 'project_name']"
-              description-field="project_name"
-              placeholder="Search projects…"
-              @select="onProjectSelect"
+              v-model="employeeFunction"
+              :search-fn="employeeFunctionSearch"
+              description-field="function_name"
+              :empty-hint="employeeFunctionHint"
+              placeholder="Search your functions…"
+              @select="onEmployeeFunctionSelect"
+            />
+            <span v-if="functionsLoaded && !myFunctions.length" class="field-hint warn">
+              No Employee Function is assigned to your employee record.
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Head Name</label>
+            <input
+              type="text"
+              :value="headName"
+              class="form-control readonly"
+              placeholder="Auto-filled from Employee Function"
+              readonly
             />
           </div>
 
           <div class="form-group">
+            <label class="form-label">Project *</label>
+            <LinkField
+              v-model="project"
+              :search-fn="projectSearch"
+              :disabled="!employeeFunction"
+              description-field="project_name"
+              :empty-hint="projectHint"
+              placeholder="Search projects for this function…"
+              @select="onProjectSelect"
+            />
+            <span v-if="!employeeFunction" class="field-hint">
+              Pick an Employee Function to unlock this field.
+            </span>
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Project ID</label>
-            <input type="text" :value="projectId" class="form-control readonly" readonly />
+            <input
+              type="text"
+              :value="projectId"
+              class="form-control readonly"
+              placeholder="Auto-filled from Project"
+              readonly
+            />
           </div>
 
           <div class="form-group">
@@ -445,28 +519,11 @@ onMounted(fetchTemplateDetail)
               doctype="Department"
               :fields="['department_name']"
               :search-fields="['name', 'department_name']"
+              :filters="[['disabled', '=', 0]]"
               description-field="department_name"
               placeholder="Search departments…"
             />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Employee Function *</label>
-            <LinkField
-              v-model="employeeFunction"
-              :search-fn="employeeFunctionSearch"
-              :disabled="!project"
-              description-field="function_name"
-              :empty-hint="employeeFunctionHint"
-              placeholder="Search functions for this project…"
-              @select="onEmployeeFunctionSelect"
-            />
-            <span v-if="!project" class="field-hint">Pick a Project to unlock this field.</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Head Name</label>
-            <input type="text" :value="headName" class="form-control readonly" readonly />
+            <span class="field-hint">Auto-filled from the Project; override if needed.</span>
           </div>
 
           <div class="form-group span-3">
@@ -508,16 +565,16 @@ onMounted(fetchTemplateDetail)
           <table class="grid-table">
             <thead>
               <tr>
-                <th style="width: 24%">Item Code *</th>
-                <th style="width: 30%">Item Name</th>
-                <th style="width: 20%">UOM</th>
-                <th style="width: 18%">Qty *</th>
+                <th class="col-link">Item Code *</th>
+                <th class="col-wide">Item Name</th>
+                <th class="col-uom">UOM</th>
+                <th class="col-qty">Qty *</th>
                 <th class="grid-action-col"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, idx) in materialRequired" :key="idx">
-                <td>
+                <td data-label="Item Code">
                   <LinkField
                     v-model="row.item_code"
                     doctype="Item"
@@ -529,10 +586,10 @@ onMounted(fetchTemplateDetail)
                     @select="onItemSelect(row, $event)"
                   />
                 </td>
-                <td>
+                <td data-label="Item Name">
                   <input type="text" :value="row.item_name" class="grid-input readonly" readonly />
                 </td>
-                <td>
+                <td data-label="UOM">
                   <LinkField
                     v-model="row.uom"
                     doctype="UOM"
@@ -540,7 +597,7 @@ onMounted(fetchTemplateDetail)
                     placeholder="UOM"
                   />
                 </td>
-                <td>
+                <td data-label="Qty">
                   <input type="number" step="any" min="0" v-model.number="row.qty" class="grid-input" />
                 </td>
                 <td class="grid-action-col">
@@ -566,16 +623,16 @@ onMounted(fetchTemplateDetail)
           <table class="grid-table">
             <thead>
               <tr>
-                <th style="width: 25%">Refer to Experiment</th>
-                <th style="width: 25%">Equipment Name</th>
-                <th style="width: 20%">Equipment ID</th>
-                <th style="width: 30%">Remarks</th>
+                <th class="col-link">Refer to Experiment</th>
+                <th class="col-link">Equipment Name</th>
+                <th class="col-uom">Equipment ID</th>
+                <th class="col-wide">Remarks</th>
                 <th class="grid-action-col"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, idx) in equipmentDetails" :key="idx">
-                <td>
+                <td data-label="Refer to Experiment">
                   <input
                     type="text"
                     v-model="row.refer_to_experiment"
@@ -583,9 +640,13 @@ onMounted(fetchTemplateDetail)
                     placeholder="Free text reference"
                   />
                 </td>
-                <td><input type="text" v-model="row.equipment_name" class="grid-input" /></td>
-                <td><input type="text" v-model="row.equipment_id" class="grid-input" /></td>
-                <td>
+                <td data-label="Equipment Name">
+                  <input type="text" v-model="row.equipment_name" class="grid-input" />
+                </td>
+                <td data-label="Equipment ID">
+                  <input type="text" v-model="row.equipment_id" class="grid-input" />
+                </td>
+                <td data-label="Remarks">
                   <textarea v-model="row.remarks" rows="1" class="grid-input textarea-input"></textarea>
                 </td>
                 <td class="grid-action-col">
@@ -611,14 +672,14 @@ onMounted(fetchTemplateDetail)
           <table class="grid-table">
             <thead>
               <tr>
-                <th style="width: 65%">Method *</th>
-                <th style="width: 30%">Time to Complete</th>
+                <th class="col-wide">Method *</th>
+                <th class="col-minutes">Time to Complete</th>
                 <th class="grid-action-col"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, idx) in methodology" :key="idx">
-                <td>
+                <td data-label="Method">
                   <textarea
                     v-model="row.method"
                     rows="1"
@@ -626,7 +687,9 @@ onMounted(fetchTemplateDetail)
                     placeholder="Describe the step…"
                   ></textarea>
                 </td>
-                <td><DurationInput v-model="row.time_to_complete" /></td>
+                <td data-label="Time to Complete">
+                  <MinutesInput v-model="row.time_to_complete" />
+                </td>
                 <td class="grid-action-col">
                   <button class="grid-delete-btn" @click="removeRow(methodology, idx)">×</button>
                 </td>
@@ -640,12 +703,12 @@ onMounted(fetchTemplateDetail)
 
         <div class="total-duration-row">
           <span class="total-duration-label">Total Duration</span>
-          <span class="total-duration-value">{{ formatDuration(liveTotalDuration) }}</span>
+          <span class="total-duration-value">{{ formatMinutes(liveTotalDuration) }}</span>
           <span
             v-if="!isNew && storedTotalDuration !== liveTotalDuration"
-            class="total-duration-note"
+            class="total-duration-note unsaved"
           >
-            unsaved — server has {{ formatDuration(storedTotalDuration) }}
+            unsaved — server has {{ formatMinutes(storedTotalDuration) }}
           </span>
           <span v-else class="total-duration-note">calculated from Methodology rows on save</span>
         </div>
@@ -661,55 +724,9 @@ onMounted(fetchTemplateDetail)
 
       <!-- 7. PROTOCOL -->
       <section class="meta-card">
-        <div class="table-actions">
-          <h3 class="section-title no-margin">Protocol</h3>
-          <button class="btn btn-secondary btn-sm" @click="addProtocolRow">+ Add Row</button>
-        </div>
+        <h3 class="section-title">Protocol</h3>
 
-        <div class="table-scroll">
-          <table class="grid-table">
-            <thead>
-              <tr>
-                <th style="width: 80px">Step No.</th>
-                <th style="width: 45%">Instruction</th>
-                <th style="width: 25%">Expected Duration</th>
-                <th style="width: 100px">Is Critical</th>
-                <th class="grid-action-col"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in protocolSteps" :key="idx">
-                <td>
-                  <input type="number" min="1" v-model.number="row.step_no" class="grid-input" />
-                </td>
-                <td>
-                  <textarea
-                    v-model="row.instruction"
-                    rows="1"
-                    class="grid-input textarea-input"
-                  ></textarea>
-                </td>
-                <td><DurationInput v-model="row.expected_duration" /></td>
-                <td class="checkbox-cell">
-                  <input
-                    type="checkbox"
-                    v-model="row.is_critical"
-                    :true-value="1"
-                    :false-value="0"
-                  />
-                </td>
-                <td class="grid-action-col">
-                  <button class="grid-delete-btn" @click="removeProtocolRow(idx)">×</button>
-                </td>
-              </tr>
-              <tr v-if="!protocolSteps.length">
-                <td colspan="5" class="grid-empty">No protocol steps. Click "+ Add Row" to start.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="form-group stacked-field">
+        <div class="form-group">
           <label class="form-label">Steps</label>
           <RichTextEditor v-model="steps" placeholder="Free-form protocol write-up…" />
         </div>
@@ -726,21 +743,25 @@ onMounted(fetchTemplateDetail)
           <table class="grid-table">
             <thead>
               <tr>
-                <th style="width: 22%">Parameter</th>
-                <th style="width: 22%">Observed Value</th>
-                <th style="width: 31%">Remarks</th>
-                <th style="width: 25%">Observed On</th>
+                <th class="col-link">Parameter</th>
+                <th class="col-link">Observed Value</th>
+                <th class="col-wide">Remarks</th>
+                <th class="col-datetime">Observed On</th>
                 <th class="grid-action-col"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="(row, idx) in observationTable" :key="idx">
-                <td><input type="text" v-model="row.parameter" class="grid-input" /></td>
-                <td><input type="text" v-model="row.observed_value" class="grid-input" /></td>
-                <td>
+                <td data-label="Parameter">
+                  <input type="text" v-model="row.parameter" class="grid-input" />
+                </td>
+                <td data-label="Observed Value">
+                  <input type="text" v-model="row.observed_value" class="grid-input" />
+                </td>
+                <td data-label="Remarks">
                   <textarea v-model="row.remarks" rows="1" class="grid-input textarea-input"></textarea>
                 </td>
-                <td>
+                <td data-label="Observed On">
                   <input
                     type="datetime-local"
                     class="grid-input"

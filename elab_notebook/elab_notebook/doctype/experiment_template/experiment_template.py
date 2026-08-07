@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import cint
 
 
 class ExperimentTemplate(Document):
@@ -14,21 +14,27 @@ class ExperimentTemplate(Document):
 
 	def validate(self):
 		self.set_project_id()
+		self.set_department_from_project()
 		self.validate_employee_function_project()
 		self.set_total_duration()
 
 	def set_project_id(self):
 		self.project_id = self.project or None
 
+	def set_department_from_project(self):
+		"""Department follows the Project, unless one was chosen explicitly."""
+		if self.project and not self.allowed_roles:
+			self.allowed_roles = frappe.db.get_value("Project", self.project, "department")
+
 	def set_total_duration(self):
-		"""Total = sum of every Methodology row's `time_to_complete` (seconds).
+		"""Total = sum of every Methodology row's `time_to_complete`, in minutes.
 
 		Computed server-side on every save: the client shows a live preview while
 		rows are edited, but a submitted total can't be trusted — rows may have
 		been added or removed after the preview was rendered.
 		"""
 		self.total_duration = sum(
-			flt(row.time_to_complete) for row in (self.methodology or [])
+			cint(row.time_to_complete) for row in (self.methodology or [])
 		)
 
 	def validate_employee_function_project(self):
