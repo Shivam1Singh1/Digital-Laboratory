@@ -508,7 +508,7 @@ onMounted(() => {
         <div v-if="activeTab === 'materials'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Required Formulation Ingredients</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMaterial" :disabled="isFromTemplate" :title="isFromTemplate ? 'Cannot add materials to template-based experiments' : ''">+ Add Material</button>
+            <button class="btn btn-secondary btn-sm" @click="addMaterial">+ Add Material</button>
           </div>
 
           <div class="table-container">
@@ -568,10 +568,9 @@ onMounted(() => {
                       <button v-if="!mat.from_template" class="delete-row-btn" @click="removeMaterial(idx)" title="Remove item">×</button>
                     </td>
                   </tr>
-                  <!-- History for newly added items -->
-                  <tr v-if="!mat.from_template && mat.added_on" class="history-row">
+                  <tr v-if="mat.added_on" class="history-row">
                     <td colspan="5" class="history-cell">
-                      Added on {{ new Date(mat.added_on).toLocaleString() }} by {{ mat.added_by }}
+                      {{ new Date(mat.added_on).toLocaleString() }} by {{ mat.added_by }}
                     </td>
                   </tr>
                 </template>
@@ -587,7 +586,7 @@ onMounted(() => {
         <div v-if="activeTab === 'equipment'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
-            <button class="btn btn-secondary btn-sm" @click="addEquipment" :disabled="isFromTemplate" :title="isFromTemplate ? 'Cannot add equipment to template-based experiments' : ''">+ Add Equipment</button>
+            <button class="btn btn-secondary btn-sm" @click="addEquipment">+ Add Equipment</button>
           </div>
 
           <div class="table-container">
@@ -643,10 +642,9 @@ onMounted(() => {
                       <button v-if="!eq.from_template" class="delete-row-btn" @click="removeEquipment(idx)">×</button>
                     </td>
                   </tr>
-                  <!-- History for newly added items -->
-                  <tr v-if="!eq.from_template && eq.added_on" class="history-row">
+                  <tr v-if="eq.added_on" class="history-row">
                     <td colspan="4" class="history-cell">
-                      Added on {{ new Date(eq.added_on).toLocaleString() }} by {{ eq.added_by }}
+                      {{ new Date(eq.added_on).toLocaleString() }} by {{ eq.added_by }}
                     </td>
                   </tr>
                 </template>
@@ -662,7 +660,7 @@ onMounted(() => {
         <div v-if="activeTab === 'methodology'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMethod" :disabled="isFromTemplate" :title="isFromTemplate ? 'Cannot add methodology to template-based experiments' : ''">+ Add Method</button>
+            <button class="btn btn-secondary btn-sm" @click="addMethod">+ Add Method</button>
           </div>
 
           <div class="table-container">
@@ -687,10 +685,9 @@ onMounted(() => {
                       <button v-if="!meth.from_template" class="delete-row-btn" @click="removeMethod(idx)">×</button>
                     </td>
                   </tr>
-                  <!-- History for newly added items -->
-                  <tr v-if="!meth.from_template && meth.added_on" class="history-row">
+                  <tr v-if="meth.added_on" class="history-row">
                     <td colspan="3" class="history-cell">
-                      Added on {{ new Date(meth.added_on).toLocaleString() }} by {{ meth.added_by }}
+                      {{ new Date(meth.added_on).toLocaleString() }} by {{ meth.added_by }}
                     </td>
                   </tr>
                 </template>

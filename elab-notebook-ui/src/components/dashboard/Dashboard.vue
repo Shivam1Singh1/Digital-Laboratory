@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import EntityStatsBlock from './EntityStatsBlock.vue'
@@ -9,6 +9,52 @@ const userStore = useUserStore()
 const templatesData = ref([])
 const teamsData = ref([])
 const loading = ref(true)
+
+// Pagination state
+const templatesCurrentPage = ref(0)
+const teamsCurrentPage = ref(0)
+const itemsPerPage = 5
+
+// Computed properties for pagination
+const templatesPageCount = computed(() => Math.ceil(templatesData.value.length / itemsPerPage))
+const teamsPageCount = computed(() => Math.ceil(teamsData.value.length / itemsPerPage))
+
+const paginatedTemplates = computed(() => {
+  const start = templatesCurrentPage.value * itemsPerPage
+  const end = start + itemsPerPage
+  return templatesData.value.slice(start, end)
+})
+
+const paginatedTeams = computed(() => {
+  const start = teamsCurrentPage.value * itemsPerPage
+  const end = start + itemsPerPage
+  return teamsData.value.slice(start, end)
+})
+
+// Pagination handlers
+const nextTemplatesPage = () => {
+  if (templatesCurrentPage.value < templatesPageCount.value - 1) {
+    templatesCurrentPage.value++
+  }
+}
+
+const prevTemplatesPage = () => {
+  if (templatesCurrentPage.value > 0) {
+    templatesCurrentPage.value--
+  }
+}
+
+const nextTeamsPage = () => {
+  if (teamsCurrentPage.value < teamsPageCount.value - 1) {
+    teamsCurrentPage.value++
+  }
+}
+
+const prevTeamsPage = () => {
+  if (teamsCurrentPage.value > 0) {
+    teamsCurrentPage.value--
+  }
+}
 
 const fetchAnalytics = async () => {
   loading.value = true
@@ -92,7 +138,7 @@ onMounted(() => {
         <div class="analytics-list">
           <div v-if="loading" class="analytics-placeholder">Loading&hellip;</div>
           <div v-else-if="!templatesData.length" class="analytics-placeholder">No template runs recorded.</div>
-          <div v-for="t in templatesData" :key="t.template" class="analytics-row">
+          <div v-for="t in paginatedTemplates" :key="t.template" class="analytics-row">
             <div class="analytics-info">
               <span class="analytics-name">{{ t.template_name }}</span>
               <span class="analytics-id">{{ t.template }}</span>
@@ -100,9 +146,28 @@ onMounted(() => {
             <span class="analytics-count">{{ t.count }} Run{{ t.count === 1 ? '' : 's' }}</span>
           </div>
         </div>
+        <div v-if="templatesPageCount > 1" class="pagination-controls">
+          <button
+            class="pagination-btn"
+            @click="prevTemplatesPage"
+            :disabled="templatesCurrentPage === 0"
+            title="Previous page"
+          >
+            ← Prev
+          </button>
+          <span class="pagination-info">{{ templatesCurrentPage + 1 }} / {{ templatesPageCount }}</span>
+          <button
+            class="pagination-btn"
+            @click="nextTemplatesPage"
+            :disabled="templatesCurrentPage === templatesPageCount - 1"
+            title="Next page"
+          >
+            Next →
+          </button>
+        </div>
       </div>
 
-      <!-- Teams Usage -->
+      <!-- Teams Activity -->
       <div class="card analytics-card">
         <div class="analytics-head">
           <h2 class="card-title">Teams Activity</h2>
@@ -111,13 +176,32 @@ onMounted(() => {
         <div class="analytics-list">
           <div v-if="loading" class="analytics-placeholder">Loading&hellip;</div>
           <div v-else-if="!teamsData.length" class="analytics-placeholder">No teams created yet.</div>
-          <div v-for="t in teamsData" :key="t.team" class="analytics-row">
+          <div v-for="t in paginatedTeams" :key="t.team" class="analytics-row">
             <div class="analytics-info">
               <span class="analytics-name">{{ t.team_name }}</span>
               <span class="analytics-id">{{ t.team }} · {{ t.project }}</span>
             </div>
             <span class="analytics-count">{{ t.count }} Run{{ t.count === 1 ? '' : 's' }}</span>
           </div>
+        </div>
+        <div v-if="teamsPageCount > 1" class="pagination-controls">
+          <button
+            class="pagination-btn"
+            @click="prevTeamsPage"
+            :disabled="teamsCurrentPage === 0"
+            title="Previous page"
+          >
+            ← Prev
+          </button>
+          <span class="pagination-info">{{ teamsCurrentPage + 1 }} / {{ teamsPageCount }}</span>
+          <button
+            class="pagination-btn"
+            @click="nextTeamsPage"
+            :disabled="teamsCurrentPage === teamsPageCount - 1"
+            title="Next page"
+          >
+            Next →
+          </button>
         </div>
       </div>
     </div>
