@@ -3,21 +3,41 @@ import json
 
 @frappe.whitelist()
 def get_experiment_templates(filters=None):
-    if isinstance(filters, str):
-        filters = json.loads(filters)
-        
-    templates = frappe.get_all(
-        "Experiment Template",
-        fields=["name", "template_name", "title", "category", "version", "status", "workflow_state", "employee_function", "modified", "owner", "project"],
-        filters=filters
-    )
-    
-    # Calculate derived count of runs
-    for t in templates:
-        t["times_used"] = frappe.db.count("Experiment", {"experiment_template": t.name})
-        t["template_name"] = t.get("template_name") or t.get("title") or t.name
-        
-    return templates
+    try:
+        if isinstance(filters, str):
+            filters = json.loads(filters)
+
+        if not filters:
+            filters = {}
+
+        # Always exclude disabled templates and archived status
+        if not isinstance(filters, dict):
+            filters = {}
+
+        filters["disable"] = 0
+        if "status" not in filters:
+            filters["status"] = ["!=", "Archived"]
+
+        frappe.logger().info(f"[get_experiment_templates] Querying with filters: {filters}")
+
+        templates = frappe.get_all(
+            "Experiment Template",
+            fields=["name", "template_name", "title", "category", "version", "status", "workflow_state", "employee_function", "modified", "owner", "project"],
+            filters=filters
+        )
+
+        frappe.logger().info(f"[get_experiment_templates] Found {len(templates)} templates")
+
+        # Calculate derived count of runs
+        for t in templates:
+            t["times_used"] = frappe.db.count("Experiment", {"experiment_template": t.name})
+            t["template_name"] = t.get("template_name") or t.get("title") or t.name
+
+        frappe.logger().info(f"[get_experiment_templates] Returning: {[t.get('name') for t in templates]}")
+        return templates
+    except Exception as e:
+        frappe.logger().error(f"[get_experiment_templates] Error: {str(e)}", exc_info=True)
+        frappe.throw(f"Failed to load experiment templates: {str(e)}")
 
 @frappe.whitelist()
 def get_template_detail(template_name):

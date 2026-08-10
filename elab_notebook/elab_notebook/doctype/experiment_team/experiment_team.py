@@ -39,15 +39,21 @@ class ExperimentTeam(Document):
 		self.validate_participants()
 
 	def validate_roster_lock(self):
+		"""Prevent changes to identity-defining fields (project, employee_function).
+
+		Heads CAN edit: roster (participants), team_name, segment, cost_center.
+		Heads CANNOT edit: project, employee_function (these define the team's identity).
+		"""
 		if not self.is_new():
 			db_doc = frappe.get_doc("Experiment Team", self.name)
-			db_participants = sorted([(p.user, p.employee) for p in db_doc.participants])
-			curr_participants = sorted([(p.user, p.employee) for p in self.participants])
-			
-			fields_to_check = ["project", "employee_function", "allowed_roles"]
-			changed = db_participants != curr_participants or any(self.get(f) != db_doc.get(f) for f in fields_to_check)
-			if changed:
-				frappe.throw(_("Team roster is locked after creation."))
+
+			# Only lock the identity-defining fields
+			identity_fields = ["project", "employee_function"]
+			if any(self.get(f) != db_doc.get(f) for f in identity_fields):
+				frappe.throw(
+					_("Team identity (Project, Employee Function) cannot be changed after creation."),
+					title=_("Team Identity Locked"),
+				)
 
 	def validate_head(self):
 		"""Only the Employee Function's own head may set up its team.

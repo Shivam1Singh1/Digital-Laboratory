@@ -156,10 +156,19 @@ def save_team(employee_function: str, project: str, participants=None, team_name
 
 
 @frappe.whitelist()
-def update_team(team_id: str, participants=None, segment: str | None = None, cost_center: str | None = None):
-	"""Update participants and metadata for an EXISTING team (roster editing only)."""
+def update_team(team_id: str, participants=None, team_name: str | None = None, segment: str | None = None, cost_center: str | None = None):
+	"""Update team metadata: team_name, participants, segment, cost_center."""
 	doc = frappe.get_doc("Experiment Team", team_id)
 	doc.check_permission("write")
+
+	# Update team_name if provided
+	if team_name is not None:
+		if not team_name or not team_name.strip():
+			frappe.throw(
+				_("Team Name cannot be empty."),
+				title=_("Invalid Team Name"),
+			)
+		doc.team_name = team_name.strip()
 
 	participants = _as_dict(participants) or []
 	users = [p.get("user") if isinstance(p, dict) else p for p in participants]

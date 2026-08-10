@@ -22,11 +22,13 @@ export const useUserStore = defineStore('user', () => {
 
   const createModalOpen = ref(false)
   const createModalProject = ref('')
+  const createModalProjectName = ref('')
   const createModalEmployeeFunction = ref('')
 
-  const openCreateExperimentModal = (proj = '', empFunc = '') => {
+  const openCreateExperimentModal = (proj = '', empFunc = '', projName = '') => {
     createModalProject.value = proj
     createModalEmployeeFunction.value = empFunc
+    createModalProjectName.value = projName
     createModalOpen.value = true
   }
 
@@ -34,6 +36,7 @@ export const useUserStore = defineStore('user', () => {
     createModalOpen.value = false
     createModalProject.value = ''
     createModalEmployeeFunction.value = ''
+    createModalProjectName.value = ''
   }
 
   const setTheme = (newTheme) => {
@@ -105,6 +108,7 @@ export const useUserStore = defineStore('user', () => {
     setTheme,
     createModalOpen,
     createModalProject,
+    createModalProjectName,
     createModalEmployeeFunction,
     openCreateExperimentModal,
     closeCreateExperimentModal,

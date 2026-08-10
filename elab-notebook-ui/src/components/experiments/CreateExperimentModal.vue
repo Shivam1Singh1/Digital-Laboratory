@@ -75,8 +75,10 @@ const loadTemplates = async () => {
       }
     })
     templates.value = res.data.message || []
+    console.log(`Loaded ${templates.value.length} active templates`, templates.value)
   } catch (err) {
     console.error('Failed to load active templates:', err)
+    templates.value = []
   }
 }
 
@@ -84,13 +86,14 @@ const loadTemplates = async () => {
 const filteredTemplates = computed(() => {
   const proj = currentProject.value
   const func = currentEmployeeFunction.value
-  return templates.value.filter(t => {
+
+  let filtered = templates.value.filter(t => {
     // If template has employee_function, it must match selected employee function
     if (func && t.employee_function && t.employee_function !== func) return false
 
     // If template is project-scoped, it must match selected project
     if (t.project && t.project !== proj) return false
-    
+
     // Search filter
     if (templateSearch.value && selectedTemplate.value?.name !== t.name) {
       const q = templateSearch.value.toLowerCase()
@@ -99,18 +102,38 @@ const filteredTemplates = computed(() => {
     }
     return true
   })
+
+  console.log(`Filtered templates for project="${proj}" func="${func}" search="${templateSearch.value}":`, filtered)
+  return filtered
 })
 
 const selectTemplate = (temp) => {
+  console.log('Selected template:', temp)
   selectedTemplate.value = temp
   templateSearch.value = temp.template_name || temp.title || temp.name
   showDropdown.value = false
 }
 
 const clearTemplate = () => {
+  console.log('Cleared template')
   selectedTemplate.value = null
   templateSearch.value = ''
 }
+
+// Watch dropdown state for debugging
+watch(() => showDropdown.value, (isOpen) => {
+  console.log(`Dropdown ${isOpen ? 'opened' : 'closed'}. filteredTemplates count: ${filteredTemplates.value.length}, currentProject: ${currentProject.value}`)
+})
+
+// Debug currentProject changes
+watch(() => currentProject.value, (proj) => {
+  console.log(`currentProject changed to: ${proj}. Total templates available: ${templates.value.length}. Filtered: ${filteredTemplates.value.length}`)
+})
+
+// Debug template loading
+watch(() => templates.value, (tmpl) => {
+  console.log(`templates.value updated. Count: ${tmpl.length}. Details:`, tmpl)
+}, { deep: false })
 
 const handleProceed = () => {
   if (!currentProject.value || !currentEmployeeFunction.value || !selectedTemplate.value) {
@@ -137,6 +160,7 @@ const handleCancel = () => {
 // Reset selections when modal is opened/closed
 watch(() => userStore.createModalOpen, (isOpen) => {
   if (isOpen) {
+    console.log('CreateExperimentModal opened')
     selectedProject.value = ''
     selectedEmployeeFunction.value = ''
     selectedTemplate.value = null
@@ -182,11 +206,7 @@ watch(() => userStore.createModalOpen, (isOpen) => {
         <div v-else class="context-pill-info">
           <div class="info-item">
             <span class="info-label">Project:</span>
-            <span class="info-value">{{ userStore.createModalProject }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Function:</span>
-            <span class="info-value">{{ userStore.createModalEmployeeFunction }}</span>
+            <span class="info-value">{{ userStore.createModalProjectName || userStore.createModalProject }}</span>
           </div>
         </div>
 
@@ -225,6 +245,38 @@ watch(() => userStore.createModalOpen, (isOpen) => {
           </div>
           <div v-else-if="showDropdown && currentProject" class="dropdown-list empty-dropdown">
             No matching active templates found for this project scope.
+          </div>
+        </div>
+
+        <!-- Template Details Card (shown when template is selected) -->
+        <div v-if="selectedTemplate" class="template-details-card">
+          <div class="details-header">
+            <h4 class="details-title">{{ selectedTemplate.template_name || selectedTemplate.title || selectedTemplate.name }}</h4>
+          </div>
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">Estimated Duration:</span>
+              <span class="detail-value">
+                <span v-if="selectedTemplate.total_duration">
+                  {{ selectedTemplate.total_duration }} minutes
+                </span>
+                <span v-else class="detail-value-muted">
+                  Not specified
+                </span>
+              </span>
+            </div>
+            <div v-if="selectedTemplate.category" class="detail-item">
+              <span class="detail-label">Category:</span>
+              <span class="detail-value">{{ selectedTemplate.category }}</span>
+            </div>
+            <div v-if="selectedTemplate.version" class="detail-item">
+              <span class="detail-label">Version:</span>
+              <span class="detail-value">{{ selectedTemplate.version }}</span>
+            </div>
+            <div v-if="selectedTemplate.description" class="detail-item full-width">
+              <span class="detail-label">Description:</span>
+              <span class="detail-value">{{ selectedTemplate.description }}</span>
+            </div>
           </div>
         </div>
       </div>

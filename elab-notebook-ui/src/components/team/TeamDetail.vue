@@ -129,15 +129,16 @@ const save = async () => {
   notice.value = ''
   saving.value = true
   try {
-    // Use update_team for editing existing team rosters (not creation)
+    // Use update_team for editing existing team (roster, team_name, segment, cost_center)
     const res = await axios.post(`/api/method/${API}.update_team`, {
       team_id: team.value.name,
+      team_name: team.value.team_name,
       participants: Array.from(selected.value).map((user) => ({ user })),
       segment: team.value.segment,
       cost_center: team.value.cost_center
     })
     const msg = res.data.message || {}
-    notice.value = `Saved — ${msg.count} participant${msg.count === 1 ? '' : 's'}.`
+    notice.value = `Saved — "${msg.team_name}" with ${msg.count} participant${msg.count === 1 ? '' : 's'}.`
     editing.value = false
     await load()
   } catch (err) {
@@ -194,7 +195,7 @@ onMounted(async () => {
         <button
           v-if="canCreate"
           class="btn btn-primary"
-          @click="userStore.openCreateExperimentModal(team.project, team.employee_function)"
+          @click="userStore.openCreateExperimentModal(team.project, team.employee_function, team.project_name)"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Create Experiment
