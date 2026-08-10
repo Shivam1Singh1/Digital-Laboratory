@@ -122,10 +122,17 @@ app_license = "mit"
 # to both list/report queries and direct single-document access.
 permission_query_conditions = {
 	"Experiment Template": "elab_notebook.permissions.get_permission_query_conditions",
+	# A team roster belongs to the Employee Function head who owns it.
+	"Experiment Team": "elab_notebook.permissions.get_team_permission_query_conditions",
+	"Experiment": "elab_notebook.permissions.get_experiment_permission_query_conditions",
+	"Sample": "elab_notebook.permissions.get_sample_permission_query_conditions",
 }
 
 has_permission = {
 	"Experiment Template": "elab_notebook.permissions.has_permission",
+	"Experiment Team": "elab_notebook.permissions.has_team_permission",
+	"Experiment": "elab_notebook.permissions.has_experiment_permission",
+	"Sample": "elab_notebook.permissions.has_sample_permission",
 }
 
 # DocType Class
@@ -140,13 +147,16 @@ has_permission = {
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+# Experiment is a UI-created doctype with no controller file, so the participant
+# gate is attached here. before_insert only — existing Experiments and edits to
+# them stay editable.
+doc_events = {
+	"Experiment": {
+		"before_insert": "elab_notebook.experiment_access.validate_experiment_participant",
+		"validate": "elab_notebook.experiment_access.validate_experiment_fields",
+		"on_trash": "elab_notebook.experiment_access.validate_experiment_delete",
+	},
+}
 
 # Scheduled Tasks
 # ---------------

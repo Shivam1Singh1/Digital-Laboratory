@@ -64,9 +64,25 @@ frappe.ui.form.on("Experiment Template", {
 			return;
 		}
 
-		// Department follows the Project.
+		// Department follows the Project. Most Projects have none, so the
+		// Employee Function's department is the fallback.
 		frappe.db.get_value("Project", frm.doc.project, "department").then((r) => {
-			frm.set_value("allowed_roles", (r.message || {}).department || null);
+			const fromProject = (r.message || {}).department;
+			if (fromProject) {
+				frm.set_value("allowed_roles", fromProject);
+				return;
+			}
+
+			if (!frm.doc.employee_function) {
+				frm.set_value("allowed_roles", null);
+				return;
+			}
+
+			frappe.db
+				.get_value("Employee Function", frm.doc.employee_function, "department")
+				.then((res) => {
+					frm.set_value("allowed_roles", (res.message || {}).department || null);
+				});
 		});
 	},
 });

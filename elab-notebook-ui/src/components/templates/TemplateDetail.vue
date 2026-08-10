@@ -26,6 +26,36 @@ const loading = ref(false)
 const saving = ref(false)
 const formError = ref('')
 
+// Dirty state tracking
+const isDirty = ref(false)
+const initialFormState = ref({})
+
+// Workflow state and actions
+const workflowState = ref('')
+const workflowActions = ref([])
+const loadingWorkflowActions = ref(false)
+const runningWorkflowAction = ref(false)
+
+// Button visibility logic based on workflow and dirty state
+const isReadOnly = computed(() => {
+  const state = workflowState.value
+  return state === 'Approved' || state === 'Pending from System Manager' || state === 'Pending For Approval'
+})
+
+const isSaved = computed(() => !isNew.value && docName.value !== '')
+
+const showSaveButton = computed(() => {
+  return isDirty.value && !isReadOnly.value
+})
+
+const showWorkflowActions = computed(() => {
+  // Show workflow actions only when not dirty and not in new state
+  return !isDirty.value && !isNew.value
+})
+
+const showStatusBadge = computed(() => {
+  return !isNew.value && workflowState.value !== 'Draft'
+})
 // --- Section 1: General Info
 const docName = ref('')
 const title = ref('')
@@ -42,6 +72,7 @@ const projectId = ref('')
 const remark = ref('')
 
 // --- Section 3: Objective
+const activeTab = ref('ownership')
 const aim = ref('')
 const subAim = ref('')
 const rationale = ref('')
@@ -52,8 +83,39 @@ const equipmentDetails = ref([])
 const methodology = ref([])
 const methodologyComments = ref('')
 const steps = ref('')
-const observationTable = ref([])
 const observationComments = ref('')
+const historyList = ref([])
+
+const loadHistory = async () => {
+  if (isNew.value || !docName.value) return
+  try {
+    const res = await axios.get('/api/method/frappe.client.get_list', {
+      params: {
+        doctype: 'Version',
+        filters: JSON.stringify({
+          ref_doctype: 'Experiment Template',
+          docname: docName.value
+        }),
+        fields: JSON.stringify(['name', 'owner', 'creation', 'data']),
+        order_by: 'creation desc'
+      }
+    })
+    historyList.value = (res.data.message || []).map(ver => {
+      let parsedData = {}
+      try {
+        parsedData = JSON.parse(ver.data)
+      } catch (e) {
+        console.error('Failed to parse version data', e)
+      }
+      return {
+        ...ver,
+        parsedData
+      }
+    })
+  } catch (err) {
+    console.error('Failed to load version history:', err)
+  }
+}
 
 // Server-computed total, refreshed from the response after every save.
 const storedTotalDuration = ref(0)
@@ -86,10 +148,62 @@ const resetForm = () => {
   methodology.value = []
   methodologyComments.value = ''
   steps.value = ''
-  observationTable.value = []
   observationComments.value = ''
   storedTotalDuration.value = 0
   formError.value = ''
+  workflowState.value = ''
+  workflowActions.value = []
+  isDirty.value = false
+  initialFormState.value = {}
+}
+
+const captureInitialState = () => {
+  initialFormState.value = {
+    title: title.value,
+    type: type.value,
+    description: description.value,
+    disable: disable.value,
+    employeeFunction: employeeFunction.value,
+    headName: headName.value,
+    allowedRoles: allowedRoles.value,
+    project: project.value,
+    remark: remark.value,
+    aim: aim.value,
+    subAim: subAim.value,
+    rationale: rationale.value,
+    materialRequired: JSON.stringify(materialRequired.value),
+    equipmentDetails: JSON.stringify(equipmentDetails.value),
+    methodology: JSON.stringify(methodology.value),
+    methodologyComments: methodologyComments.value,
+    steps: steps.value,
+    observationComments: observationComments.value
+  }
+  isDirty.value = false
+}
+
+const checkFormDirty = () => {
+  const currentState = {
+    title: title.value,
+    type: type.value,
+    description: description.value,
+    disable: disable.value,
+    employeeFunction: employeeFunction.value,
+    headName: headName.value,
+    allowedRoles: allowedRoles.value,
+    project: project.value,
+    remark: remark.value,
+    aim: aim.value,
+    subAim: subAim.value,
+    rationale: rationale.value,
+    materialRequired: JSON.stringify(materialRequired.value),
+    equipmentDetails: JSON.stringify(equipmentDetails.value),
+    methodology: JSON.stringify(methodology.value),
+    methodologyComments: methodologyComments.value,
+    steps: steps.value,
+    observationComments: observationComments.value
+  }
+
+  isDirty.value = JSON.stringify(currentState) !== JSON.stringify(initialFormState.value)
 }
 
 const applyDoc = (data) => {
@@ -115,10 +229,76 @@ const applyDoc = (data) => {
   methodology.value = data.methodology || []
   methodologyComments.value = data.methodology_comments || ''
   steps.value = data.steps || ''
-  observationTable.value = data.observation_table || []
   observationComments.value = data.observation_comments || ''
 
   storedTotalDuration.value = Number(data.total_duration) || 0
+  workflowState.value = data.workflow_state || 'Draft'
+
+  captureInitialState()
+}
+
+const fetchWorkflowActions = async () => {
+  if (isNew.value || !docName.value) {
+    workflowActions.value = []
+    return
+  }
+  loadingWorkflowActions.value = true
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.workflow.get_workflow_actions',
+      {
+        params: {
+          doctype: DOCTYPE,
+          docname: docName.value
+        }
+      }
+    )
+    workflowActions.value = res.data.message || []
+  } catch (err) {
+    console.error('Failed to fetch workflow actions', err)
+  } finally {
+    loadingWorkflowActions.value = false
+  }
+}
+
+const runWorkflowAction = async (action) => {
+  if (isNew.value || !docName.value) return
+  runningWorkflowAction.value = true
+  formError.value = ''
+  try {
+    const res = await axios.post(
+      '/api/method/elab_notebook.elab_notebook.api.workflow.apply_workflow_action',
+      {
+        doctype: DOCTYPE,
+        docname: docName.value,
+        action: action
+      }
+    )
+    workflowState.value = res.data.message || ''
+    await fetchTemplateDetail()
+  } catch (err) {
+    console.error('Failed to run workflow action', err)
+    formError.value = extractFrappeError(err)
+  } finally {
+    runningWorkflowAction.value = false
+  }
+}
+
+const getWorkflowStateClass = (state) => {
+  if (!state) return 'state-draft'
+  const s = state.toLowerCase()
+  if (s.includes('approved')) return 'state-approved'
+  if (s.includes('rejected')) return 'state-rejected'
+  if (s.includes('pending')) return 'state-pending'
+  return 'state-draft'
+}
+
+const getWorkflowActionClass = (action) => {
+  const act = action.toLowerCase()
+  if (act.includes('approve')) return 'btn-success'
+  if (act.includes('reject')) return 'btn-danger'
+  if (act.includes('correction') || act.includes('back')) return 'btn-warning'
+  return 'btn-primary'
 }
 
 const fetchTemplateDetail = async () => {
@@ -131,7 +311,11 @@ const fetchTemplateDetail = async () => {
       '/api/method/elab_notebook.elab_notebook.api.template.get_template_detail',
       { params: { template_name: route.params.id } }
     )
-    if (res.data.message) applyDoc(res.data.message)
+    if (res.data.message) {
+      applyDoc(res.data.message)
+      await loadHistory()
+      await fetchWorkflowActions()
+    }
   } catch (err) {
     console.error('Failed to fetch template detail', err)
     formError.value = extractFrappeError(err)
@@ -139,6 +323,7 @@ const fetchTemplateDetail = async () => {
     loading.value = false
   }
 }
+
 
 // ------------------------------------------------------------- link behaviour
 
@@ -178,9 +363,15 @@ const projectHint = computed(() =>
     : 'Select an Employee Function first'
 )
 
+// Only a small minority of Projects carry a department, whereas every Employee
+// Function does — so the function's department is the fallback rather than
+// leaving the field empty.
+const functionDepartment = ref('')
+
 // Head Name mirrors the function's head — never typed by hand.
 const applyHeadName = (opt) => {
   headName.value = opt ? opt.function_head_name || '' : ''
+  functionDepartment.value = opt ? opt.department || '' : ''
 }
 
 const onEmployeeFunctionSelect = (opt) => {
@@ -193,10 +384,10 @@ const onEmployeeFunctionSelect = (opt) => {
 }
 
 const onProjectSelect = (opt) => {
-  projectId.value = opt ? opt.name : ''
+  projectId.value = opt ? opt.project_name || opt.name : ''
   // Department follows the Project. The option already carries it, so no
   // second round trip is needed.
-  allowedRoles.value = opt ? opt.department || '' : ''
+  allowedRoles.value = opt ? opt.department || functionDepartment.value || '' : ''
 }
 
 // Load the signed-in employee's functions once, and pre-select when there is
@@ -241,7 +432,6 @@ const addMaterialRow = () =>
 
 const addEquipmentRow = () =>
   equipmentDetails.value.push({
-    refer_to_experiment: '',
     equipment_name: '',
     equipment_id: '',
     remarks: ''
@@ -250,22 +440,7 @@ const addEquipmentRow = () =>
 const addMethodologyRow = () =>
   methodology.value.push({ method: '', time_to_complete: 0 })
 
-const addObservationRow = () =>
-  observationTable.value.push({
-    parameter: '',
-    observed_value: '',
-    remarks: '',
-    observed_on: ''
-  })
-
 const removeRow = (rows, idx) => rows.splice(idx, 1)
-
-// ----------------------------------------------------------------- datetime IO
-
-// Frappe Datetime is "YYYY-MM-DD HH:mm:ss"; <input type="datetime-local"> is
-// "YYYY-MM-DDTHH:mm".
-const toDatetimeInput = (val) => (val ? String(val).replace(' ', 'T').slice(0, 16) : '')
-const fromDatetimeInput = (val) => (val ? `${val.replace('T', ' ')}:00` : null)
 
 // ---------------------------------------------------------------------- saving
 
@@ -300,21 +475,16 @@ const buildPayload = () => ({
     qty: Number(row.qty) || 0
   })),
   equipment_details: equipmentDetails.value.map((row) =>
-    rowPayload(row, ['refer_to_experiment', 'equipment_name', 'equipment_id', 'remarks'])
+    rowPayload(row, ['equipment_name', 'equipment_id', 'remarks'])
   ),
   methodology: methodology.value.map((row) => ({
     ...rowPayload(row, ['method']),
-    // Stored as a plain Int number of minutes.
     time_to_complete: Number(row.time_to_complete) || 0
   })),
   methodology_comments: methodologyComments.value,
 
   steps: steps.value,
 
-  observation_table: observationTable.value.map((row) => ({
-    ...rowPayload(row, ['parameter', 'observed_value', 'remarks']),
-    observed_on: fromDatetimeInput(toDatetimeInput(row.observed_on))
-  })),
   observation_comments: observationComments.value
 })
 
@@ -356,7 +526,11 @@ const saveTemplate = async () => {
         )
 
     const saved = res.data.data
-    if (saved) applyDoc(saved)
+    if (saved) {
+      applyDoc(saved)
+      await loadHistory()
+      await fetchWorkflowActions()
+    }
 
     if (isNew.value && saved?.name) {
       router.push(`/templates/${encodeURIComponent(saved.name)}`)
@@ -369,6 +543,31 @@ const saveTemplate = async () => {
   }
 }
 
+// Watch for form field changes to set dirty state
+watch([
+  title,
+  type,
+  description,
+  disable,
+  employeeFunction,
+  allowedRoles,
+  project,
+  remark,
+  aim,
+  subAim,
+  rationale,
+  methodologyComments,
+  steps,
+  observationComments
+], () => {
+  checkFormDirty()
+}, { immediate: false })
+
+// Deep watch for array changes
+watch([materialRequired, equipmentDetails, methodology], () => {
+  checkFormDirty()
+}, { deep: true, immediate: false })
+
 watch(() => route.params.id, fetchTemplateDetail)
 onMounted(async () => {
   await fetchTemplateDetail()
@@ -379,6 +578,11 @@ onMounted(async () => {
 <template>
   <div class="template-detail-container">
     <div class="page-header">
+      <div class="page-header-bg-icon">
+        <svg class="header-lab-motif" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <path d="M6 3h12M9 3v4L4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2L15 7V3" />
+        </svg>
+      </div>
       <div class="page-header-left">
         <nav class="breadcrumb-nav">
           <router-link to="/" class="breadcrumb-link">Home</router-link>
@@ -388,16 +592,34 @@ onMounted(async () => {
           <span class="breadcrumb-current">{{ isNew ? 'New Template' : docName }}</span>
         </nav>
         <h1 class="page-title">
-          {{ isNew ? 'New Experiment Template' : `Edit Template: ${title || docName}` }}
+          {{ isNew ? 'New Experiment Template' : (isReadOnly ? `View Template: ${title || docName}` : `Edit Template: ${title || docName}`) }}
+          <span v-if="showStatusBadge && workflowState" class="workflow-state-badge" :class="getWorkflowStateClass(workflowState)">
+            {{ workflowState }}
+          </span>
         </h1>
       </div>
 
       <div class="page-header-right">
-        <router-link to="/templates" class="btn btn-secondary">Cancel</router-link>
-        <button class="btn btn-primary" @click="saveTemplate" :disabled="saving">
-          <span v-if="saving" class="spinner btn-spinner"></span>
-          {{ saving ? 'Saving...' : 'Save Template' }}
-        </button>
+        <router-link to="/templates" class="btn btn-secondary">Back</router-link>
+        <template v-if="showSaveButton">
+          <button class="btn btn-primary" @click="saveTemplate" :disabled="saving">
+            <span v-if="saving" class="spinner btn-spinner"></span>
+            {{ saving ? 'Saving...' : 'Save Template' }}
+          </button>
+        </template>
+        <template v-else-if="showWorkflowActions && workflowActions.length > 0">
+          <span v-if="loadingWorkflowActions" class="workflow-loading-spinner"></span>
+          <button
+            v-for="act in workflowActions"
+            :key="act.action"
+            class="btn btn-workflow"
+            :class="getWorkflowActionClass(act.action)"
+            @click="runWorkflowAction(act.action)"
+            :disabled="runningWorkflowAction"
+          >
+            {{ act.action }}
+          </button>
+        </template>
       </div>
     </div>
 
@@ -413,378 +635,431 @@ onMounted(async () => {
     </div>
 
     <div v-else class="detail-layout">
-      <!-- 1. GENERAL INFO -->
-      <section class="meta-card">
-        <h3 class="section-title">General Info</h3>
-        <div class="meta-form-grid">
-          <div class="form-group span-2">
-            <label class="form-label">Title *</label>
-            <input
-              type="text"
-              v-model="title"
-              class="form-control"
-              placeholder="e.g. CRISPR Cas9 knockout protocol"
-            />
+      <!-- 5-Tab Bar -->
+      <div class="template-tabs-row">
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'ownership' }" 
+          @click="activeTab = 'ownership'"
+        >
+          Ownership
+        </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'objective' }" 
+          @click="activeTab = 'objective'"
+        >
+          Objective
+        </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'requirements' }" 
+          @click="activeTab = 'requirements'"
+        >
+          Requirements
+        </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'methodology' }" 
+          @click="activeTab = 'methodology'"
+        >
+          Methodology
+        </button>
+        <button 
+          class="tab-btn" 
+          :class="{ active: activeTab === 'observation' }" 
+          @click="activeTab = 'observation'"
+        >
+          Observation
+        </button>
+      </div>
+
+      <fieldset :disabled="isReadOnly" class="detail-layout-tabs-content" style="border: none; padding: 0; margin: 0; min-width: 0; width: 100%;">
+        <!-- Tab 1: Ownership -->
+        <div v-show="activeTab === 'ownership'" class="tab-pane">
+          <section class="meta-card">
+            <h3 class="section-title">Ownership</h3>
+            <div class="meta-form-grid">
+              <div class="form-group">
+                <label class="form-label">Employee Function *</label>
+                <LinkField
+                  v-model="employeeFunction"
+                  :search-fn="employeeFunctionSearch"
+                  description-field="function_name"
+                  :empty-hint="employeeFunctionHint"
+                  :clearable="false"
+                  placeholder="Search your functions…"
+                  @select="onEmployeeFunctionSelect"
+                />
+                <span v-if="functionsLoaded && !myFunctions.length" class="field-hint warn">
+                  No Employee Function is assigned to your employee record.
+                </span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Head Name</label>
+                <input
+                  type="text"
+                  :value="headName"
+                  class="form-control readonly"
+                  :title="headName"
+                  placeholder="Auto-filled from Employee Function"
+                  readonly
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Project *</label>
+                <LinkField
+                  v-model="project"
+                  :search-fn="projectSearch"
+                  :disabled="!employeeFunction"
+                  description-field="project_name"
+                  :empty-hint="projectHint"
+                  placeholder="Search projects for this function…"
+                  @select="onProjectSelect"
+                />
+                <span v-if="!employeeFunction" class="field-hint">
+                  Pick an Employee Function to unlock this field.
+                </span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Project Name</label>
+                <input
+                  type="text"
+                  :value="projectId"
+                  class="form-control readonly"
+                  :title="projectId"
+                  placeholder="Auto-filled from Project"
+                  readonly
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Department</label>
+                <LinkField
+                  v-model="allowedRoles"
+                  doctype="Department"
+                  :fields="['department_name']"
+                  :search-fields="['name', 'department_name']"
+                  :filters="[['disabled', '=', 0]]"
+                  description-field="department_name"
+                  placeholder="Search departments…"
+                />
+                <span class="field-hint">Auto-filled from the Project; override if needed.</span>
+              </div>
+
+              <div class="form-group span-2">
+                <label class="form-label">Remark</label>
+                <textarea v-model="remark" rows="3" class="form-control"></textarea>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab 2: Objective -->
+        <div v-show="activeTab === 'objective'" class="tab-pane">
+          <section class="meta-card">
+            <h3 class="section-title">General Info</h3>
+            <div class="meta-form-grid">
+              <div class="form-group span-2">
+                <label class="form-label">Title *</label>
+                <input
+                  type="text"
+                  v-model="title"
+                  class="form-control"
+                  placeholder="e.g. CRISPR Cas9 knockout protocol"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Type</label>
+                <select v-model="type" class="form-control">
+                  <option value="">Select type…</option>
+                  <option v-for="opt in TYPE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Disable</label>
+                <label class="checkbox-row">
+                  <input type="checkbox" v-model="disable" :true-value="1" :false-value="0" />
+                  <span>Disabled templates are hidden from new runs</span>
+                </label>
+              </div>
+
+              <div class="form-group span-2">
+                <label class="form-label">Description</label>
+                <textarea
+                  v-model="description"
+                  rows="3"
+                  class="form-control"
+                  placeholder="What this template covers…"
+                ></textarea>
+              </div>
+            </div>
+
+            <div class="section-divider" style="margin: 2rem 0; border-top: 1px solid var(--border);"></div>
+
+            <h3 class="section-title">Objective</h3>
+            <div class="meta-form-grid">
+              <div class="form-group">
+                <label class="form-label">Aim</label>
+                <textarea v-model="aim" rows="2" class="form-control" placeholder="Primary aim…"></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Sub Aim</label>
+                <textarea v-model="subAim" rows="2" class="form-control" placeholder="Optional sub-aim details…"></textarea>
+              </div>
+
+              <div class="form-group span-2">
+                <label class="form-label">Rationale</label>
+                <textarea v-model="rationale" rows="5" class="form-control" placeholder="Scientific rationale or hypothesis…"></textarea>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab 3: Requirements -->
+        <div v-show="activeTab === 'requirements'" class="tab-pane">
+          <!-- MATERIAL REQUIRED -->
+          <section class="meta-card">
+            <div class="table-actions">
+              <h3 class="section-title no-margin">Material Required</h3>
+              <button class="btn btn-secondary btn-sm" @click="addMaterialRow">+ Add Row</button>
+            </div>
+
+            <div class="grid-table-container">
+              <div class="grid-table material-required-grid">
+                <!-- Header Row -->
+                <div class="grid-header-row">
+                  <div class="grid-header-cell">Item Code *</div>
+                  <div class="grid-header-cell">Item Name</div>
+                  <div class="grid-header-cell">UOM</div>
+                  <div class="grid-header-cell">Qty *</div>
+                  <div class="grid-header-cell grid-header-action"></div>
+                </div>
+
+                <!-- Data Rows -->
+                <template v-if="materialRequired.length">
+                  <div v-for="(row, idx) in materialRequired" :key="idx" class="grid-data-row">
+                    <div class="grid-cell">
+                      <LinkField
+                        v-model="row.item_code"
+                        doctype="Item"
+                        :fields="['item_name', 'stock_uom']"
+                        :search-fields="['name', 'item_name']"
+                        description-field="item_name"
+                        :filters="[['Item', 'disabled', '=', 0]]"
+                        input-class="grid-input"
+                        placeholder="Search item…"
+                        @select="onItemSelect(row, $event)"
+                      />
+                    </div>
+                    <div class="grid-cell">
+                      <input type="text" :value="row.item_name" class="grid-input readonly" readonly />
+                    </div>
+                    <div class="grid-cell">
+                      <LinkField
+                        v-model="row.uom"
+                        doctype="UOM"
+                        input-class="grid-input"
+                        placeholder="UOM"
+                      />
+                    </div>
+                    <div class="grid-cell">
+                      <input type="number" step="any" min="0" v-model.number="row.qty" class="grid-input" />
+                    </div>
+                    <div class="grid-cell grid-action-cell">
+                      <button class="grid-delete-btn" @click="removeRow(materialRequired, idx)">×</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Empty State -->
+                <div v-else class="grid-empty-message">No materials added. Click "+ Add Row" to start.</div>
+              </div>
+            </div>
+          </section>
+
+          <!-- EQUIPMENT DETAILS -->
+          <section class="meta-card" style="margin-top: 1.5rem;">
+            <div class="table-actions">
+              <h3 class="section-title no-margin">Equipment Details</h3>
+              <button class="btn btn-secondary btn-sm" @click="addEquipmentRow">+ Add Row</button>
+            </div>
+
+            <div class="grid-table-container">
+              <div class="grid-table equipment-details-grid">
+                <!-- Header Row -->
+                <div class="grid-header-row">
+                  <div class="grid-header-cell">Equipment ID</div>
+                  <div class="grid-header-cell">Equipment Name</div>
+                  <div class="grid-header-cell">Remarks</div>
+                  <div class="grid-header-cell grid-header-action"></div>
+                </div>
+
+                <!-- Data Rows -->
+                <template v-if="equipmentDetails.length">
+                  <div v-for="(row, idx) in equipmentDetails" :key="idx" class="grid-data-row">
+                    <div class="grid-cell">
+                      <input type="text" v-model="row.equipment_id" class="grid-input" />
+                    </div>
+                    <div class="grid-cell">
+                      <input type="text" v-model="row.equipment_name" class="grid-input" />
+                    </div>
+                    <div class="grid-cell">
+                      <textarea v-model="row.remarks" rows="1" class="grid-input grid-textarea"></textarea>
+                    </div>
+                    <div class="grid-cell grid-action-cell">
+                      <button class="grid-delete-btn" @click="removeRow(equipmentDetails, idx)">×</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Empty State -->
+                <div v-else class="grid-empty-message">No equipment added. Click "+ Add Row" to start.</div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab 4: Methodology -->
+        <div v-show="activeTab === 'methodology'" class="tab-pane">
+          <!-- METHODOLOGY -->
+          <section class="meta-card">
+            <div class="table-actions">
+              <h3 class="section-title no-margin">Methodology</h3>
+              <button class="btn btn-secondary btn-sm" @click="addMethodologyRow">+ Add Row</button>
+            </div>
+
+            <div class="grid-table-container">
+              <div class="grid-table methodology-grid">
+                <!-- Header Row -->
+                <div class="grid-header-row">
+                  <div class="grid-header-cell">Method *</div>
+                  <div class="grid-header-cell">Time to Complete</div>
+                  <div class="grid-header-cell grid-header-action"></div>
+                </div>
+
+                <!-- Data Rows -->
+                <template v-if="methodology.length">
+                  <div v-for="(row, idx) in methodology" :key="idx" class="grid-data-row">
+                    <div class="grid-cell">
+                      <textarea
+                        v-model="row.method"
+                        rows="1"
+                        class="grid-input grid-textarea"
+                        placeholder="Describe the step…"
+                      ></textarea>
+                    </div>
+                    <div class="grid-cell">
+                      <MinutesInput v-model="row.time_to_complete" />
+                    </div>
+                    <div class="grid-cell grid-action-cell">
+                      <button class="grid-delete-btn" @click="removeRow(methodology, idx)">×</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Empty State -->
+                <div v-else class="grid-empty-message">No methodology steps. Click "+ Add Row" to start.</div>
+              </div>
+            </div>
+
+            <div class="total-duration-row">
+              <span class="total-duration-label">Total Duration</span>
+              <span class="total-duration-value">{{ formatMinutes(liveTotalDuration) }}</span>
+              <span
+                v-if="!isNew && storedTotalDuration !== liveTotalDuration"
+                class="total-duration-note unsaved"
+              >
+                unsaved — server has {{ formatMinutes(storedTotalDuration) }}
+              </span>
+              <span v-else class="total-duration-note">calculated from Methodology rows on save</span>
+            </div>
+
+            <div class="form-group stacked-field">
+              <label class="form-label">Methodology Comments</label>
+              <RichTextEditor
+                v-model="methodologyComments"
+                placeholder="Notes that apply across all methodology steps…"
+              />
+            </div>
+          </section>
+
+          <!-- PROTOCOL -->
+          <section class="meta-card" style="margin-top: 1.5rem;">
+            <h3 class="section-title">Protocol</h3>
+
+            <div class="form-group">
+              <label class="form-label">Steps</label>
+              <RichTextEditor v-model="steps" placeholder="Free-form protocol write-up…" />
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab 5: Observation -->
+        <div v-show="activeTab === 'observation'" class="tab-pane">
+          <section class="meta-card">
+            <h3 class="section-title">Observation</h3>
+            <div class="form-group">
+              <label class="form-label">Observation Notes</label>
+              <RichTextEditor
+                v-model="observationComments"
+                placeholder="Describe expected observations, parameters to record, and outcome notes…"
+              />
+            </div>
+          </section>
+        </div>
+
+        <!-- AUDIT HISTORY LOG -->
+        <section class="meta-card" style="margin-top: 1.5rem;" v-if="!isNew">
+          <h3 class="section-title">Audit History Log (Timing, Editor, Changes)</h3>
+          
+          <div class="history-timeline">
+            <div v-for="ver in historyList" :key="ver.name" class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <span class="timeline-author">Edited by: <strong>{{ ver.owner }}</strong></span>
+                  <span class="timeline-time">{{ ver.creation?.split('.')[0] }}</span>
+                </div>
+                
+                <!-- If fields changed -->
+                <ul class="timeline-changes" v-if="ver.parsedData && ver.parsedData.changed && ver.parsedData.changed.length > 0">
+                  <li v-for="(change, cIdx) in ver.parsedData.changed" :key="cIdx">
+                    Field <strong>{{ change[0] }}</strong> updated: 
+                    <span class="old-val">"{{ change[1] || 'Empty' }}"</span> &rarr; 
+                    <span class="new-val">"{{ change[2] || 'Empty' }}"</span>
+                  </li>
+                </ul>
+
+                <!-- If tables added/removed rows -->
+                <ul class="timeline-changes" v-if="ver.parsedData && (ver.parsedData.added || ver.parsedData.removed)">
+                  <li v-if="ver.parsedData.added && ver.parsedData.added.length > 0">
+                    Added rows to child tables
+                  </li>
+                  <li v-if="ver.parsedData.removed && ver.parsedData.removed.length > 0">
+                    Removed rows from child tables
+                  </li>
+                </ul>
+                
+                <!-- Fallback description -->
+                <p class="timeline-desc" v-if="!ver.parsedData || (!ver.parsedData.changed && !ver.parsedData.added && !ver.parsedData.removed)">
+                  Updated template settings.
+                </p>
+              </div>
+            </div>
+
+            <div v-if="historyList.length === 0" class="empty-history-text">
+              No changes recorded for this template yet.
+            </div>
           </div>
-
-          <div class="form-group">
-            <label class="form-label">Type</label>
-            <select v-model="type" class="form-control">
-              <option value="">Select type…</option>
-              <option v-for="opt in TYPE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
-            </select>
-          </div>
-
-          <div class="form-group span-2">
-            <label class="form-label">Description</label>
-            <textarea
-              v-model="description"
-              rows="3"
-              class="form-control"
-              placeholder="What this template covers…"
-            ></textarea>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Disable</label>
-            <label class="checkbox-row">
-              <input type="checkbox" v-model="disable" :true-value="1" :false-value="0" />
-              <span>Disabled templates are hidden from new runs</span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- 2. OWNERSHIP -->
-      <section class="meta-card">
-        <h3 class="section-title">Ownership</h3>
-        <div class="meta-form-grid">
-          <div class="form-group">
-            <label class="form-label">Employee Function *</label>
-            <LinkField
-              v-model="employeeFunction"
-              :search-fn="employeeFunctionSearch"
-              description-field="function_name"
-              :empty-hint="employeeFunctionHint"
-              placeholder="Search your functions…"
-              @select="onEmployeeFunctionSelect"
-            />
-            <span v-if="functionsLoaded && !myFunctions.length" class="field-hint warn">
-              No Employee Function is assigned to your employee record.
-            </span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Head Name</label>
-            <input
-              type="text"
-              :value="headName"
-              class="form-control readonly"
-              placeholder="Auto-filled from Employee Function"
-              readonly
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Project *</label>
-            <LinkField
-              v-model="project"
-              :search-fn="projectSearch"
-              :disabled="!employeeFunction"
-              description-field="project_name"
-              :empty-hint="projectHint"
-              placeholder="Search projects for this function…"
-              @select="onProjectSelect"
-            />
-            <span v-if="!employeeFunction" class="field-hint">
-              Pick an Employee Function to unlock this field.
-            </span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Project ID</label>
-            <input
-              type="text"
-              :value="projectId"
-              class="form-control readonly"
-              placeholder="Auto-filled from Project"
-              readonly
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Department</label>
-            <LinkField
-              v-model="allowedRoles"
-              doctype="Department"
-              :fields="['department_name']"
-              :search-fields="['name', 'department_name']"
-              :filters="[['disabled', '=', 0]]"
-              description-field="department_name"
-              placeholder="Search departments…"
-            />
-            <span class="field-hint">Auto-filled from the Project; override if needed.</span>
-          </div>
-
-          <div class="form-group span-3">
-            <label class="form-label">Remark</label>
-            <textarea v-model="remark" rows="2" class="form-control"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. OBJECTIVE -->
-      <section class="meta-card">
-        <h3 class="section-title">Objective</h3>
-        <div class="meta-form-grid">
-          <div class="form-group span-3">
-            <label class="form-label">Aim</label>
-            <input type="text" v-model="aim" class="form-control" placeholder="Primary aim" />
-          </div>
-
-          <div class="form-group span-3">
-            <label class="form-label">Sub Aim</label>
-            <textarea v-model="subAim" rows="2" class="form-control"></textarea>
-          </div>
-
-          <div class="form-group span-3">
-            <label class="form-label">Rationale</label>
-            <textarea v-model="rationale" rows="4" class="form-control"></textarea>
-          </div>
-        </div>
-      </section>
-
-      <!-- 4. MATERIAL REQUIRED -->
-      <section class="meta-card">
-        <div class="table-actions">
-          <h3 class="section-title no-margin">Material Required</h3>
-          <button class="btn btn-secondary btn-sm" @click="addMaterialRow">+ Add Row</button>
-        </div>
-
-        <div class="table-scroll">
-          <table class="grid-table">
-            <thead>
-              <tr>
-                <th class="col-link">Item Code *</th>
-                <th class="col-wide">Item Name</th>
-                <th class="col-uom">UOM</th>
-                <th class="col-qty">Qty *</th>
-                <th class="grid-action-col"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in materialRequired" :key="idx">
-                <td data-label="Item Code">
-                  <LinkField
-                    v-model="row.item_code"
-                    doctype="Item"
-                    :fields="['item_name', 'stock_uom']"
-                    :search-fields="['name', 'item_name']"
-                    description-field="item_name"
-                    input-class="grid-input"
-                    placeholder="Search item…"
-                    @select="onItemSelect(row, $event)"
-                  />
-                </td>
-                <td data-label="Item Name">
-                  <input type="text" :value="row.item_name" class="grid-input readonly" readonly />
-                </td>
-                <td data-label="UOM">
-                  <LinkField
-                    v-model="row.uom"
-                    doctype="UOM"
-                    input-class="grid-input"
-                    placeholder="UOM"
-                  />
-                </td>
-                <td data-label="Qty">
-                  <input type="number" step="any" min="0" v-model.number="row.qty" class="grid-input" />
-                </td>
-                <td class="grid-action-col">
-                  <button class="grid-delete-btn" @click="removeRow(materialRequired, idx)">×</button>
-                </td>
-              </tr>
-              <tr v-if="!materialRequired.length">
-                <td colspan="5" class="grid-empty">No materials added. Click "+ Add Row" to start.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 5. EQUIPMENT DETAILS -->
-      <section class="meta-card">
-        <div class="table-actions">
-          <h3 class="section-title no-margin">Equipment Details</h3>
-          <button class="btn btn-secondary btn-sm" @click="addEquipmentRow">+ Add Row</button>
-        </div>
-
-        <div class="table-scroll">
-          <table class="grid-table">
-            <thead>
-              <tr>
-                <th class="col-link">Refer to Experiment</th>
-                <th class="col-link">Equipment Name</th>
-                <th class="col-uom">Equipment ID</th>
-                <th class="col-wide">Remarks</th>
-                <th class="grid-action-col"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in equipmentDetails" :key="idx">
-                <td data-label="Refer to Experiment">
-                  <input
-                    type="text"
-                    v-model="row.refer_to_experiment"
-                    class="grid-input"
-                    placeholder="Free text reference"
-                  />
-                </td>
-                <td data-label="Equipment Name">
-                  <input type="text" v-model="row.equipment_name" class="grid-input" />
-                </td>
-                <td data-label="Equipment ID">
-                  <input type="text" v-model="row.equipment_id" class="grid-input" />
-                </td>
-                <td data-label="Remarks">
-                  <textarea v-model="row.remarks" rows="1" class="grid-input textarea-input"></textarea>
-                </td>
-                <td class="grid-action-col">
-                  <button class="grid-delete-btn" @click="removeRow(equipmentDetails, idx)">×</button>
-                </td>
-              </tr>
-              <tr v-if="!equipmentDetails.length">
-                <td colspan="5" class="grid-empty">No equipment added. Click "+ Add Row" to start.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- 6. METHODOLOGY -->
-      <section class="meta-card">
-        <div class="table-actions">
-          <h3 class="section-title no-margin">Methodology</h3>
-          <button class="btn btn-secondary btn-sm" @click="addMethodologyRow">+ Add Row</button>
-        </div>
-
-        <div class="table-scroll">
-          <table class="grid-table">
-            <thead>
-              <tr>
-                <th class="col-wide">Method *</th>
-                <th class="col-minutes">Time to Complete</th>
-                <th class="grid-action-col"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in methodology" :key="idx">
-                <td data-label="Method">
-                  <textarea
-                    v-model="row.method"
-                    rows="1"
-                    class="grid-input textarea-input"
-                    placeholder="Describe the step…"
-                  ></textarea>
-                </td>
-                <td data-label="Time to Complete">
-                  <MinutesInput v-model="row.time_to_complete" />
-                </td>
-                <td class="grid-action-col">
-                  <button class="grid-delete-btn" @click="removeRow(methodology, idx)">×</button>
-                </td>
-              </tr>
-              <tr v-if="!methodology.length">
-                <td colspan="3" class="grid-empty">No methodology steps. Click "+ Add Row" to start.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="total-duration-row">
-          <span class="total-duration-label">Total Duration</span>
-          <span class="total-duration-value">{{ formatMinutes(liveTotalDuration) }}</span>
-          <span
-            v-if="!isNew && storedTotalDuration !== liveTotalDuration"
-            class="total-duration-note unsaved"
-          >
-            unsaved — server has {{ formatMinutes(storedTotalDuration) }}
-          </span>
-          <span v-else class="total-duration-note">calculated from Methodology rows on save</span>
-        </div>
-
-        <div class="form-group stacked-field">
-          <label class="form-label">Methodology Comments</label>
-          <RichTextEditor
-            v-model="methodologyComments"
-            placeholder="Notes that apply across all methodology steps…"
-          />
-        </div>
-      </section>
-
-      <!-- 7. PROTOCOL -->
-      <section class="meta-card">
-        <h3 class="section-title">Protocol</h3>
-
-        <div class="form-group">
-          <label class="form-label">Steps</label>
-          <RichTextEditor v-model="steps" placeholder="Free-form protocol write-up…" />
-        </div>
-      </section>
-
-      <!-- 8. OBSERVATION -->
-      <section class="meta-card">
-        <div class="table-actions">
-          <h3 class="section-title no-margin">Observation</h3>
-          <button class="btn btn-secondary btn-sm" @click="addObservationRow">+ Add Row</button>
-        </div>
-
-        <div class="table-scroll">
-          <table class="grid-table">
-            <thead>
-              <tr>
-                <th class="col-link">Parameter</th>
-                <th class="col-link">Observed Value</th>
-                <th class="col-wide">Remarks</th>
-                <th class="col-datetime">Observed On</th>
-                <th class="grid-action-col"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, idx) in observationTable" :key="idx">
-                <td data-label="Parameter">
-                  <input type="text" v-model="row.parameter" class="grid-input" />
-                </td>
-                <td data-label="Observed Value">
-                  <input type="text" v-model="row.observed_value" class="grid-input" />
-                </td>
-                <td data-label="Remarks">
-                  <textarea v-model="row.remarks" rows="1" class="grid-input textarea-input"></textarea>
-                </td>
-                <td data-label="Observed On">
-                  <input
-                    type="datetime-local"
-                    class="grid-input"
-                    :value="toDatetimeInput(row.observed_on)"
-                    @input="row.observed_on = $event.target.value"
-                  />
-                </td>
-                <td class="grid-action-col">
-                  <button class="grid-delete-btn" @click="removeRow(observationTable, idx)">×</button>
-                </td>
-              </tr>
-              <tr v-if="!observationTable.length">
-                <td colspan="5" class="grid-empty">No observations. Click "+ Add Row" to start.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <div class="form-group stacked-field">
-          <label class="form-label">Observation Comments</label>
-          <RichTextEditor v-model="observationComments" placeholder="Free-form observation notes…" />
-        </div>
-      </section>
+        </section>
+      </fieldset>
     </div>
   </div>
 </template>

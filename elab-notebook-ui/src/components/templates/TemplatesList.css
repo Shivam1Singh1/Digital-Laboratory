@@ -203,6 +203,14 @@
   transition: background-color 0.2s ease;
 }
 
+.templates-table tbody tr.clickable-row {
+  cursor: pointer;
+}
+
+.templates-table tbody tr.clickable-row:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
 .templates-table tbody tr:hover {
   background-color: rgba(255, 255, 255, 0.015);
 }
@@ -260,7 +268,8 @@
   color: #e74c3c;
 }
 
-.use-count {
+.use-count,
+.experiment-count {
   font-weight: 700;
   font-size: 0.95rem;
   color: var(--text-primary);
@@ -464,3 +473,41 @@
   gap: 0.75rem;
   background-color: rgba(0, 0, 0, 0.1);
 }
+
+/* Workflow State Badges for Templates List */
+.workflow-state-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 50px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+
+.workflow-state-badge.state-draft {
+  background-color: var(--border);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.workflow-state-badge.state-pending {
+  background-color: rgba(245, 158, 11, 0.08);
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.16);
+}
+
+.workflow-state-badge.state-approved {
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.16);
+}
+
+.workflow-state-badge.state-rejected {
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.16);
+}
+

@@ -196,6 +196,133 @@ def get_employee_function_project_options(
 	return projects[:50]
 
 
+def get_employee_users_for_function(employee_function: str) -> list[dict]:
+	"""Employees actively mapped to `employee_function`, as user records.
+
+	Mapping lives in `Employee.custom_function_code` (child doctype
+	`Employee Function Child`). Employees without a `user_id` are skipped —
+	they have no account to authorise.
+	"""
+	if not employee_function:
+		return []
+
+	# `ignore_permissions` is deliberate: this resolver only ever answers "who is
+	# in this function", and every caller has already been authorised (team head
+	# check, or reading a team the user belongs to). Without it an ordinary
+	# participant trips the Employee/User link permission cascade and the whole
+	# team view fails with a "linked Employee record" error.
+	employees = frappe.get_all(
+		"Employee Function Child",
+		filters={
+			"parenttype": "Employee",
+			"parentfield": "custom_function_code",
+			"function_code": employee_function,
+			"active": 1,
+		},
+		pluck="parent",
+		ignore_permissions=True,
+	)
+	if not employees:
+		return []
+
+	rows = frappe.get_all(
+		"Employee",
+		filters={"name": ("in", employees), "user_id": ("is", "set")},
+		fields=["name as employee", "employee_name as full_name", "user_id as user"],
+		order_by="employee_name asc",
+		ignore_permissions=True,
+	)
+
+	# One employee record per user; duplicates would break the participant grid.
+	seen, unique = set(), []
+	for row in rows:
+		if row.user in seen:
+			continue
+		seen.add(row.user)
+		unique.append(row)
+
+	return unique
+
+
+def can_see_function_roster(employee_function: str, user: str | None = None) -> bool:
+	"""Heads see their function's roster; so does anyone on a team under it."""
+	from elab_notebook.permissions import has_bypass
+
+	user = user or frappe.session.user
+
+	if has_bypass(user):
+		return True
+
+	if frappe.db.get_value("Employee Function", employee_function, "function_head") == user:
+		return True
+
+	teams = frappe.get_all(
+		"Experiment Team",
+		filters={"employee_function": employee_function},
+		pluck="name",
+		ignore_permissions=True,
+	)
+	if not teams:
+		return False
+
+	return bool(
+		frappe.db.exists(
+			"Experiment Team Participant",
+			{"parenttype": "Experiment Team", "parent": ("in", teams), "user": user},
+		)
+	)
+
+
+@frappe.whitelist()
+def get_function_employees(employee_function: str, txt: str | None = None):
+	"""Autocomplete options for the Experiment Team participant picker."""
+	# The resolver below runs with ignore_permissions, so gate the public entry.
+	if not can_see_function_roster(employee_function):
+		frappe.throw(
+			frappe._("Not permitted to view the roster for {0}.").format(employee_function),
+			frappe.PermissionError,
+		)
+
+	rows = get_employee_users_for_function(employee_function)
+
+	if txt:
+		txt = txt.lower()
+		rows = [
+			r
+			for r in rows
+			if txt in (r.get("user") or "").lower()
+			or txt in (r.get("full_name") or "").lower()
+		]
+
+	# LinkField renders `name` as the primary line.
+	return [
+		{"name": r["user"], "full_name": r["full_name"], "employee": r["employee"]}
+		for r in rows
+	]
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def function_employee_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Desk link query for Experiment Team participants."""
+	employee_function = (filters or {}).get("employee_function")
+	if not employee_function or not can_see_function_roster(employee_function):
+		return []
+
+	rows = get_employee_users_for_function(employee_function)
+
+	if txt:
+		lowered = txt.lower()
+		rows = [
+			r
+			for r in rows
+			if lowered in (r.get("user") or "").lower()
+			or lowered in (r.get("full_name") or "").lower()
+		]
+
+	return [(r["user"], r["full_name"]) for r in rows[start : start + page_len]]
+
+
 @frappe.whitelist()
 def get_current_employee_function():
 	"""Resolve the logged-in user's active Employee Function.

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
@@ -10,19 +10,49 @@ const router = useRouter()
 const templates = ref([])
 const loading = ref(true)
 
-// Modal states
-const showUseModal = ref(false)
-const selectedTemplate = ref(null)
-const experimentName = ref('')
-const leadScientist = ref('')
-const startDate = ref(new Date().toISOString().substr(0, 10))
-const creatingRun = ref(false)
+
+const templateCounts = ref({})
+
+const fetchTemplateCounts = async () => {
+  try {
+    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.dashboard.get_template_experiment_counts')
+    const counts = res.data.message || []
+    const map = {}
+    for (const item of counts) {
+      map[item.template] = item.count
+    }
+    templateCounts.value = map
+  } catch (err) {
+    console.error('Failed to fetch template counts', err)
+  }
+}
+
+const getExperimentCount = (name) => {
+  return templateCounts.value[name] || 0
+}
+
+const currentPage = ref(1)
+const pageSize = 10
+
+const totalPages = computed(() => Math.ceil(templates.value.length / pageSize))
+
+const paginatedTemplates = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  const end = start + pageSize
+  return templates.value.slice(start, end)
+})
 
 const fetchTemplates = async () => {
   loading.value = true
   try {
-    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_experiment_templates')
+    const params = {}
+    if (userStore.currentProject && userStore.currentProject !== 'all') {
+      params.filters = JSON.stringify({ project: userStore.currentProject })
+    }
+    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_experiment_templates', { params })
     templates.value = res.data.message || []
+    currentPage.value = 1
+    await fetchTemplateCounts()
   } catch (err) {
     console.error('Failed to fetch templates', err)
   } finally {
@@ -30,52 +60,25 @@ const fetchTemplates = async () => {
   }
 }
 
-const openUseModal = (temp) => {
-  selectedTemplate.value = temp
-  experimentName.value = `Run: ${temp.template_name}`
-  leadScientist.value = userStore.user.email || userStore.user.name
-  startDate.value = new Date().toISOString().substr(0, 10)
-  showUseModal.value = true
-}
+watch(() => userStore.currentProject, () => {
+  currentPage.value = 1
+  fetchTemplates()
+})
 
-const closeUseModal = () => {
-  showUseModal.value = false
-  selectedTemplate.value = null
-}
-
-const createRun = async () => {
-  if (!experimentName.value.trim()) {
-    alert('Please enter an experiment run name')
-    return
-  }
-  
-  creatingRun.value = true
-  try {
-    const res = await axios.post('/api/method/elab_notebook.elab_notebook.api.template.create_experiment_from_template', {
-      template_name: selectedTemplate.value.name,
-      overrides: {
-        experiment_name: experimentName.value,
-        lead_scientist: leadScientist.value,
-        experiment_start_date: startDate.value
-      }
-    })
-    
-    const newExpId = res.data.message
-    alert(`Successfully created experiment run: ${newExpId}!`)
-    closeUseModal()
-    fetchTemplates() // Refresh counts
-  } catch (err) {
-    console.error('Failed to create experiment run', err)
-    alert('Failed to create run: ' + (err.response?.data?.message || err.message))
-  } finally {
-    creatingRun.value = false
-  }
-}
 
 const formatDateTime = (val) => {
   if (!val) return ''
   const d = new Date(val)
   return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+const getWorkflowStateClass = (state) => {
+  if (!state) return 'state-draft'
+  const s = state.toLowerCase()
+  if (s.includes('approved')) return 'state-approved'
+  if (s.includes('rejected')) return 'state-rejected'
+  if (s.includes('pending')) return 'state-pending'
+  return 'state-draft'
 }
 
 onMounted(() => {
@@ -128,31 +131,26 @@ onMounted(() => {
       <table class="templates-table">
         <thead>
           <tr>
+            <th>Template ID</th>
             <th>Template Name</th>
-            <th>Category</th>
-            <th>Version</th>
             <th>Status</th>
+            <th>Experiments</th>
             <th>Last Updated</th>
             <th>Times Used</th>
             <th class="actions-col">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="temp in templates" :key="temp.name">
+          <tr v-for="temp in paginatedTemplates" :key="temp.name" class="clickable-row" @click="router.push(`/templates/${temp.name}`)">
+            <td class="font-mono text-accent"><strong>{{ temp.name }}</strong></td>
+            <td>{{ temp.template_name }}</td>
             <td>
-              <div class="template-info">
-                <span class="template-main-name">{{ temp.template_name }}</span>
-                <span class="template-id">{{ temp.name }}</span>
-              </div>
-            </td>
-            <td>
-              <span class="category-tag">{{ temp.category || 'Unassigned' }}</span>
-            </td>
-            <td>v{{ temp.version || '1.0' }}</td>
-            <td>
-              <span class="status-badge" :class="temp.status?.toLowerCase() || 'draft'">
-                {{ temp.status || 'Draft' }}
+              <span class="workflow-state-badge" :class="getWorkflowStateClass(temp.workflow_state)">
+                {{ temp.workflow_state || 'Draft' }}
               </span>
+            </td>
+            <td class="count-col">
+              <span class="experiment-count">{{ getExperimentCount(temp.name) }}</span>
             </td>
             <td>{{ formatDateTime(temp.modified) }}</td>
             <td class="count-col">
@@ -160,11 +158,14 @@ onMounted(() => {
             </td>
             <td class="actions-col">
               <div class="actions-group">
-                <button class="action-btn text-accent" @click="openUseModal(temp)" title="Use Template to start an experiment run">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                  Use
-                </button>
-                <router-link :to="`/templates/${temp.name}`" class="action-btn text-muted" title="Edit Template">
+                <!-- Edit button - only for Draft/Pending/Rejected templates -->
+                <router-link
+                  v-if="temp.workflow_state !== 'Approved'"
+                  :to="`/templates/${temp.name}`"
+                  class="action-btn text-accent"
+                  title="Edit Template"
+                  @click.stop
+                >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   Edit
                 </router-link>
@@ -173,51 +174,27 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
-    </div>
 
-    <!-- Use Template Modal -->
-    <div v-if="showUseModal" class="modal-overlay">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Create Run from Template</h3>
-          <button class="modal-close-btn" @click="closeUseModal">×</button>
-        </div>
-        
-        <div class="modal-body">
-          <div class="modal-template-summary">
-            <span class="summary-label">Template:</span>
-            <strong class="summary-value">{{ selectedTemplate?.template_name }}</strong>
-            <span class="summary-version">(v{{ selectedTemplate?.version || '1.0' }})</span>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Experiment Run Name *</label>
-            <input type="text" v-model="experimentName" class="form-control" placeholder="e.g. CRISPR cas9 run 1" />
-          </div>
-
-          <div class="form-row">
-            <div class="form-group col">
-              <label class="form-label">Lead Scientist</label>
-              <input type="text" v-model="leadScientist" class="form-control" readonly />
-            </div>
-            
-            <div class="form-group col">
-              <label class="form-label">Start Date</label>
-              <input type="date" v-model="startDate" class="form-control" />
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="closeUseModal">Cancel</button>
-          <button class="btn btn-primary" @click="createRun" :disabled="creatingRun">
-            <span v-if="creatingRun" class="spinner btn-spinner"></span>
-            {{ creatingRun ? 'Creating Run...' : 'Create Experiment Run' }}
-          </button>
-        </div>
+      <!-- Pagination Controls -->
+      <div v-if="totalPages > 1" class="pagination-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding-bottom: 1rem;">
+        <button 
+          class="btn btn-secondary btn-sm" 
+          :disabled="currentPage === 1" 
+          @click="currentPage--"
+        >
+          Previous
+        </button>
+        <span class="pagination-info" style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">
+          Page {{ currentPage }} of {{ totalPages }}
+        </span>
+        <button 
+          class="btn btn-secondary btn-sm" 
+          :disabled="currentPage === totalPages" 
+          @click="currentPage++"
+        >
+          Next
+        </button>
       </div>
     </div>
   </div>
 </template>
-
-

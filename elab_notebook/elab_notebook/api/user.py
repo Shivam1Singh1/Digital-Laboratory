@@ -180,8 +180,17 @@ def setup_db():
         print("Template Protocol Step already exists")
 
     print("\n2. Updating Experiment Template...")
-    # Ensure fields exist on Experiment Template
+    # Ensure fields exist on Experiment Template and make it non-submittable
     parent_temp = frappe.get_doc("DocType", "Experiment Template")
+    parent_temp.is_submittable = 0
+    
+    # Ensure no submit/cancel/amend permissions exist for both roles
+    for perm in parent_temp.permissions:
+        if perm.role in ("System Manager", "Employee"):
+            perm.submit = 0
+            perm.cancel = 0
+            perm.amend = 0
+
     fields_to_add_temp = [
         {"fieldname": "template_name", "fieldtype": "Data", "label": "Template Name"},
         {"fieldname": "category", "fieldtype": "Data", "label": "Category/Programme"},
@@ -192,44 +201,181 @@ def setup_db():
         {"fieldname": "department", "fieldtype": "Data", "label": "Department"},
         {"fieldname": "template_ingredients", "fieldtype": "Table", "label": "Ingredients", "options": "Template Ingredient"},
         {"fieldname": "template_parameters", "fieldtype": "Table", "label": "Parameters", "options": "Template Parameter"},
-        {"fieldname": "template_protocol_steps", "fieldtype": "Table", "label": "Protocol Steps", "options": "Template Protocol Step"}
+        {"fieldname": "template_protocol_steps", "fieldtype": "Table", "label": "Protocol Steps", "options": "Template Protocol Step"},
+        {"fieldname": "workflow_state", "fieldtype": "Select", "label": "Workflow State", "options": "Draft\nPending from System Manager\nPending For Approval\nRejected\nApproved", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1, "no_copy": 1}
     ]
 
     existing_fields_temp = [f.fieldname for f in parent_temp.fields]
-    changed_temp = False
     for f_spec in fields_to_add_temp:
         if f_spec["fieldname"] not in existing_fields_temp:
             parent_temp.append("fields", f_spec)
-            changed_temp = True
 
-    if changed_temp:
-        parent_temp.save(ignore_permissions=True)
-        print("Updated Experiment Template DocType")
-    else:
-        print("Experiment Template already up-to-date")
+    parent_temp.save(ignore_permissions=True)
+    print("Updated Experiment Template DocType")
 
     print("\n3. Updating Experiment...")
-    # Ensure fields exist on Experiment
+    # Ensure fields exist on Experiment and make it non-submittable
     parent_exp = frappe.get_doc("DocType", "Experiment")
+    parent_exp.is_submittable = 0
+    
+    # Ensure Employee role exists and clean permissions
+    has_employee = False
+    for perm in parent_exp.permissions:
+        if perm.role == "Employee":
+            has_employee = True
+            perm.read = 1
+            perm.write = 1
+            perm.create = 1
+            perm.share = 1
+            perm.email = 1
+            perm.export = 1
+            perm.print = 1
+            perm.report = 1
+            perm.submit = 0
+            perm.cancel = 0
+            perm.amend = 0
+        elif perm.role == "System Manager":
+            perm.submit = 0
+            perm.cancel = 0
+            perm.amend = 0
+
+    if not has_employee:
+        parent_exp.append("permissions", {
+            "role": "Employee",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "share": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "report": 1
+        })
+
     fields_to_add_exp = [
         {"fieldname": "experiment_template", "fieldtype": "Link", "label": "Experiment Template", "options": "Experiment Template"},
         {"fieldname": "experiment_ingredients", "fieldtype": "Table", "label": "Ingredients", "options": "Template Ingredient"},
         {"fieldname": "experiment_parameters", "fieldtype": "Table", "label": "Parameters", "options": "Template Parameter"},
-        {"fieldname": "experiment_protocol_steps", "fieldtype": "Table", "label": "Protocol Steps", "options": "Template Protocol Step"}
+        {"fieldname": "experiment_protocol_steps", "fieldtype": "Table", "label": "Protocol Steps", "options": "Template Protocol Step"},
+        {"fieldname": "material_required", "fieldtype": "Table", "label": "Material Required", "options": "Material Required CT"},
+        {"fieldname": "methodology", "fieldtype": "Table", "label": "Methodology", "options": "Methodology CT"},
+        {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nCompleted"},
+        {"fieldname": "workflow_state", "fieldtype": "Select", "label": "Workflow State", "options": "Draft\nPending from System Manager\nPending For Approval\nRejected\nApproved", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1, "no_copy": 1}
     ]
 
     existing_fields_exp = [f.fieldname for f in parent_exp.fields]
-    changed_exp = False
     for f_spec in fields_to_add_exp:
         if f_spec["fieldname"] not in existing_fields_exp:
             parent_exp.append("fields", f_spec)
-            changed_exp = True
 
-    if changed_exp:
-        parent_exp.save(ignore_permissions=True)
-        print("Updated Experiment DocType")
+    parent_exp.save(ignore_permissions=True)
+    print("Updated Experiment DocType")
+
+    print("\n4. Updating Experiment Team...")
+    parent_team = frappe.get_doc("DocType", "Experiment Team")
+    parent_team.is_submittable = 1
+    
+    # Ensure submit/cancel/amend for System Manager and All
+    for perm in parent_team.permissions:
+        if perm.role in ("System Manager", "All"):
+            perm.submit = 1
+            perm.cancel = 1
+            perm.amend = 1
+
+    fields_to_add_team = [
+        {"fieldname": "segment", "fieldtype": "Link", "label": "Segment", "options": "Segment"},
+        {"fieldname": "cost_center", "fieldtype": "Link", "label": "Cost Center", "options": "Cost Center"},
+        {"fieldname": "amended_from", "fieldtype": "Link", "label": "Amended From", "options": "Experiment Team", "read_only": 1, "no_copy": 1, "print_hide": 1, "search_index": 1}
+    ]
+    existing_fields_team = [f.fieldname for f in parent_team.fields]
+    for f_spec in fields_to_add_team:
+        if f_spec["fieldname"] not in existing_fields_team:
+            parent_team.append("fields", f_spec)
+
+    parent_team.save(ignore_permissions=True)
+    print("Updated Experiment Team DocType")
+
+    print("\n5. Creating/Updating Sample DocType...")
+    if not frappe.db.exists("DocType", "Sample"):
+        doc = frappe.get_doc({
+            "doctype": "DocType",
+            "name": "Sample",
+            "module": "Elab Notebook",
+            "custom": 0,
+            "is_submittable": 1,
+            "autoname": "format:{experiment}-{#####}",
+            "fields": [
+                {"fieldname": "experiment", "fieldtype": "Link", "label": "Experiment", "options": "Experiment", "reqd": 1},
+                {"fieldname": "elab_no", "fieldtype": "Data", "label": "Elab No.", "read_only": 1, "fetch_from": "experiment.name"},
+                {"fieldname": "item", "fieldtype": "Link", "label": "Item", "options": "Item", "reqd": 1},
+                {"fieldname": "uom", "fieldtype": "Link", "label": "UOM", "options": "UOM", "read_only": 1, "fetch_from": "item.stock_uom"},
+                {"fieldname": "name_of_sample", "fieldtype": "Data", "label": "Name of Sample"},
+                {"fieldname": "qty", "fieldtype": "Float", "label": "Qty", "reqd": 1},
+                {"fieldname": "amended_from", "fieldtype": "Link", "label": "Amended From", "options": "Sample", "read_only": 1, "no_copy": 1, "print_hide": 1, "search_index": 1}
+            ],
+            "permissions": [
+                {
+                    "role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "share": 1, "email": 1, "export": 1, "print": 1, "report": 1, "submit": 1, "cancel": 1, "amend": 1
+                },
+                {
+                    "role": "Employee", "read": 1, "write": 1, "create": 1, "delete": 0, "share": 1, "email": 1, "export": 1, "print": 1, "report": 1, "submit": 1, "cancel": 1, "amend": 1
+                }
+            ]
+        })
+        doc.insert(ignore_permissions=True)
+        print("Created Sample DocType")
     else:
-        print("Experiment already up-to-date")
+        print("Sample DocType already exists - updating")
+        parent_sample = frappe.get_doc("DocType", "Sample")
+        parent_sample.is_submittable = 1
+        
+        has_amended_from = False
+        for f in parent_sample.fields:
+            if f.fieldname == "amended_from":
+                has_amended_from = True
+        if not has_amended_from:
+            parent_sample.append("fields", {
+                "fieldname": "amended_from",
+                "fieldtype": "Link",
+                "label": "Amended From",
+                "options": "Sample",
+                "read_only": 1,
+                "no_copy": 1,
+                "print_hide": 1,
+                "search_index": 1
+            })
+
+        has_employee = False
+        for perm in parent_sample.permissions:
+            if perm.role == "Employee":
+                has_employee = True
+                perm.read = 1
+                perm.write = 1
+                perm.create = 1
+                perm.submit = 1
+                perm.cancel = 1
+                perm.amend = 1
+            elif perm.role == "System Manager":
+                perm.submit = 1
+                perm.cancel = 1
+                perm.amend = 1
+                
+        if not has_employee:
+            parent_sample.append("permissions", {
+                "role": "Employee",
+                "read": 1,
+                "write": 1,
+                "create": 1,
+                "submit": 1,
+                "cancel": 1,
+                "amend": 1,
+                "share": 1,
+                "email": 1,
+                "export": 1,
+                "print": 1,
+                "report": 1
+            })
+        parent_sample.save(ignore_permissions=True)
 
     frappe.db.commit()
     print("Finished database setup successfully!")

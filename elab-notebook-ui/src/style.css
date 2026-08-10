@@ -1,30 +1,36 @@
 :root {
-  --bg-primary: #0B1F3F;      /* deep navy — main app background */
-  --bg-surface: #12294F;      /* card/panel background, sits on top of primary */
-  --bg-elevated: #1A3560;     /* hover/elevated surface */
-  --accent: #4C8DFF;          /* primary action, links, active nav */
-  --text-primary: #EAF1FF;
-  --text-muted: #9FB3D9;
-  --border: rgba(255, 255, 255, 0.08);
+  --bg-primary: #181922;      /* softer slate-dark background */
+  --bg-surface: #202230;      /* lighter slate-dark surface */
+  --bg-elevated: #2b2e40;     /* soft slate elevated hover surface */
+  --accent: #9f84f1;          /* desaturated comfortable violet for dark mode */
+  --accent-hover: #b099f5;
+  --accent-active: #8b6df0;
+  --text-primary: #f8f6fc;    /* soft readable white text */
+  --text-muted: #afacc4;      /* muted gray-purple text */
+  --border: rgba(159, 132, 241, 0.18); /* slate violet border */
   --success: #34D399;
   --warning: #FBBF24;
   --danger: #F87171;
 
   --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), color-mix(in srgb, #3b82f6 5%, transparent));
 }
 
 :root.light-theme {
-  --bg-primary: #F5F4FA;      /* light violet gray background */
-  --bg-surface: #FFFFFF;      /* clean white panels */
-  --bg-elevated: #ECE7F5;     /* soft violet gray for hover states */
-  --accent: #7C3AED;          /* rich violet/purple accent */
-  --text-primary: #1F1B2F;    /* deep slate-purple text */
-  --text-muted: #6C6682;      /* soft purple-gray text */
-  --border: rgba(124, 58, 237, 0.12); /* transparent violet border */
+  --bg-primary: #f6f5fc;      /* clean light-gray neutral background with a touch of purple */
+  --bg-surface: #ffffff;      /* clean white panels */
+  --bg-elevated: #f0edf8;     /* soft violet gray for hover states */
+  --accent: #6d28d9;          /* highly saturated primary violet day theme accent */
+  --accent-hover: #5b21b6;    /* darker violet on hover for readability */
+  --accent-active: #4c1d95;   /* active violet highlight */
+  --text-primary: #110e1a;    /* deep dark text for high contrast */
+  --text-muted: #5e5975;      /* soft purple-gray muted text */
+  --border: rgba(109, 40, 217, 0.15); /* light violet border */
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
+  --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), color-mix(in srgb, #0d9488 6%, transparent));
 }
 
 
@@ -45,6 +51,66 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Detail page headers layout and dashboard hero with textured gradients */
+.template-detail-container .page-header,
+.experiment-detail-container .page-header,
+.team-detail-container .page-header,
+.dashboard-scrollable-content .page-header {
+  position: relative;
+  overflow: hidden;
+  background-image: var(--accent-gradient);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  /* overflow:hidden zeroes the automatic min-height, so inside the column-flex
+     detail containers the header would shrink and clip its title + actions. */
+  flex-shrink: 0;
+}
+
+.template-detail-container .page-header-left,
+.experiment-detail-container .page-header-left,
+.team-detail-container .page-header-left,
+.dashboard-scrollable-content .page-header-left {
+  min-width: 0;
+}
+
+.template-detail-container .page-header-right,
+.experiment-detail-container .page-header-right,
+.team-detail-container .page-header-right,
+.dashboard-scrollable-content .page-header-right {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.page-header-bg-icon {
+  position: absolute;
+  right: 1rem;
+  bottom: -1rem;
+  opacity: 0.05;
+  pointer-events: none;
+  color: var(--accent);
+}
+
+.header-lab-motif {
+  width: 110px;
+  height: 110px;
 }
 
 #app {
@@ -84,7 +150,7 @@ a {
 }
 
 a:hover {
-  color: #70a5ff;
+  color: #c4b5fd;
 }
 
 /* Scrollbar Styling */
@@ -110,14 +176,29 @@ a:hover {
 .card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.25rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  border-color: var(--accent);
+}
+
+/* Shared helpers — used across list/detail views, so they live globally
+   rather than in a single page's stylesheet. */
+.font-mono {
+  font-family: var(--mono);
+}
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
 }
 
 /* Table styling */
@@ -246,10 +327,15 @@ tr:last-child td {
 .btn-primary {
   background-color: var(--accent);
   color: var(--bg-primary);
+  font-weight: 600;
 }
 
 .btn-primary:hover {
-  background-color: #70a5ff;
+  background-color: var(--accent-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--accent-active);
 }
 
 .btn-secondary {
@@ -259,8 +345,8 @@ tr:last-child td {
 }
 
 .btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.15);
+  background-color: var(--bg-primary);
+  border-color: var(--accent);
 }
 
 .btn-icon {
@@ -276,3 +362,35 @@ tr:last-child td {
   color: var(--text-primary);
   background-color: rgba(255, 255, 255, 0.06);
 }
+
+/* Attractive Select Dropdowns */
+.attractive-select {
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  padding: 0.65rem 1rem !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  cursor: pointer !important;
+  transition: all 0.25s ease !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+  background-image: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-elevated) 100%) !important;
+}
+
+.attractive-select:hover {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 8px rgba(167, 139, 250, 0.25) !important;
+}
+
+.attractive-select:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.35) !important;
+}
+
+.attractive-select option {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+

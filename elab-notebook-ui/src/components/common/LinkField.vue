@@ -18,7 +18,8 @@ const props = defineProps({
   // a server method (e.g. Employee Function, which has no Link to Project)
   searchFn: { type: Function, default: null },
   emptyHint: { type: String, default: 'No matches found' },
-  inputClass: { type: String, default: 'form-control' }
+  inputClass: { type: String, default: 'form-control' },
+  clearable: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['update:modelValue', 'select'])
@@ -28,11 +29,35 @@ const options = ref([])
 const open = ref(false)
 const loading = ref(false)
 const highlighted = ref(-1)
+const inputElement = ref(null)
+const dropdownStyle = ref({})
 
 let debounceTimer = null
 let blurTimer = null
 // Guards against a slow early request overwriting a later keystroke's results.
 let requestSeq = 0
+
+const updateDropdownPosition = () => {
+  if (!inputElement.value || !open.value) return
+
+  const rect = inputElement.value.getBoundingClientRect()
+  dropdownStyle.value = {
+    position: 'fixed',
+    top: (rect.bottom + 4) + 'px',
+    left: rect.left + 'px',
+    width: Math.max(rect.width, 350) + 'px',
+    zIndex: 9999
+  }
+}
+
+watch(open, () => {
+  if (open.value) {
+    setTimeout(updateDropdownPosition, 0)
+    window.addEventListener('scroll', updateDropdownPosition)
+  } else {
+    window.removeEventListener('scroll', updateDropdownPosition)
+  }
+})
 
 watch(
   () => props.modelValue,
@@ -86,6 +111,10 @@ const runSearch = () => {
 const onFocus = () => {
   if (props.disabled) return
   clearTimeout(blurTimer)
+  // Close all other dropdowns by triggering a global event
+  document.querySelectorAll('.link-dropdown').forEach(el => {
+    el.style.display = 'none'
+  })
   open.value = true
   runSearch()
 }
@@ -146,6 +175,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="link-field">
     <input
+      ref="inputElement"
       type="text"
       :class="inputClass"
       :value="query"
@@ -158,31 +188,33 @@ onBeforeUnmount(() => {
       @keydown="onKeydown"
     />
     <button
-      v-if="modelValue && !disabled"
+      v-if="modelValue && !disabled && clearable"
       type="button"
       class="link-clear-btn"
       title="Clear"
       @mousedown.prevent="clear"
     >×</button>
 
-    <ul v-if="open" class="link-dropdown">
-      <li v-if="loading" class="link-option link-option-muted">Searching…</li>
-      <template v-else>
-        <li
-          v-for="(opt, idx) in options"
-          :key="opt.name"
-          class="link-option"
-          :class="{ highlighted: idx === highlighted }"
-          @mousedown.prevent="pick(opt)"
-          @mouseenter="highlighted = idx"
-        >
-          <span class="link-option-name">{{ opt.name }}</span>
-          <span v-if="descriptionField && opt[descriptionField]" class="link-option-desc">
-            {{ opt[descriptionField] }}
-          </span>
-        </li>
-        <li v-if="!options.length" class="link-option link-option-muted">{{ emptyHint }}</li>
-      </template>
-    </ul>
+    <Teleport to="body" v-if="open">
+      <ul class="link-dropdown" :style="dropdownStyle">
+        <li v-if="loading" class="link-option link-option-muted">Searching…</li>
+        <template v-else>
+          <li
+            v-for="(opt, idx) in options"
+            :key="opt.name"
+            class="link-option"
+            :class="{ highlighted: idx === highlighted }"
+            @mousedown.prevent="pick(opt)"
+            @mouseenter="highlighted = idx"
+          >
+            <span class="link-option-name">{{ opt.name }}</span>
+            <span v-if="descriptionField && opt[descriptionField]" class="link-option-desc">
+              {{ opt[descriptionField] }}
+            </span>
+          </li>
+          <li v-if="!options.length" class="link-option link-option-muted">{{ emptyHint }}</li>
+        </template>
+      </ul>
+    </Teleport>
   </div>
 </template>

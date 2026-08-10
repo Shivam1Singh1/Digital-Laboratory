@@ -8,7 +8,7 @@ def get_experiment_templates(filters=None):
         
     templates = frappe.get_all(
         "Experiment Template",
-        fields=["name", "template_name", "title", "category", "version", "status", "modified", "owner"],
+        fields=["name", "template_name", "title", "category", "version", "status", "workflow_state", "employee_function", "modified", "owner", "project"],
         filters=filters
     )
     
@@ -53,6 +53,7 @@ def create_experiment_from_template(template_name, overrides=None):
         "elab_notebook": elab_notebook,
         "department": department,
         "project": project,
+        "employee_function": temp_doc.employee_function,
         "experiment_start_date": start_date,
         "employee_code": lead_code,
         "employee_name": lead_name,

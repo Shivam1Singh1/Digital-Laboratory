@@ -1,0 +1,511 @@
+/* ==========================================================================
+   Entity stats tile — compact enough that four of them fit one screen.
+   Historical trends are lifted into .trends-modal instead of stacking here.
+   ========================================================================== */
+
+.entity-stats-block {
+  padding: 1rem 1.15rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  /* Grid cell owns the height; the tile must not push it open. */
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The shared .card lift would make a locked grid jitter on hover. */
+.entity-stats-block:hover {
+  transform: none;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  border-color: var(--border);
+}
+
+/* Header & Dropdown */
+.block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.6rem;
+  flex-shrink: 0;
+}
+
+.block-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.block-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.month-select {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.25rem 0.5rem;
+  outline: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  max-width: 120px;
+  transition: border-color 0.2s ease;
+}
+
+.month-select:hover {
+  border-color: var(--accent);
+}
+
+.trends-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trends-expand-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.trends-expand-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Body: donut left, status chips right */
+.tile-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tile-chart {
+  position: relative;
+  flex: 0 0 auto;
+  width: 132px;
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-center-text {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.chart-center-number {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.chart-center-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Status chips replace the old full-width summary cards + legend pills */
+.tile-stats {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.stat-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 6px;
+  background-color: var(--chip-bg);
+  border-left: 3px solid var(--chip-color);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.stat-chip-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.stat-chip-status {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.stat-chip-value {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-weight: 700;
+  color: var(--chip-color);
+  white-space: nowrap;
+}
+
+.stat-chip-pct {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Footer: all-time total stays visible whatever the month filter says */
+.tile-footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+  flex-shrink: 0;
+}
+
+.tile-footer-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.tile-footer-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Loading / empty states */
+.tile-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: tile-spin 0.7s linear infinite;
+}
+
+@keyframes tile-spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-chart-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  color: var(--text-muted);
+  gap: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.empty-icon {
+  width: 32px;
+  height: 32px;
+  stroke: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* ==========================================================================
+   Historical trends modal
+   ========================================================================== */
+
+.trends-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.trends-modal {
+  width: min(980px, 100%);
+  max-height: 85vh;
+  overflow-y: auto;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem 1.5rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+.trends-modal-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.trends-close-btn {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trends-close-btn:hover {
+  border-color: var(--danger, #EF4444);
+  color: var(--danger, #EF4444);
+}
+
+/* Data Table — scoped to the modal so the shared .table-container used by the
+   experiment list/detail views keeps its own sizing. */
+.trends-modal .table-container {
+  overflow: auto;
+  max-height: 60vh;
+}
+
+.trends-modal table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.trends-modal th,
+.trends-modal td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.trends-modal th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  user-select: none;
+}
+
+.sortable-header {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sortable-header:hover {
+  color: var(--accent);
+}
+
+.sort-icon {
+  font-size: 0.7rem;
+  opacity: 0.8;
+  margin-left: 0.35rem;
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-elevated);
+}
+
+.cell-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.cell-zero {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.empty-table-cell {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 2rem;
+}
+
+/* Toggler Header & Segment Control */
+.section-tabs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.trend-section-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.view-toggle-buttons {
+  display: flex;
+  background-color: var(--bg-elevated);
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+}
+
+.toggle-btn:hover {
+  color: var(--text-primary);
+}
+
+.toggle-btn.active {
+  background-color: var(--bg-surface);
+  color: var(--accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.toggle-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* Bar Chart View wrapper */
+.bar-chart-view-wrapper {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  height: 340px;
+  box-sizing: border-box;
+}
+
+.bar-chart-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Narrower viewports: stack donut above chips so nothing is squeezed */
+@media (max-width: 1280px) {
+  .tile-chart {
+    width: 112px;
+    height: 112px;
+  }
+
+  .chart-center-number {
+    font-size: 1.35rem;
+  }
+}
+
+/* Short viewports: shrink the donut before the tile starts clipping it */
+@media (max-height: 800px) {
+  .tile-chart {
+    width: 104px;
+    height: 104px;
+  }
+
+  .chart-center-number {
+    font-size: 1.2rem;
+  }
+
+  .chart-center-label {
+    font-size: 0.6rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .tile-body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .tile-chart {
+    align-self: center;
+  }
+
+  .tile-stats {
+    align-self: auto;
+    max-height: 140px;
+  }
+}

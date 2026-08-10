@@ -20,6 +20,22 @@ export const useUserStore = defineStore('user', () => {
 
   const theme = ref(localStorage.getItem('theme') || 'dark')
 
+  const createModalOpen = ref(false)
+  const createModalProject = ref('')
+  const createModalEmployeeFunction = ref('')
+
+  const openCreateExperimentModal = (proj = '', empFunc = '') => {
+    createModalProject.value = proj
+    createModalEmployeeFunction.value = empFunc
+    createModalOpen.value = true
+  }
+
+  const closeCreateExperimentModal = () => {
+    createModalOpen.value = false
+    createModalProject.value = ''
+    createModalEmployeeFunction.value = ''
+  }
+
   const setTheme = (newTheme) => {
     theme.value = newTheme
     localStorage.setItem('theme', newTheme)
@@ -87,6 +103,11 @@ export const useUserStore = defineStore('user', () => {
     employeeScope,
     theme,
     setTheme,
+    createModalOpen,
+    createModalProject,
+    createModalEmployeeFunction,
+    openCreateExperimentModal,
+    closeCreateExperimentModal,
     fetchUserProfile,
     fetchEmployeeScope,
     setProject

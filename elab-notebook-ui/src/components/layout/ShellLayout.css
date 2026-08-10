@@ -111,14 +111,57 @@
 }
 
 .nav-item.active {
-  background-color: rgba(76, 141, 255, 0.15);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
   font-weight: 600;
+  border-left: 3px solid var(--accent);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
 .nav-icon {
   width: 18px;
   height: 18px;
+}
+
+.sidebar-item-with-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.sidebar-item-with-action .nav-item {
+  flex: 1;
+  padding-right: 2.2rem;
+}
+
+.sidebar-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  font-weight: 400;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: absolute;
+  right: 6px;
+  transition: all 0.2s ease;
+  line-height: 1;
+}
+
+.sidebar-action-btn:hover {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.sidebar-collapsed .sidebar-action-btn {
+  display: none;
 }
 
 .ml-auto {
