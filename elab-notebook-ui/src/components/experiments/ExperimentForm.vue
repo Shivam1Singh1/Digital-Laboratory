@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
@@ -20,6 +20,21 @@ const error = ref('')
 
 const activeTab = ref('general')
 
+// Available items for dropdowns
+const availableMaterials = ref([])
+const availableEquipment = ref([])
+const availableMethods = ref([])
+
+// Search states for each row
+const materialSearchStates = ref({})
+const equipmentSearchStates = ref({})
+
+// Check if experiment is from template - makes template-sourced fields read-only
+const isFromTemplate = computed(() => !!experiment.value.experiment_template)
+
+const projectName = ref('')
+const employeeFunctionName = ref('')
+
 const experiment = ref({
   title: '',
   project: project.value,
@@ -30,14 +45,14 @@ const experiment = ref({
   sub_aim: '',
   rationale: '',
   remark: '',
-  experiment_start_date: new Date().toISOString().split('T')[0],
+  experiment_start_date: new Date().toISOString().slice(0, 16),
   experiment_end_date: '',
   employee_code: userStore.user.name,
   employee_name: userStore.user.full_name,
-  
+
   segment: '',
   cost_center: '',
-  
+
   // Child tables
   experiment_ingredients: [],
   experiment_parameters: [],
@@ -74,7 +89,8 @@ const loadTemplate = async () => {
         default_quantity: ing.default_quantity,
         unit: ing.unit,
         concentration: ing.concentration,
-        supplier: ing.supplier
+        supplier: ing.supplier,
+        from_template: true
       }))
     }
     
@@ -99,7 +115,8 @@ const loadTemplate = async () => {
         duration: s.duration,
         equipment: s.equipment,
         operator_role: s.operator_role,
-        checklist_items: s.checklist_items
+        checklist_items: s.checklist_items,
+        from_template: true
       }))
     }
     
@@ -118,15 +135,17 @@ const loadTemplate = async () => {
       experiment.value.equipment_details = doc.equipment_details.map(e => ({
         equipment_name: e.equipment_name,
         equipment_id: e.equipment_id,
-        remarks: e.remarks
+        remarks: e.remarks,
+        from_template: true
       }))
     }
-    
+
     // Map methodology
     if (doc.methodology) {
       experiment.value.methodology = doc.methodology.map(m => ({
         method: m.method,
-        time_to_complete: m.time_to_complete
+        time_to_complete: m.time_to_complete,
+        from_template: true
       }))
     }
   } catch (err) {
@@ -143,35 +162,62 @@ const addMaterial = () => {
     item_code: '',
     item_name: '',
     uom: '',
-    qty: 1
+    qty: 1,
+    added_on: new Date().toISOString(),
+    added_by: userStore.user.full_name || userStore.user.name
   })
 }
 
 const removeMaterial = (index) => {
+  const isTemplate = experiment.value.material_required[index]?.from_template
+  console.log('removeMaterial called - index:', index, 'from_template:', isTemplate)
+  if (isTemplate) {
+    console.warn('Cannot delete template-sourced material')
+    return
+  }
   experiment.value.material_required.splice(index, 1)
+  console.log('Material removed')
 }
 
 const addEquipment = () => {
   experiment.value.equipment_details.push({
     equipment_name: '',
     equipment_id: '',
-    remarks: ''
+    remarks: '',
+    added_on: new Date().toISOString(),
+    added_by: userStore.user.full_name || userStore.user.name
   })
 }
 
 const removeEquipment = (index) => {
+  const isTemplate = experiment.value.equipment_details[index]?.from_template
+  console.log('removeEquipment called - index:', index, 'from_template:', isTemplate)
+  if (isTemplate) {
+    console.warn('Cannot delete template-sourced equipment')
+    return
+  }
   experiment.value.equipment_details.splice(index, 1)
+  console.log('Equipment removed')
 }
 
 const addMethod = () => {
   experiment.value.methodology.push({
     method: '',
-    time_to_complete: 0
+    time_to_complete: 0,
+    added_on: new Date().toISOString(),
+    added_by: userStore.user.full_name || userStore.user.name
   })
 }
 
 const removeMethod = (index) => {
+  const isTemplate = experiment.value.methodology[index]?.from_template
+  console.log('removeMethod called - index:', index, 'from_template:', isTemplate)
+  if (isTemplate) {
+    console.warn('Cannot delete template-sourced method')
+    return
+  }
   experiment.value.methodology.splice(index, 1)
+  console.log('Method removed')
 }
 
 const saveExperiment = async () => {
@@ -197,6 +243,46 @@ const saveExperiment = async () => {
   }
 }
 
+const loadProjectAndFunctionNames = async () => {
+  try {
+    if (project.value) {
+      const projRes = await axios.get(`/api/resource/Project/${project.value}`)
+      projectName.value = projRes.data.data?.project_name || project.value
+    }
+    if (employeeFunction.value) {
+      const funcRes = await axios.get(`/api/resource/Employee Function/${employeeFunction.value}`)
+      employeeFunctionName.value = funcRes.data.data?.function_name || employeeFunction.value
+    }
+  } catch (err) {
+    console.error('Failed to load project/function names:', err)
+  }
+}
+
+const loadAvailableItems = async () => {
+  try {
+    // Load available items from Item doctype
+    const itemsRes = await axios.get('/api/resource/Item?fields=["name","item_name","uom"]&limit_page_length=500')
+    availableMaterials.value = itemsRes.data.data || []
+
+    // Load available equipment from Item doctype with item_group = Equipment
+    const equipmentRes = await axios.get('/api/resource/Item?filters=[["item_group","=","Equipment"]]&fields=["name","item_name","uom"]&limit_page_length=500')
+    availableEquipment.value = equipmentRes.data.data || []
+  } catch (err) {
+    console.error('Failed to load available items:', err)
+  }
+}
+
+const selectMaterial = (mat, item) => {
+  mat.item_code = item.name
+  mat.item_name = item.item_name || item.name
+  mat.uom = item.uom || ''
+}
+
+const selectEquipment = (eq, item) => {
+  eq.equipment_id = item.name
+  eq.equipment_name = item.item_name || item.name
+}
+
 const loadTeamFinancials = async () => {
   if (!project.value || !employeeFunction.value) return
   try {
@@ -217,6 +303,8 @@ const loadTeamFinancials = async () => {
 onMounted(() => {
   loadTemplate()
   loadTeamFinancials()
+  loadProjectAndFunctionNames()
+  loadAvailableItems()
 })
 </script>
 
@@ -258,16 +346,16 @@ onMounted(() => {
     <div v-else class="form-layout card">
       <!-- Tabs Selector -->
       <div class="form-tabs-row">
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'general' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'general' }"
           @click="activeTab = 'general'"
         >
           General/Template
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'materials' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'materials' }"
           @click="activeTab = 'materials'"
         >
           Material Required
@@ -309,13 +397,26 @@ onMounted(() => {
           <div class="pane-grid">
             <div class="form-group">
               <label class="form-label">Run Title *</label>
-              <input type="text" v-model="experiment.title" class="form-control" placeholder="Enter a name for this run..." required />
+              <input
+                type="text"
+                v-model="experiment.title"
+                class="form-control"
+                :readonly="isFromTemplate"
+                :class="{ readonly: isFromTemplate }"
+                placeholder="Enter a name for this run..."
+                required
+              />
             </div>
 
-            <div class="form-group-row">
+            <!-- Project Details Row -->
+            <div class="form-group-row three-columns">
               <div class="form-group">
-                <label class="form-label">Project</label>
+                <label class="form-label">Project ID</label>
                 <input type="text" :value="experiment.project" class="form-control readonly" readonly />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Project Name</label>
+                <input type="text" :value="projectName || 'N/A'" class="form-control readonly" readonly />
               </div>
               <div class="form-group">
                 <label class="form-label">Employee Function</label>
@@ -323,7 +424,22 @@ onMounted(() => {
               </div>
             </div>
 
-            <div class="form-group-row">
+            <div class="form-group-row three-columns">
+              <div class="form-group">
+                <label class="form-label">Function Name</label>
+                <input type="text" :value="employeeFunctionName || 'N/A'" class="form-control readonly" readonly />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Scientist (Lead)</label>
+                <input type="text" :value="experiment.employee_name" class="form-control readonly" readonly />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Start Date & Time</label>
+                <input type="datetime-local" :value="experiment.experiment_start_date" class="form-control readonly" readonly />
+              </div>
+            </div>
+
+            <div class="form-group-row two-columns">
               <div class="form-group">
                 <label class="form-label">Segment</label>
                 <input type="text" :value="experiment.segment || 'None'" class="form-control readonly" readonly />
@@ -334,30 +450,56 @@ onMounted(() => {
               </div>
             </div>
 
-            <div class="form-group-row">
-              <div class="form-group">
-                <label class="form-label">Scientist (Lead)</label>
-                <input type="text" :value="experiment.employee_name" class="form-control readonly" readonly />
+            <!-- Template Details Section -->
+            <div v-if="experiment.aim || experiment.sub_aim || experiment.rationale" class="template-details-section">
+              <div v-if="experiment.aim" class="form-group">
+                <label class="form-label">Aim / Hypothesis</label>
+                <textarea class="form-control readonly" :value="experiment.aim" readonly rows="2"></textarea>
               </div>
-              <div class="form-group">
-                <label class="form-label">Start Date</label>
-                <input type="date" v-model="experiment.experiment_start_date" class="form-control" />
+              <div v-if="experiment.sub_aim" class="form-group">
+                <label class="form-label">Sub Aim</label>
+                <textarea class="form-control readonly" :value="experiment.sub_aim" readonly rows="2"></textarea>
+              </div>
+              <div v-if="experiment.rationale" class="form-group">
+                <label class="form-label">Rationale</label>
+                <textarea class="form-control readonly" :value="experiment.rationale" readonly rows="2"></textarea>
               </div>
             </div>
 
             <div class="form-group">
               <label class="form-label">Aim / Hypothesis *</label>
-              <input type="text" v-model="experiment.aim" class="form-control" placeholder="Aim of the experiment..." />
+              <textarea
+                :value="experiment.aim"
+                class="form-control textarea"
+                :readonly="isFromTemplate"
+                :class="{ readonly: isFromTemplate }"
+                rows="3"
+                placeholder="Aim of the experiment..."
+              ></textarea>
             </div>
 
             <div class="form-group">
               <label class="form-label">Sub Aim</label>
-              <input type="text" v-model="experiment.sub_aim" class="form-control" placeholder="Sub-aim (optional)..." />
+              <textarea
+                :value="experiment.sub_aim"
+                class="form-control textarea"
+                :readonly="isFromTemplate"
+                :class="{ readonly: isFromTemplate }"
+                rows="2"
+                placeholder="Sub-aim (optional)..."
+              ></textarea>
             </div>
 
             <div class="form-group">
               <label class="form-label">Rationale</label>
-              <textarea v-model="experiment.rationale" class="form-control textarea" rows="4" placeholder="Hypothesis rationale..."></textarea>
+              <textarea
+                :value="experiment.rationale"
+                class="form-control textarea"
+                :readonly="isFromTemplate"
+                :class="{ readonly: isFromTemplate }"
+                rows="3"
+                placeholder="Hypothesis rationale..."
+              ></textarea>
             </div>
           </div>
         </div>
@@ -366,7 +508,7 @@ onMounted(() => {
         <div v-if="activeTab === 'materials'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Required Formulation Ingredients</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMaterial">+ Add Material</button>
+            <button class="btn btn-secondary btn-sm" @click="addMaterial" :disabled="isFromTemplate" :title="isFromTemplate ? 'Cannot add materials to template-based experiments' : ''">+ Add Material</button>
           </div>
 
           <div class="table-container">
@@ -381,23 +523,58 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(mat, idx) in experiment.material_required" :key="idx">
-                  <td>
-                    <input type="text" v-model="mat.item_code" class="form-control table-input" placeholder="e.g. CHEM-001" />
-                  </td>
-                  <td>
-                    <input type="text" v-model="mat.item_name" class="form-control table-input" placeholder="Item Description" />
-                  </td>
-                  <td>
-                    <input type="text" v-model="mat.uom" class="form-control table-input" placeholder="e.g. L, mL, mg" />
-                  </td>
-                  <td>
-                    <input type="number" v-model="mat.qty" class="form-control table-input" min="0" step="any" />
-                  </td>
-                  <td>
-                    <button class="delete-row-btn" @click="removeMaterial(idx)" title="Remove item">×</button>
-                  </td>
-                </tr>
+                <template v-for="(mat, idx) in experiment.material_required" :key="idx">
+                  <tr :class="{ 'template-row': mat.from_template }">
+                    <td>
+                      <div v-if="!mat.from_template" class="search-field-wrapper" :style="{ position: 'relative' }">
+                        <input
+                          type="text"
+                          :value="materialSearchStates[idx]?.search || mat.item_code"
+                          @input="(e) => {
+                            if(!materialSearchStates[idx]) materialSearchStates[idx] = {};
+                            materialSearchStates[idx].search = e.target.value;
+                            materialSearchStates[idx].showDropdown = true;
+                          }"
+                          @focus="() => { if(!materialSearchStates[idx]) materialSearchStates[idx] = {}; materialSearchStates[idx].showDropdown = true; }"
+                          @blur="() => setTimeout(() => { if(materialSearchStates[idx]) materialSearchStates[idx].showDropdown = false; }, 200)"
+                          class="form-control table-input search-input"
+                          placeholder="Search item..."
+                          style="position: relative; z-index: 100;"
+                        />
+                        <div v-if="materialSearchStates[idx]?.showDropdown" class="item-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: 2px;">
+                          <div
+                            v-for="item in availableMaterials.filter(m => !materialSearchStates[idx]?.search || m.name.toLowerCase().includes(materialSearchStates[idx].search.toLowerCase()) || m.item_name.toLowerCase().includes(materialSearchStates[idx].search.toLowerCase()))"
+                            :key="item.name"
+                            @mousedown="() => { mat.item_code = item.name; mat.item_name = item.item_name; mat.uom = item.uom || ''; materialSearchStates[idx].search = item.name; materialSearchStates[idx].showDropdown = false; }"
+                            class="dropdown-item"
+                          >
+                            <strong>{{ item.name }}</strong><br>
+                            <small>{{ item.item_name }}</small>
+                          </div>
+                        </div>
+                      </div>
+                      <input v-else type="text" :value="mat.item_code" class="form-control table-input readonly" readonly />
+                    </td>
+                    <td>
+                      <input type="text" v-model="mat.item_name" class="form-control table-input" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" placeholder="Item Description" />
+                    </td>
+                    <td>
+                      <input type="text" v-model="mat.uom" class="form-control table-input" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" placeholder="e.g. L, mL, mg" />
+                    </td>
+                    <td>
+                      <input type="number" v-model="mat.qty" class="form-control table-input" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" min="0" step="any" />
+                    </td>
+                    <td>
+                      <button v-if="!mat.from_template" class="delete-row-btn" @click="removeMaterial(idx)" title="Remove item">×</button>
+                    </td>
+                  </tr>
+                  <!-- History for newly added items -->
+                  <tr v-if="!mat.from_template && mat.added_on" class="history-row">
+                    <td colspan="5" class="history-cell">
+                      Added on {{ new Date(mat.added_on).toLocaleString() }} by {{ mat.added_by }}
+                    </td>
+                  </tr>
+                </template>
                 <tr v-if="experiment.material_required.length === 0">
                   <td colspan="5" class="empty-table-cell">No materials required for this run. Click '+ Add Material' to insert.</td>
                 </tr>
@@ -410,7 +587,7 @@ onMounted(() => {
         <div v-if="activeTab === 'equipment'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
-            <button class="btn btn-secondary btn-sm" @click="addEquipment">+ Add Equipment</button>
+            <button class="btn btn-secondary btn-sm" @click="addEquipment" :disabled="isFromTemplate" :title="isFromTemplate ? 'Cannot add equipment to template-based experiments' : ''">+ Add Equipment</button>
           </div>
 
           <div class="table-container">
@@ -424,20 +601,55 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(eq, idx) in experiment.equipment_details" :key="idx">
-                  <td>
-                    <input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="e.g. Centrifuge" />
-                  </td>
-                  <td>
-                    <input type="text" v-model="eq.equipment_id" class="form-control table-input" placeholder="e.g. DEV-0089" />
-                  </td>
-                  <td>
-                    <input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="Allocation comments..." />
-                  </td>
-                  <td>
-                    <button class="delete-row-btn" @click="removeEquipment(idx)">×</button>
-                  </td>
-                </tr>
+                <template v-for="(eq, idx) in experiment.equipment_details" :key="idx">
+                  <tr :class="{ 'template-row': eq.from_template }">
+                    <td>
+                      <input type="text" v-model="eq.equipment_name" class="form-control table-input" :readonly="eq.from_template" :class="{ readonly: eq.from_template }" placeholder="Equipment Name" />
+                    </td>
+                    <td>
+                      <div v-if="!eq.from_template" class="search-field-wrapper" :style="{ position: 'relative' }">
+                        <input
+                          type="text"
+                          :value="equipmentSearchStates[idx]?.search || eq.equipment_id"
+                          @input="(e) => {
+                            if(!equipmentSearchStates[idx]) equipmentSearchStates[idx] = {};
+                            equipmentSearchStates[idx].search = e.target.value;
+                            equipmentSearchStates[idx].showDropdown = true;
+                          }"
+                          @focus="() => { if(!equipmentSearchStates[idx]) equipmentSearchStates[idx] = {}; equipmentSearchStates[idx].showDropdown = true; }"
+                          @blur="() => setTimeout(() => { if(equipmentSearchStates[idx]) equipmentSearchStates[idx].showDropdown = false; }, 200)"
+                          class="form-control table-input search-input"
+                          placeholder="Search equipment..."
+                          style="position: relative; z-index: 100;"
+                        />
+                        <div v-if="equipmentSearchStates[idx]?.showDropdown" class="item-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; margin-top: 2px;">
+                          <div
+                            v-for="item in availableEquipment.filter(eq => !equipmentSearchStates[idx]?.search || eq.name.toLowerCase().includes(equipmentSearchStates[idx].search.toLowerCase()) || eq.item_name.toLowerCase().includes(equipmentSearchStates[idx].search.toLowerCase()))"
+                            :key="item.name"
+                            @mousedown="() => { eq.equipment_id = item.name; eq.equipment_name = item.item_name; equipmentSearchStates[idx].search = item.name; equipmentSearchStates[idx].showDropdown = false; }"
+                            class="dropdown-item"
+                          >
+                            <strong>{{ item.name }}</strong><br>
+                            <small>{{ item.item_name }}</small>
+                          </div>
+                        </div>
+                      </div>
+                      <input v-else type="text" :value="eq.equipment_id" class="form-control table-input readonly" readonly />
+                    </td>
+                    <td>
+                      <input type="text" v-model="eq.remarks" class="form-control table-input" :readonly="eq.from_template" :class="{ readonly: eq.from_template }" placeholder="Allocation comments..." />
+                    </td>
+                    <td>
+                      <button v-if="!eq.from_template" class="delete-row-btn" @click="removeEquipment(idx)">×</button>
+                    </td>
+                  </tr>
+                  <!-- History for newly added items -->
+                  <tr v-if="!eq.from_template && eq.added_on" class="history-row">
+                    <td colspan="4" class="history-cell">
+                      Added on {{ new Date(eq.added_on).toLocaleString() }} by {{ eq.added_by }}
+                    </td>
+                  </tr>
+                </template>
                 <tr v-if="experiment.equipment_details.length === 0">
                   <td colspan="4" class="empty-table-cell">No equipment allocated.</td>
                 </tr>
@@ -450,7 +662,7 @@ onMounted(() => {
         <div v-if="activeTab === 'methodology'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMethod">+ Add Method</button>
+            <button class="btn btn-secondary btn-sm" @click="addMethod" :disabled="isFromTemplate" :title="isFromTemplate ? 'Cannot add methodology to template-based experiments' : ''">+ Add Method</button>
           </div>
 
           <div class="table-container">
@@ -463,17 +675,25 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(meth, idx) in experiment.methodology" :key="idx">
-                  <td>
-                    <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" />
-                  </td>
-                  <td>
-                    <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" />
-                  </td>
-                  <td>
-                    <button class="delete-row-btn" @click="removeMethod(idx)">×</button>
-                  </td>
-                </tr>
+                <template v-for="(meth, idx) in experiment.methodology" :key="idx">
+                  <tr :class="{ 'template-row': meth.from_template }">
+                    <td>
+                      <input type="text" v-model="meth.method" class="form-control table-input" :readonly="meth.from_template" :class="{ readonly: meth.from_template }" placeholder="e.g. HPLC separation" />
+                    </td>
+                    <td>
+                      <input type="number" v-model="meth.time_to_complete" class="form-control table-input" :readonly="meth.from_template" :class="{ readonly: meth.from_template }" min="0" />
+                    </td>
+                    <td>
+                      <button v-if="!meth.from_template" class="delete-row-btn" @click="removeMethod(idx)">×</button>
+                    </td>
+                  </tr>
+                  <!-- History for newly added items -->
+                  <tr v-if="!meth.from_template && meth.added_on" class="history-row">
+                    <td colspan="3" class="history-cell">
+                      Added on {{ new Date(meth.added_on).toLocaleString() }} by {{ meth.added_by }}
+                    </td>
+                  </tr>
+                </template>
                 <tr v-if="experiment.methodology.length === 0">
                   <td colspan="3" class="empty-table-cell">No specific methodology steps.</td>
                 </tr>
