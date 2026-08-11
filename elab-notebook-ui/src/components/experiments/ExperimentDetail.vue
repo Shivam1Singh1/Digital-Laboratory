@@ -277,6 +277,14 @@ const removeMethod = (index) => {
   experiment.value.methodology.splice(index, 1)
 }
 
+const removeMaterial = (index) => {
+  experiment.value.material_required.splice(index, 1)
+}
+
+const removeEquipment = (index) => {
+  experiment.value.equipment_details.splice(index, 1)
+}
+
 // Format field names to readable strings
 const formatFieldName = (name) => {
   return name
@@ -671,8 +679,11 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 2. MATERIALS TAB (READ ONLY Reference) -->
+        <!-- 2. MATERIALS TAB (EDITABLE with delete) -->
         <div v-if="activeTab === 'materials'" class="tab-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ This experiment is locked. Only System Managers can edit materials in this state.
+          </div>
           <h3 class="pane-subtitle">Formulation Ingredients</h3>
           <div class="table-container">
             <table>
@@ -682,6 +693,7 @@ onMounted(() => {
                   <th>Item Name</th>
                   <th>UOM</th>
                   <th>Qty Required</th>
+                  <th class="actions-col"></th>
                 </tr>
               </thead>
               <tbody>
@@ -689,18 +701,22 @@ onMounted(() => {
                   <td class="font-mono text-accent">{{ mat.item_code }}</td>
                   <td>{{ mat.item_name }}</td>
                   <td>{{ mat.uom }}</td>
-                  <td><strong>{{ mat.qty }}</strong></td>
+                  <td><input type="number" v-model="mat.qty" class="form-control table-input" min="0" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td><button class="delete-row-btn" @click="removeMaterial(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete material'">×</button></td>
                 </tr>
                 <tr v-if="!experiment.material_required || experiment.material_required.length === 0">
-                  <td colspan="4" class="empty-table-cell">No materials required for this run.</td>
+                  <td colspan="5" class="empty-table-cell">No materials required for this run.</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- 3. EQUIPMENT TAB (READ ONLY Reference) -->
+        <!-- 3. EQUIPMENT TAB (EDITABLE with delete) -->
         <div v-if="activeTab === 'equipment'" class="tab-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ This experiment is locked. Only System Managers can edit equipment in this state.
+          </div>
           <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
           <div class="table-container">
             <table>
@@ -709,16 +725,18 @@ onMounted(() => {
                   <th>Equipment Name</th>
                   <th>Equipment ID</th>
                   <th>Remarks / Allocation</th>
+                  <th class="actions-col"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(eq, idx) in experiment.equipment_details" :key="idx">
-                  <td>{{ eq.equipment_name }}</td>
-                  <td class="font-mono">{{ eq.equipment_id }}</td>
-                  <td>{{ eq.remarks }}</td>
+                  <td><input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="e.g. HPLC Machine" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td class="font-mono"><input type="text" v-model="eq.equipment_id" class="form-control table-input" placeholder="e.g. HPLC-001" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td><input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="e.g. Reserved for 9am session" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td><button class="delete-row-btn" @click="removeEquipment(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete equipment'">×</button></td>
                 </tr>
                 <tr v-if="!experiment.equipment_details || experiment.equipment_details.length === 0">
-                  <td colspan="3" class="empty-table-cell">No equipment allocated.</td>
+                  <td colspan="4" class="empty-table-cell">No equipment allocated.</td>
                 </tr>
               </tbody>
             </table>
