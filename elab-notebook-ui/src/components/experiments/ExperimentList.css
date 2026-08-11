@@ -14,6 +14,8 @@
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 8px;
+  height: auto;
+  flex-shrink: 0;
 }
 
 .filter-group {
@@ -111,6 +113,31 @@
 
 .mt-3 {
   margin-top: 0.75rem;
+}
+
+.list-layout {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.list-layout.card {
+  padding: 0;
+}
+
+.list-layout .table-container {
+  width: calc(100% - 3rem);
+  margin: 1.5rem;
+  overflow-x: auto;
+  border: none;
+  border-radius: 0;
+  flex: 1;
+}
+
+.list-layout table {
+  width: 100%;
+  table-layout: fixed;
+  min-width: 750px;
 }
 
 /* Specific Workflow State Color Mappings */
