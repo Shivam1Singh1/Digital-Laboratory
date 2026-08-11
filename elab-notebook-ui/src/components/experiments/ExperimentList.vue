@@ -95,7 +95,7 @@ onMounted(() => {
       <div class="page-header-right">
         <button class="btn btn-primary" @click="userStore.openCreateExperimentModal()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          + New Experiment
+          New Experiment
         </button>
       </div>
     </div>
