@@ -344,6 +344,39 @@
   opacity: 0.7;
 }
 
+/* A field that carries a record id and opens it. Sits in the same box as the readonly
+   inputs beside it, but stays clearly actionable rather than dimmed like they are. */
+.form-control.link-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background-color: var(--bg-elevated);
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-control.link-value:hover {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 10%, var(--bg-elevated));
+}
+
+.link-value-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-value-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
 /* Disabled form fields when workflow is locked */
 .form-control:disabled,
 .form-control[readonly] {

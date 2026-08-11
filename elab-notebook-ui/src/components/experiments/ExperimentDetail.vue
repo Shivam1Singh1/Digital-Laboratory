@@ -18,6 +18,15 @@ const successMessage = ref('')
 
 const activeTab = ref('general')
 const experiment = ref(null)
+
+// The experiment's id is generated from its notebook, so the notebook is the natural
+// parent to jump to. This app has no ELab Notebook page of its own - /elab-notebook/:id
+// renders Experiment Team - so the link opens the Frappe desk form for the record.
+const notebookUrl = computed(() =>
+  experiment.value?.elab_notebook
+    ? `/app/elab-notebook/${encodeURIComponent(experiment.value.elab_notebook)}`
+    : ''
+)
 const historyList = ref([])
 const completedSteps = ref({})
 
@@ -631,12 +640,38 @@ onMounted(() => {
           <div class="pane-grid">
             <div class="form-group-row">
               <div class="form-group">
+                <label class="form-label">ELab Notebook</label>
+                <a
+                  v-if="experiment.elab_notebook"
+                  :href="notebookUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="form-control link-value"
+                  :title="`Open ${experiment.elab_notebook}`"
+                >
+                  <span class="link-value-text">{{ experiment.elab_notebook }}</span>
+                  <svg class="link-value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
+                <input v-else type="text" value="None" class="form-control readonly" readonly />
+              </div>
+              <div class="form-group">
                 <label class="form-label">Project</label>
                 <input type="text" :value="experiment.project" class="form-control readonly" readonly />
               </div>
+            </div>
+
+            <div class="form-group-row">
               <div class="form-group">
                 <label class="form-label">Employee Function</label>
                 <input type="text" :value="experiment.employee_function" class="form-control readonly" readonly />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Template</label>
+                <input type="text" :value="experiment.template || 'None'" class="form-control readonly" readonly />
               </div>
             </div>
 
