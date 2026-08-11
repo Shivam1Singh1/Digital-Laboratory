@@ -260,3 +260,107 @@
   border-radius: 4px;
 }
 
+/* Workflow State Badges */
+.workflow-state-badge {
+  display: inline-block;
+  padding: 0.3rem 0.75rem;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid;
+}
+
+.state-draft {
+  background-color: rgba(107, 114, 128, 0.12);
+  color: #6B7280;
+  border-color: rgba(107, 114, 128, 0.25);
+}
+
+.state-saved {
+  background-color: rgba(107, 114, 128, 0.12);
+  color: #6B7280;
+  border-color: rgba(107, 114, 128, 0.25);
+}
+
+.state-running {
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #3B82F6;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.state-completed {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.state-pending {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #F59E0B;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.state-approved {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #10B981;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.state-rejected {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #EF4444;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+/* Workflow Action Buttons */
+.btn-workflow {
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+.workflow-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent);
+  border-top: 2px solid transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Read-only field styling */
+.form-control.readonly,
+.readonly-textarea {
+  background-color: var(--bg-elevated);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Disabled form fields when workflow is locked */
+.form-control:disabled,
+.form-control[readonly] {
+  background-color: var(--bg-elevated);
+  cursor: not-allowed;
+}
+
+/* Workflow state change timeline items */
+.timeline-item.workflow-change {
+  border-left: 3px solid var(--accent);
+  padding-left: 0.75rem;
+}
+
+.workflow-change-icon {
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+

@@ -114,6 +114,9 @@ const getWorkflowStateClass = (state) => {
   if (s.includes('approved')) return 'state-approved'
   if (s.includes('rejected')) return 'state-rejected'
   if (s.includes('pending')) return 'state-pending'
+  if (s.includes('running')) return 'state-running'
+  if (s.includes('completed')) return 'state-completed'
+  if (s.includes('saved')) return 'state-saved'
   return 'state-draft'
 }
 
@@ -121,9 +124,27 @@ const getWorkflowActionClass = (action) => {
   const act = action.toLowerCase()
   if (act.includes('approve')) return 'btn-success'
   if (act.includes('reject')) return 'btn-danger'
-  if (act.includes('correction') || act.includes('back')) return 'btn-warning'
+  if (act.includes('correction') || act.includes('back') || act.includes('resubmit')) return 'btn-warning'
   return 'btn-primary'
 }
+
+// Check if workflow state is locked (Approved or Rejected)
+const isWorkflowLocked = () => {
+  if (!experiment.value) return false
+  const state = experiment.value.workflow_state || ''
+  const s = state.toLowerCase()
+  return s.includes('approved') || s.includes('rejected')
+}
+
+// Check if current user is System Manager
+const isSystemManager = computed(() => {
+  return userStore.user?.roles?.includes('System Manager') || false
+})
+
+// Check if user can edit locked fields
+const canEditLockedFields = computed(() => {
+  return !isWorkflowLocked() || isSystemManager.value
+})
 
 const submitSample = async (sample) => {
   submittingSampleId.value = sample.name
@@ -193,9 +214,17 @@ const loadHistory = async () => {
       } catch (e) {
         console.error('Failed to parse version data', e)
       }
+
+      // Check if this is a workflow state change
+      const isWorkflowChange = parsedData.changed && parsedData.changed.some(change => change[0] === 'workflow_state')
+
       return {
         ...ver,
-        parsedData
+        parsedData,
+        isWorkflowChange,
+        workflowStateChange: isWorkflowChange && parsedData.changed
+          ? parsedData.changed.find(change => change[0] === 'workflow_state')
+          : null
       }
     })
   } catch (err) {
@@ -658,9 +687,12 @@ onMounted(() => {
 
         <!-- 4. METHODOLOGY TAB (EDITABLE) -->
         <div v-if="activeTab === 'methodology'" class="tab-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ This experiment is locked. Only System Managers can edit fields in this state.
+          </div>
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology (Execution Steps)</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMethod">+ Add Method</button>
+            <button class="btn btn-secondary btn-sm" @click="addMethod" :disabled="isWorkflowLocked() && !isSystemManager">+ Add Method</button>
           </div>
 
           <div class="table-container">
@@ -675,13 +707,13 @@ onMounted(() => {
               <tbody>
                 <tr v-for="(meth, idx) in experiment.methodology" :key="idx">
                   <td>
-                    <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" />
+                    <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" :disabled="isWorkflowLocked() && !isSystemManager" />
                   </td>
                   <td>
-                    <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" />
+                    <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" :disabled="isWorkflowLocked() && !isSystemManager" />
                   </td>
                   <td>
-                    <button class="delete-row-btn" @click="removeMethod(idx)">×</button>
+                    <button class="delete-row-btn" @click="removeMethod(idx)" :disabled="isWorkflowLocked() && !isSystemManager">×</button>
                   </td>
                 </tr>
                 <tr v-if="experiment.methodology.length === 0">
@@ -734,10 +766,13 @@ onMounted(() => {
 
         <!-- 6. OBSERVATION TAB (EDITABLE) -->
         <div v-if="activeTab === 'observations'" class="tab-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ This experiment is locked. Only System Managers can edit observations in this state.
+          </div>
           <section class="meta-card">
             <h3 class="pane-subtitle">Observation Comments</h3>
             <div class="form-group stacked-field">
-              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" />
+              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" :readonly="isWorkflowLocked() && !isSystemManager" />
             </div>
           </section>
         </div>
@@ -747,19 +782,28 @@ onMounted(() => {
           <h3 class="pane-subtitle">Change History Audit Log</h3>
           
           <div class="history-timeline">
-            <div v-for="ver in historyList" :key="ver.name" class="timeline-item">
+            <div v-for="ver in historyList" :key="ver.name" class="timeline-item" :class="{ 'workflow-change': ver.isWorkflowChange }">
               <div class="timeline-dot"></div>
-              <div class="timeline-content">
+              <div class="timeline-content" :style="ver.isWorkflowChange ? { borderLeft: '3px solid var(--accent)' } : {}">
                 <div class="timeline-header">
                   <span class="timeline-author"><strong>{{ ver.owner }}</strong></span>
                   <span class="timeline-time">{{ formatTimestamp(ver.creation) }}</span>
                 </div>
-                
-                <!-- If fields changed -->
+
+                <!-- Workflow state changes highlighted -->
+                <div v-if="ver.isWorkflowChange" style="padding: 0.5rem 0.75rem; background-color: var(--bg-surface); border-radius: 4px; margin: 0.25rem 0;">
+                  <span style="font-weight: 600; color: var(--accent);">⚡ Workflow State Changed:</span>
+                  <br />
+                  <span style="color: var(--text-muted);">{{ ver.workflowStateChange[1] || 'Draft' }}</span>
+                  <span style="color: var(--text-muted);">→</span>
+                  <span style="color: var(--success); font-weight: 600;">{{ ver.workflowStateChange[2] }}</span>
+                </div>
+
+                <!-- If fields changed (exclude workflow_state) -->
                 <ul class="timeline-changes" v-if="ver.parsedData && ver.parsedData.changed && ver.parsedData.changed.length > 0">
-                  <li v-for="(change, cIdx) in ver.parsedData.changed" :key="cIdx">
-                    Field <strong>{{ formatFieldName(change[0]) }}</strong> updated: 
-                    <span class="old-val">"{{ change[1] || 'Empty' }}"</span> &rarr; 
+                  <li v-for="(change, cIdx) in ver.parsedData.changed.filter(c => c[0] !== 'workflow_state')" :key="cIdx">
+                    Field <strong>{{ formatFieldName(change[0]) }}</strong> updated:
+                    <span class="old-val">"{{ change[1] || 'Empty' }}"</span> &rarr;
                     <span class="new-val">"{{ change[2] || 'Empty' }}"</span>
                   </li>
                 </ul>
@@ -773,7 +817,7 @@ onMounted(() => {
                     Removed <strong>{{ ver.parsedData.removed.length }}</strong> row(s) from child tables
                   </li>
                 </ul>
-                
+
                 <!-- Fallback description -->
                 <p class="timeline-desc" v-if="!ver.parsedData || (!ver.parsedData.changed && !ver.parsedData.added && !ver.parsedData.removed)">
                   Updated record metadata.
