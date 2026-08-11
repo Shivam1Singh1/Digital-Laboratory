@@ -175,10 +175,42 @@
   border: 1px dashed var(--border);
   border-radius: 8px;
   text-align: center;
-  padding: 2rem;
+  padding: 3rem 2rem;
   color: var(--text-muted);
   font-size: 0.875rem;
   font-style: italic;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.empty-state-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.empty-state-text {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-style: normal;
+}
+
+.empty-state-subtext {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.btn-lg {
+  padding: 0.625rem 1.5rem;
+  font-size: 0.9rem;
 }
 
 .save-notice.standalone {

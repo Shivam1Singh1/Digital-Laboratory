@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
+import { formatDate } from '../../utils/dateFormatter'
 import './ExperimentList.css'
 
 const router = useRouter()
@@ -172,7 +173,7 @@ onMounted(() => {
                   {{ exp.experiment_status }}
                 </span>
               </td>
-              <td class="text-muted">{{ exp.experiment_start_date || '-' }}</td>
+              <td class="text-muted">{{ formatDate(exp.experiment_start_date) }}</td>
             </tr>
           </tbody>
         </table>

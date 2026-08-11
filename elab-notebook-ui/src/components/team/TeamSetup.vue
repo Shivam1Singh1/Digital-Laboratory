@@ -210,7 +210,7 @@ const save = async () => {
       cost_center: costCenter.value
     })
     const msg = res.data.message || {}
-    notice.value = `Created "${msg.team_name}" (${msg.name}) — ${msg.count} participant${msg.count === 1 ? '' : 's'} on ${msg.project}.`
+    notice.value = `Created "${msg.team_name}" (${msg.name}) - ${msg.count} participant${msg.count === 1 ? '' : 's'} on ${msg.project}.`
     showDialog.value = false
     // Reset pagination to show the newly created team
     currentPage.value = 1
@@ -286,7 +286,7 @@ onMounted(async () => {
 
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
-      <p>Loading…</p>
+      <p>Loading...</p>
     </div>
 
     <!-- Neither a head nor a participant anywhere -->
@@ -316,7 +316,14 @@ onMounted(async () => {
         </div>
 
         <div v-if="!filteredMyTeams.length" class="grid-empty standalone">
-          No teams yet — use “Create Team” to set one up.
+          <div class="empty-state-content">
+            <p class="empty-state-text">No teams yet</p>
+            <button v-if="isHead" class="btn btn-primary btn-lg" @click="openDialog">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create Team
+            </button>
+            <p v-else class="empty-state-subtext">You are not a team lead yet. Team leads can create teams.</p>
+          </div>
         </div>
 
         <div v-else class="table-container">
@@ -402,7 +409,7 @@ onMounted(async () => {
               <label class="form-label">Employee Function</label>
               <select v-if="functions.length > 1" v-model="employeeFunction" class="form-control">
                 <option v-for="f in functions" :key="f.name" :value="f.name">
-                  {{ f.name }} — {{ f.function_name }}
+                  {{ f.name }} - {{ f.function_name }}
                 </option>
               </select>
               <input v-else type="text" :value="employeeFunction" class="form-control readonly" readonly />
@@ -417,9 +424,9 @@ onMounted(async () => {
           <div class="form-group">
             <label class="form-label">Project *</label>
             <select v-model="project" class="form-control">
-              <option value="">Select a project…</option>
+              <option value="">Select a project...</option>
               <option v-for="p in projects" :key="p.name" :value="p.name">
-                {{ p.name }} — {{ p.project_name }}{{ p.team_count ? `  (${p.team_count} team${p.team_count === 1 ? '' : 's'})` : '' }}
+                {{ p.name }} - {{ p.project_name }}{{ p.team_count ? `  (${p.team_count} team${p.team_count === 1 ? '' : 's'})` : '' }}
               </option>
             </select>
           </div>
@@ -449,7 +456,7 @@ onMounted(async () => {
               v-model="search"
               type="text"
               class="form-control search-box"
-              placeholder="Filter by name or email…"
+              placeholder="Filter by name or email..."
             />
             <div v-if="!members.length" class="grid-empty standalone">
               No active employees are mapped to this Employee Function.
@@ -469,7 +476,7 @@ onMounted(async () => {
                 </div>
               </li>
               <li v-if="!filteredMembers.length" class="candidate muted">
-                No one matches “{{ search }}”.
+                No one matches "{{ search }}".
               </li>
             </ul>
           </div>
@@ -480,7 +487,7 @@ onMounted(async () => {
           <button class="btn btn-secondary" @click="closeDialog">Cancel</button>
           <button class="btn btn-primary" @click="save" :disabled="!canSave">
             <span v-if="saving" class="spinner btn-spinner"></span>
-            {{ saving ? 'Creating…' : 'Save' }}
+            {{ saving ? 'Creating...' : 'Save' }}
           </button>
         </div>
       </div>

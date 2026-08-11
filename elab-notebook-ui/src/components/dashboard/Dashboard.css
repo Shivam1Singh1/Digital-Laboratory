@@ -16,17 +16,24 @@
 
 /* Hero section — prominent greeting and stats */
 .dashboard-scrollable-content .page-header.dashboard-hero {
-  padding: 2rem 0;
-  margin-bottom: 0;
+  padding: 2.5rem 1.5rem 2rem 1.5rem;
+  margin-bottom: 1.5rem;
+  margin-left: -2.5rem;
+  margin-right: -2.5rem;
+  margin-top: -2rem;
   align-items: flex-start;
   border-bottom: 2px solid rgba(59, 130, 246, 0.1);
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
 }
 
 .breadcrumb-nav {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1.25rem;
 }
 
 .breadcrumb-link {

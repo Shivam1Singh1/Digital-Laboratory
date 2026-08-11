@@ -3,6 +3,7 @@ import { ref, onMounted, nextTick, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
+import { formatAuditDate } from '../../utils/dateFormatter'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import './ExperimentForm.css'
 
@@ -570,7 +571,7 @@ onMounted(() => {
                   </tr>
                   <tr v-if="mat.added_on" class="history-row">
                     <td colspan="5" class="history-cell">
-                      {{ new Date(mat.added_on).toLocaleString() }} by {{ mat.added_by }}
+                      {{ formatAuditDate(mat.added_on) }} by {{ mat.added_by }}
                     </td>
                   </tr>
                 </template>
@@ -644,7 +645,7 @@ onMounted(() => {
                   </tr>
                   <tr v-if="eq.added_on" class="history-row">
                     <td colspan="4" class="history-cell">
-                      {{ new Date(eq.added_on).toLocaleString() }} by {{ eq.added_by }}
+                      {{ formatAuditDate(eq.added_on) }} by {{ eq.added_by }}
                     </td>
                   </tr>
                 </template>
@@ -687,7 +688,7 @@ onMounted(() => {
                   </tr>
                   <tr v-if="meth.added_on" class="history-row">
                     <td colspan="3" class="history-cell">
-                      {{ new Date(meth.added_on).toLocaleString() }} by {{ meth.added_by }}
+                      {{ formatAuditDate(meth.added_on) }} by {{ meth.added_by }}
                     </td>
                   </tr>
                 </template>

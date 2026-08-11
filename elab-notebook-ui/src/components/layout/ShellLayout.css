@@ -241,12 +241,14 @@
 .top-bar {
   height: 56px;
   min-height: 56px;
+  max-height: 56px;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 1.5rem;
+  gap: 1rem;
 }
 
 .search-box {
@@ -273,6 +275,9 @@
   font-size: 0.85rem;
   outline: none;
   flex: 1;
+  height: 24px;
+  line-height: 1.2;
+  padding: 0;
 }
 
 .search-kbd {
@@ -355,7 +360,14 @@
   height: 28px;
   border-radius: 6px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  padding: 0.25rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border: none;
+  background: transparent;
+  cursor: pointer;
 }
 
 .theme-btn:hover {

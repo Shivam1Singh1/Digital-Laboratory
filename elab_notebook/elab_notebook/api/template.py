@@ -20,10 +20,10 @@ def get_experiment_templates(filters=None):
 
         frappe.logger().info(f"[get_experiment_templates] Querying with filters: {filters}")
 
-        templates = frappe.get_all(
-            "Experiment Template",
-            fields=["name", "template_name", "title", "category", "version", "status", "workflow_state", "employee_function", "modified", "owner", "project"],
-            filters=filters
+        templates = frappe.get_list(
+           "Experiment Template",
+           fields=["name", "template_name", "title", "category", "version", "status", "workflow_state", "employee_function", "modified", "owner", "project"],
+           ifilters=filters
         )
 
         frappe.logger().info(f"[get_experiment_templates] Found {len(templates)} templates")

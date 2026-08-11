@@ -7,21 +7,31 @@
 
 /* Filters Row */
 .filters-row {
-  display: flex;
+  display: flex !important;
+  flex-direction: row !important;
   align-items: center;
-  gap: 3rem;
-  padding: 0.75rem 1.5rem;
+  justify-content: flex-start;
+  gap: 2rem;
+  flex-wrap: nowrap;
+  width: 100%;                 /* full available width */
+  height: 7vh !important;      /* ~7% of the screen height */
+  min-height: 52px !important; /* floor so it never gets too cramped */
+  max-height: 72px !important; /* ceiling on very tall screens */
+  padding: 0 1.5rem !important;/* vertical padding removed; height controls it */
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  width: 100%;
-  height: auto;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  overflow: hidden;
 }
 
 .filter-group {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 0.75rem;
+  white-space: nowrap;
 }
 
 .filter-label {
@@ -118,7 +128,7 @@
 .list-layout {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .list-layout.card {
@@ -129,9 +139,11 @@
   width: calc(100% - 3rem);
   margin: 1.5rem;
   overflow-x: auto;
+  overflow-y: visible;
   border: none;
   border-radius: 0;
-  flex: 1;
+  flex: none;
+  max-height: none;
 }
 
 .list-layout table {
@@ -165,3 +177,31 @@
   border: 1px solid rgba(239, 68, 68, 0.16) !important;
 }
 
+.experiment-list-container {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100vh;   /* fill the screen so there's space to distribute */
+  box-sizing: border-box;
+}
+
+.list-layout {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;      /* let the inner scroll area handle overflow */
+  flex: 1 1 auto;        /* grow to take all remaining vertical space */
+  min-height: 0;         /* required so a flex child can actually scroll */
+}
+
+.list-layout .table-container {
+  width: calc(100% - 3rem);
+  margin: 1.5rem;
+  overflow-x: auto;
+  overflow-y: auto;      /* scroll rows inside instead of overflowing */
+  border: none;
+  border-radius: 0;
+  flex: 1 1 auto;        /* fill the card's height */
+  min-height: 0;
+  max-height: none;
+}

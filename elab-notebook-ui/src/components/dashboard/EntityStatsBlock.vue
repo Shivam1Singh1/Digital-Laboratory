@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import axios from 'axios'
 import { Chart } from 'chart.js/auto'
 import { useUserStore } from '../../stores/user'
+import { formatMonth } from '../../utils/dateFormatter'
 import './EntityStatsBlock.css'
 
 const props = defineProps({
@@ -398,7 +399,7 @@ onBeforeUnmount(() => {
       <div class="block-header-actions">
         <select v-model="selectedMonth" class="month-select" :aria-label="`Filter ${entityName} by month`">
           <option value="all_time">All Time</option>
-          <option v-for="m in uniqueMonths" :key="m" :value="m">{{ m }}</option>
+          <option v-for="m in uniqueMonths" :key="m" :value="m">{{ formatMonth(m) }}</option>
         </select>
         <button
           class="trends-expand-btn"

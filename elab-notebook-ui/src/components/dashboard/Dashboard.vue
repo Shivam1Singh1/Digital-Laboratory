@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
+import { formatDate } from '../../utils/dateFormatter'
 import EntityStatsBlock from './EntityStatsBlock.vue'
 import './Dashboard.css'
 

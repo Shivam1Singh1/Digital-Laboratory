@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
+import { formatDateTime } from '../../utils/dateFormatter'
 import './TemplatesList.css'
 
 const userStore = useUserStore()
@@ -64,13 +65,6 @@ watch(() => userStore.currentProject, () => {
   currentPage.value = 1
   fetchTemplates()
 })
-
-
-const formatDateTime = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
 
 const getWorkflowStateClass = (state) => {
   if (!state) return 'state-draft'

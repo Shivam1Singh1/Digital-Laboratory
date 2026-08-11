@@ -1,15 +1,19 @@
 """Server-side access rules for Elab Notebook.
 
-Two distinct rules live here:
+Three distinct rules live here:
 
-* **Experiment Template** — owner-based isolation. Employee Function is a
-  *shared* master (many employees sit under the same function), so restricting
-  on employee_function would leak records between colleagues.
+* **Experiment Template** — function-wide visibility. All employees under the same
+  Employee Function see all templates created against that function. No owner-based
+  restrictions, no status-based exceptions. Cross-function access is blocked on both
+  list view and direct URL access.
 
 * **Experiment Team** — head-based isolation. A team roster belongs to the
   Employee Function head who owns it; other heads must not see or edit it.
 
-Both are enforced on the list/report path *and* the single-document path, so a
+* **Experiment** — team/project-based isolation. Participants see only experiments
+  under their team's projects; function head sees all under their function.
+
+All rules are enforced on the list/report path *and* the single-document path, so a
 direct URL cannot bypass what the list view hides.
 """
 
@@ -28,6 +32,34 @@ def has_bypass(user: str) -> bool:
 _has_bypass = has_bypass
 
 
+def get_user_employee_function(user: str) -> str | None:
+	"""Get the active employee function for a user via their Employee record."""
+	try:
+		employee = frappe.db.get_value(
+			"Employee", {"user_id": user, "status": "Active"}, "name"
+		) or frappe.db.get_value("Employee", {"user_id": user}, "name")
+
+		if not employee:
+			return None
+
+		# Get active function mappings from Employee Function Child
+		functions = frappe.get_all(
+			"Employee Function Child",
+			filters={
+				"parenttype": "Employee",
+				"parent": employee,
+				"parentfield": "custom_function_code",
+				"active": 1,
+			},
+			pluck="function_code",
+		)
+
+		# Return the first active function (most common case: one function per employee)
+		return functions[0] if functions else None
+	except Exception:
+		return None
+
+
 def is_function_head(employee_function: str | None, user: str) -> bool:
 	if not employee_function or not user:
 		return False
@@ -35,47 +67,72 @@ def is_function_head(employee_function: str | None, user: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Experiment Template — owner isolation
+# Experiment Template — function-wide visibility
 # ---------------------------------------------------------------------------
 
 
 def get_permission_query_conditions(user: str | None = None) -> str:
-	"""Append query conditions on Experiment Template."""
+	"""Restrict Experiment Template visibility to function-wide scope.
+
+	Rules:
+	- Admin/System Manager: see everything (no filter)
+	- Regular/head employee: see all templates under any function they belong to
+	  (via custom_function_code OR function_head role)
+	- Employee from different function: see nothing (no cross-function visibility)
+
+	This is function-scoped, NOT owner-scoped. All employees under the same function
+	see all templates created against that function. No exceptions for approved status.
+	"""
 	user = user or frappe.session.user
 	if has_bypass(user):
 		return ""
 
+	user_func = get_user_employee_function(user)
 	headed_funcs = frappe.get_all("Employee Function", filters={"function_head": user}, pluck="name")
-	if headed_funcs:
-		joined_funcs = ", ".join(frappe.db.escape(f) for f in headed_funcs)
-		return f"(`tabExperiment Template`.`workflow_state` = 'Approved' OR `tabExperiment Template`.`employee_function` IN ({joined_funcs}))"
 
-	return f"(`tabExperiment Template`.`owner` = {frappe.db.escape(user)})"
+	# Collect all functions this user is part of (as member or head)
+	functions = set()
+	if user_func:
+		functions.add(user_func)
+	if headed_funcs:
+		functions.update(headed_funcs)
+
+	if not functions:
+		return "1 = 0"  # No function membership → no access
+
+	joined_funcs = ", ".join(frappe.db.escape(f) for f in functions)
+	return f"`tabExperiment Template`.`employee_function` IN ({joined_funcs})"
 
 
 def has_permission(doc, ptype=None, user=None) -> bool:
-	"""Enforce hierarchy on Experiment Template."""
-	user = user or frappe.session.user
+	"""Enforce function-wide scoping on Experiment Template.
 
-	# Approved templates cannot be deleted by anyone (including the lead)
-	is_approved = doc.get("workflow_state") == "Approved"
-	if is_approved and ptype == "delete":
-		return False
+	Rules:
+	- Admin/System Manager: full access
+	- User in same function: read/write/delete access (all peers)
+	- User in different function: no access (denied, not read-only)
+	- No owner-based override (all function members are peers)
+	- No status-based exception (approved templates stay function-scoped)
+	"""
+	user = user or frappe.session.user
 
 	if has_bypass(user):
 		return True
 
-	# Approved templates are read-only
-	if is_approved and ptype in ("write", "save", "delete"):
-		return False
-
-	# Head has access pre-approval
+	# Function membership check: user must be in the same function
 	employee_function = doc.get("employee_function")
+	user_func = get_user_employee_function(user)
+
+	# Allow access if user is in this function
+	if user_func and user_func == employee_function:
+		return True
+
+	# Allow access if user heads this function
 	if is_function_head(employee_function, user):
 		return True
 
-	# Participant check
-	return (doc.owner or "") == user
+	# No access: different function
+	return False
 
 
 # ---------------------------------------------------------------------------
