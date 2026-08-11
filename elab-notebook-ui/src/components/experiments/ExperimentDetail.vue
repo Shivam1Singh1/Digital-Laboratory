@@ -397,6 +397,46 @@ const getDocstatusLabel = (statusNum) => {
   return 'Unknown'
 }
 
+// Check if Sample can be created (only in Running state with no existing Sample)
+const canCreateSample = () => {
+  if (!experiment.value) return false
+  const state = experiment.value.workflow_state || ''
+  const isRunning = state.toLowerCase().includes('running')
+  const sampleExists = samplesList.value && samplesList.value.length > 0
+  return isRunning && !sampleExists
+}
+
+// Get tooltip for Create Sample button
+const getCreateSampleTooltip = () => {
+  if (!experiment.value) return 'Load experiment first'
+  const state = experiment.value.workflow_state || 'Draft'
+  const sampleExists = samplesList.value && samplesList.value.length > 0
+
+  if (sampleExists) {
+    return 'Sample already exists. One sample per experiment.'
+  }
+  if (!state.toLowerCase().includes('running')) {
+    return `Sample creation available only in Running state. Current: ${state}`
+  }
+  return 'Create a new sample for this experiment'
+}
+
+// Check if Sample editing is allowed (Running or Completed only)
+const canEditSample = () => {
+  if (!experiment.value) return false
+  const state = experiment.value.workflow_state || ''
+  const s = state.toLowerCase()
+  return s.includes('running') || s.includes('completed')
+}
+
+// Check if Sample is locked (Pending Approval, Approved, Rejected)
+const isSampleLocked = () => {
+  if (!experiment.value) return false
+  const state = experiment.value.workflow_state || ''
+  const s = state.toLowerCase()
+  return s.includes('pending') || s.includes('approved') || s.includes('rejected')
+}
+
 watch(activeTab, (newTab) => {
   if (newTab === 'samples') {
     loadSamples()
@@ -833,17 +873,38 @@ onMounted(() => {
 
         <!-- 7. SAMPLES TAB -->
         <div v-if="activeTab === 'samples'" class="tab-pane">
+          <!-- Sample Status Indicators -->
+          <div class="sample-status-indicators" style="margin-bottom: 1.5rem; display: flex; gap: 2rem;">
+            <div class="status-indicator">
+              <span class="status-label">Sample Generated:</span>
+              <span class="status-value" :class="{ 'status-active': samplesList.length > 0 }">
+                {{ samplesList.length > 0 ? '✓ Generated' : '○ Not Generated' }}
+              </span>
+            </div>
+            <div class="status-indicator">
+              <span class="status-label">Sample Submitted:</span>
+              <span class="status-value" :class="{ 'status-active': samplesList.some(s => s.docstatus === 1) }">
+                {{ samplesList.some(s => s.docstatus === 1) ? '✓ Submitted' : '○ Pending' }}
+              </span>
+            </div>
+          </div>
+
           <div class="samples-section-header">
             <h3 class="pane-section-title">Result Output Samples</h3>
-            <div class="header-action-wrapper" :title="experiment.experiment_status !== 'Completed' ? 'Available after experiment is completed' : 'Register a new sample result'">
-              <button 
+            <div class="header-action-wrapper" :title="getCreateSampleTooltip()">
+              <button
                 class="btn btn-primary"
-                :disabled="experiment.experiment_status !== 'Completed'"
+                :disabled="!canCreateSample()"
                 @click="showRegisterModal = true"
               >
-                + Register Sample
+                + Create Sample
               </button>
             </div>
+          </div>
+
+          <!-- Lock Warning -->
+          <div v-if="isSampleLocked()" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ Sample is locked. Only System Managers can modify samples in {{ experiment.workflow_state }} state.
           </div>
 
           <div v-if="loadingSamples" class="loading-state inner-load">
@@ -885,19 +946,21 @@ onMounted(() => {
                   </td>
                   <td>
                     <div class="row-actions" style="display: flex; gap: 0.5rem;">
-                      <button 
-                        v-if="sample.docstatus === 0" 
+                      <button
+                        v-if="sample.docstatus === 0"
                         class="btn btn-sm btn-success"
-                        :disabled="submittingSampleId === sample.name"
+                        :disabled="submittingSampleId === sample.name || (isSampleLocked() && !isSystemManager)"
+                        :title="isSampleLocked() && !isSystemManager ? 'Sample is locked in this workflow state' : 'Submit sample'"
                         @click="submitSample(sample)"
                         style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
                       >
                         {{ submittingSampleId === sample.name ? 'Submitting...' : 'Submit' }}
                       </button>
-                      <button 
-                        v-if="sample.docstatus === 1" 
+                      <button
+                        v-if="sample.docstatus === 1"
                         class="btn btn-sm btn-danger"
-                        :disabled="cancellingSampleId === sample.name"
+                        :disabled="cancellingSampleId === sample.name || (isSampleLocked() && !isSystemManager)"
+                        :title="isSampleLocked() && !isSystemManager ? 'Sample is locked in this workflow state' : 'Cancel sample'"
                         @click="cancelSample(sample)"
                         style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
                       >
