@@ -82,6 +82,9 @@ const materialRequired = ref([])
 const equipmentDetails = ref([])
 const methodology = ref([])
 const methodologyComments = ref('')
+// Structured protocol steps. ExperimentForm copies these into a run's
+// experiment_protocol_steps, which is why the template has to be able to author them.
+const protocolSteps = ref([])
 const steps = ref('')
 const observationComments = ref('')
 const historyList = ref([])
@@ -147,6 +150,7 @@ const resetForm = () => {
   equipmentDetails.value = []
   methodology.value = []
   methodologyComments.value = ''
+  protocolSteps.value = []
   steps.value = ''
   observationComments.value = ''
   storedTotalDuration.value = 0
@@ -175,6 +179,7 @@ const captureInitialState = () => {
     equipmentDetails: JSON.stringify(equipmentDetails.value),
     methodology: JSON.stringify(methodology.value),
     methodologyComments: methodologyComments.value,
+    protocolSteps: JSON.stringify(protocolSteps.value),
     steps: steps.value,
     observationComments: observationComments.value
   }
@@ -199,6 +204,7 @@ const checkFormDirty = () => {
     equipmentDetails: JSON.stringify(equipmentDetails.value),
     methodology: JSON.stringify(methodology.value),
     methodologyComments: methodologyComments.value,
+    protocolSteps: JSON.stringify(protocolSteps.value),
     steps: steps.value,
     observationComments: observationComments.value
   }
@@ -228,6 +234,7 @@ const applyDoc = (data) => {
   equipmentDetails.value = data.equipment_details || []
   methodology.value = data.methodology || []
   methodologyComments.value = data.methodology_comments || ''
+  protocolSteps.value = data.template_protocol_steps || []
   steps.value = data.steps || ''
   observationComments.value = data.observation_comments || ''
 
@@ -237,6 +244,12 @@ const applyDoc = (data) => {
   captureInitialState()
 }
 
+// Two independent grants feed the same button row:
+//   - role-based transitions from the workflow (System Manager, Employee, ...)
+//   - the review actions delegated to the head of this template's Employee Function
+// They are fetched together and merged by action name. Each request swallows its own
+// failure so a problem with one source can never remove the other's buttons - the
+// function-head grant is strictly additive to what System Manager already sees.
 const fetchWorkflowActions = async () => {
   if (isNew.value || !docName.value) {
     workflowActions.value = []
@@ -244,36 +257,62 @@ const fetchWorkflowActions = async () => {
   }
   loadingWorkflowActions.value = true
   try {
-    const res = await axios.get(
-      '/api/method/elab_notebook.elab_notebook.api.workflow.get_workflow_actions',
-      {
-        params: {
-          doctype: DOCTYPE,
-          docname: docName.value
-        }
-      }
-    )
-    workflowActions.value = res.data.message || []
-  } catch (err) {
-    console.error('Failed to fetch workflow actions', err)
+    const [roleRes, headRes] = await Promise.all([
+      axios
+        .get('/api/method/elab_notebook.elab_notebook.api.workflow.get_workflow_actions', {
+          params: { doctype: DOCTYPE, docname: docName.value }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch workflow actions', err)
+          return null
+        }),
+      axios
+        .get('/api/method/elab_notebook.elab_notebook.api.template.get_function_head_actions', {
+          params: { template_name: docName.value }
+        })
+        .catch((err) => {
+          console.error('Failed to fetch function head actions', err)
+          return null
+        })
+    ])
+
+    const roleActions = (roleRes?.data?.message || []).map((a) => ({ ...a, via: 'workflow' }))
+    const roleActionNames = new Set(roleActions.map((a) => a.action))
+    const headActions = (headRes?.data?.message || [])
+      .filter((a) => !roleActionNames.has(a.action))
+      .map((a) => ({ ...a, via: 'function_head' }))
+
+    workflowActions.value = [...roleActions, ...headActions]
   } finally {
     loadingWorkflowActions.value = false
   }
 }
 
-const runWorkflowAction = async (action) => {
+// `act` carries where the grant came from, so an action the user only holds as
+// function head is applied through the endpoint that checks that - the default
+// workflow endpoint would reject it on the System Manager role gate.
+const runWorkflowAction = async (act) => {
   if (isNew.value || !docName.value) return
   runningWorkflowAction.value = true
   formError.value = ''
   try {
-    const res = await axios.post(
-      '/api/method/elab_notebook.elab_notebook.api.workflow.apply_workflow_action',
-      {
-        doctype: DOCTYPE,
-        docname: docName.value,
-        action: action
-      }
-    )
+    const res =
+      act.via === 'function_head'
+        ? await axios.post(
+            '/api/method/elab_notebook.elab_notebook.api.template.approve_template',
+            {
+              template_name: docName.value,
+              action: act.action
+            }
+          )
+        : await axios.post(
+            '/api/method/elab_notebook.elab_notebook.api.workflow.apply_workflow_action',
+            {
+              doctype: DOCTYPE,
+              docname: docName.value,
+              action: act.action
+            }
+          )
     workflowState.value = res.data.message || ''
     await fetchTemplateDetail()
   } catch (err) {
@@ -440,6 +479,19 @@ const addEquipmentRow = () =>
 const addMethodologyRow = () =>
   methodology.value.push({ method: '', time_to_complete: 0 })
 
+// step_order is pre-filled with the next number so the run's checklist keeps its
+// order without the author having to number rows by hand.
+const addProtocolStepRow = () =>
+  protocolSteps.value.push({
+    step_order: protocolSteps.value.length + 1,
+    title: '',
+    description: '',
+    duration: '',
+    equipment: '',
+    operator_role: '',
+    checklist_items: ''
+  })
+
 const removeRow = (rows, idx) => rows.splice(idx, 1)
 
 // ---------------------------------------------------------------------- saving
@@ -482,6 +534,18 @@ const buildPayload = () => ({
     time_to_complete: Number(row.time_to_complete) || 0
   })),
   methodology_comments: methodologyComments.value,
+
+  template_protocol_steps: protocolSteps.value.map((row) => ({
+    ...rowPayload(row, [
+      'title',
+      'description',
+      'duration',
+      'equipment',
+      'operator_role',
+      'checklist_items'
+    ]),
+    step_order: Number(row.step_order) || 0
+  })),
 
   steps: steps.value,
 
@@ -614,7 +678,7 @@ onMounted(async () => {
             :key="act.action"
             class="btn btn-workflow"
             :class="getWorkflowActionClass(act.action)"
-            @click="runWorkflowAction(act.action)"
+            @click="runWorkflowAction(act)"
             :disabled="runningWorkflowAction"
           >
             {{ act.action }}
@@ -828,7 +892,7 @@ onMounted(async () => {
           <section class="meta-card">
             <div class="table-actions">
               <h3 class="section-title no-margin">Material Required</h3>
-              <button class="btn btn-secondary btn-sm" @click="addMaterialRow">+ Add Row</button>
+              <button class="btn btn-secondary btn-sm btn-add-row" @click="addMaterialRow">+ Add Row</button>
             </div>
 
             <div class="grid-table-container">
@@ -888,7 +952,7 @@ onMounted(async () => {
           <section class="meta-card" style="margin-top: 1.5rem;">
             <div class="table-actions">
               <h3 class="section-title no-margin">Equipment Details</h3>
-              <button class="btn btn-secondary btn-sm" @click="addEquipmentRow">+ Add Row</button>
+              <button class="btn btn-secondary btn-sm btn-add-row" @click="addEquipmentRow">+ Add Row</button>
             </div>
 
             <div class="grid-table-container">
@@ -932,7 +996,7 @@ onMounted(async () => {
           <section class="meta-card">
             <div class="table-actions">
               <h3 class="section-title no-margin">Methodology</h3>
-              <button class="btn btn-secondary btn-sm" @click="addMethodologyRow">+ Add Row</button>
+              <button class="btn btn-secondary btn-sm btn-add-row" @click="addMethodologyRow">+ Add Row</button>
             </div>
 
             <div class="grid-table-container">
@@ -987,6 +1051,76 @@ onMounted(async () => {
                 v-model="methodologyComments"
                 placeholder="Notes that apply across all methodology steps…"
               />
+            </div>
+          </section>
+
+          <!-- PROTOCOL STEPS (structured - copied into each experiment run) -->
+          <section class="meta-card" style="margin-top: 1.5rem;">
+            <div class="table-actions">
+              <h3 class="section-title no-margin">Protocol Steps</h3>
+              <button class="btn btn-secondary btn-sm btn-add-row" @click="addProtocolStepRow">+ Add Row</button>
+            </div>
+            <p class="field-hint" style="margin: 0 0 0.75rem;">
+              These rows become the execution checklist on every experiment run created from this template.
+            </p>
+
+            <div class="grid-table-container protocol-steps-scroll">
+              <div class="grid-table protocol-steps-grid">
+                <!-- Header Row -->
+                <div class="grid-header-row">
+                  <div class="grid-header-cell">#</div>
+                  <div class="grid-header-cell">Title</div>
+                  <div class="grid-header-cell">Description</div>
+                  <div class="grid-header-cell">Duration</div>
+                  <div class="grid-header-cell">Equipment</div>
+                  <div class="grid-header-cell">Operator Role</div>
+                  <div class="grid-header-cell">Checklist Items</div>
+                  <div class="grid-header-cell grid-header-action"></div>
+                </div>
+
+                <!-- Data Rows -->
+                <template v-if="protocolSteps.length">
+                  <div v-for="(row, idx) in protocolSteps" :key="idx" class="grid-data-row">
+                    <div class="grid-cell">
+                      <input v-model="row.step_order" type="number" min="0" class="grid-input" />
+                    </div>
+                    <div class="grid-cell">
+                      <input v-model="row.title" type="text" class="grid-input" placeholder="e.g. Prepare buffer" />
+                    </div>
+                    <div class="grid-cell">
+                      <textarea
+                        v-model="row.description"
+                        rows="1"
+                        class="grid-input grid-textarea"
+                        placeholder="What the operator does…"
+                      ></textarea>
+                    </div>
+                    <div class="grid-cell">
+                      <input v-model="row.duration" type="text" class="grid-input" placeholder="e.g. 30 min" />
+                    </div>
+                    <div class="grid-cell">
+                      <input v-model="row.equipment" type="text" class="grid-input" />
+                    </div>
+                    <div class="grid-cell">
+                      <input v-model="row.operator_role" type="text" class="grid-input" />
+                    </div>
+                    <div class="grid-cell">
+                      <textarea
+                        v-model="row.checklist_items"
+                        rows="1"
+                        class="grid-input grid-textarea"
+                        placeholder="One check per line…"
+                      ></textarea>
+                    </div>
+                    <div class="grid-cell grid-action-cell">
+                      <button class="grid-delete-btn" @click="removeRow(protocolSteps, idx)">×</button>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Empty State -->
+                <div v-else class="grid-empty-message">No protocol steps. Click "+ Add Row" to start.</div>
+              </div>
             </div>
           </section>
 

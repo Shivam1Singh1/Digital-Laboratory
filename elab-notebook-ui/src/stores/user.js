@@ -9,6 +9,10 @@ export const useUserStore = defineStore('user', () => {
     first_name: 'Guest',
     initials: 'GU',
     user_image: null,
+    // Employee id (not the User id) - required by Link fields such as
+    // Experiment.employee_code, which point at Employee.
+    employee: null,
+    employee_name: null,
     role: 'Guest'
   })
   

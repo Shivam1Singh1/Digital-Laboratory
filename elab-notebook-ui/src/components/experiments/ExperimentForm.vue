@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { formatAuditDate } from '../../utils/dateFormatter'
 import RichTextEditor from '../common/RichTextEditor.vue'
+import LinkField from '../common/LinkField.vue'
 import './ExperimentForm.css'
 
 const route = useRoute()
@@ -48,8 +49,11 @@ const experiment = ref({
   remark: '',
   experiment_start_date: new Date().toISOString().slice(0, 16),
   experiment_end_date: '',
-  employee_code: userStore.user.name,
-  employee_name: userStore.user.full_name,
+  // employee_code is a Link to Employee - the User id is not a valid value here.
+  employee_code: userStore.user.employee || '',
+  employee_name: userStore.user.employee_name || userStore.user.full_name,
+  // Required: the naming rule derives the experiment id from its notebook.
+  elab_notebook: '',
 
   segment: '',
   cost_center: '',
@@ -76,7 +80,10 @@ const loadTemplate = async () => {
     })
     const doc = res.data.message || {}
     
-    experiment.value.title = `Run: ${doc.template_name || doc.title || doc.name}`
+    // `title` is a Link to Experiment Template, so it can only hold a template id -
+    // a descriptive string like "Run: X" fails link validation. The readable run name
+    // lives in `aim`, which is the required Data field.
+    experiment.value.title = templateId.value || ''
     experiment.value.aim = doc.aim || doc.template_name || doc.name
     experiment.value.sub_aim = doc.sub_aim || ''
     experiment.value.rationale = doc.rationale || ''
@@ -222,6 +229,21 @@ const removeMethod = (index) => {
 }
 
 const saveExperiment = async () => {
+  // Both are Link/derived fields the server rejects with an opaque error, so name the
+  // real problem here rather than falling through to "verify all required fields".
+  if (!experiment.value.elab_notebook) {
+    error.value = 'Select an ELab Notebook - the run ID is generated from it.'
+    return
+  }
+  if (!experiment.value.employee_code) {
+    experiment.value.employee_code = userStore.user.employee || ''
+  }
+  if (!experiment.value.employee_code) {
+    error.value =
+      'Your user account is not linked to an Employee record, which is required to log a run.'
+    return
+  }
+
   saving.value = true
   error.value = ''
   try {
@@ -301,11 +323,32 @@ const loadTeamFinancials = async () => {
   }
 }
 
+// The run's ID is derived from its notebook, so pre-select the project's notebook when
+// there is exactly one - an ambiguous match is left for the user to choose.
+const preselectNotebook = async () => {
+  if (!project.value || experiment.value.elab_notebook) return
+  try {
+    const res = await axios.get('/api/method/frappe.client.get_list', {
+      params: {
+        doctype: 'ELab Notebook',
+        filters: JSON.stringify({ project: project.value }),
+        fields: JSON.stringify(['name']),
+        limit_page_length: 2
+      }
+    })
+    const found = res.data.message || []
+    if (found.length === 1) experiment.value.elab_notebook = found[0].name
+  } catch (err) {
+    console.error('Failed to preselect ELab Notebook', err)
+  }
+}
+
 onMounted(() => {
   loadTemplate()
   loadTeamFinancials()
   loadProjectAndFunctionNames()
   loadAvailableItems()
+  preselectNotebook()
 })
 </script>
 
@@ -396,17 +439,30 @@ onMounted(() => {
         <!-- 1. GENERAL TAB -->
         <div v-if="activeTab === 'general'" class="tab-pane">
           <div class="pane-grid">
-            <div class="form-group">
-              <label class="form-label">Run Title *</label>
-              <input
-                type="text"
-                v-model="experiment.title"
-                class="form-control"
-                :readonly="isFromTemplate"
-                :class="{ readonly: isFromTemplate }"
-                placeholder="Enter a name for this run..."
-                required
-              />
+            <div class="form-group-row two-columns">
+              <div class="form-group">
+                <label class="form-label">Template</label>
+                <input
+                  type="text"
+                  :value="experiment.title || 'None'"
+                  class="form-control readonly"
+                  readonly
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">ELab Notebook *</label>
+                <LinkField
+                  v-model="experiment.elab_notebook"
+                  doctype="ELab Notebook"
+                  :fields="['project', 'employee_function']"
+                  :search-fields="['name']"
+                  description-field="project"
+                  placeholder="Search notebooks…"
+                />
+                <span class="field-hint">
+                  The run's ID is generated from the notebook it belongs to.
+                </span>
+              </div>
             </div>
 
             <!-- Project Details Row -->
@@ -509,7 +565,7 @@ onMounted(() => {
         <div v-if="activeTab === 'materials'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Required Formulation Ingredients</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMaterial">+ Add Material</button>
+            <button class="btn btn-secondary btn-sm btn-add-row" @click="addMaterial">+ Add Material</button>
           </div>
 
           <div class="table-container">
@@ -587,7 +643,7 @@ onMounted(() => {
         <div v-if="activeTab === 'equipment'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
-            <button class="btn btn-secondary btn-sm" @click="addEquipment">+ Add Equipment</button>
+            <button class="btn btn-secondary btn-sm btn-add-row" @click="addEquipment">+ Add Equipment</button>
           </div>
 
           <div class="table-container">
@@ -661,7 +717,7 @@ onMounted(() => {
         <div v-if="activeTab === 'methodology'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMethod">+ Add Method</button>
+            <button class="btn btn-secondary btn-sm btn-add-row" @click="addMethod">+ Add Method</button>
           </div>
 
           <div class="table-container">

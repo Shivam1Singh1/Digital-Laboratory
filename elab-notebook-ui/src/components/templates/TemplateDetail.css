@@ -30,6 +30,20 @@
   white-space: nowrap;
 }
 
+/* Compact header actions so the page title stays dominant. Scoped to the template
+   detail header so the list page's "Add Template" button keeps its full size, and
+   compounded to outrank the base .btn / .btn-workflow sizing. */
+.template-detail-container .page-header-right {
+  gap: 0.5rem;
+}
+
+.template-detail-container .page-header-right .btn,
+.template-detail-container .page-header-right .btn-workflow {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.78rem;
+  border-radius: 5px;
+}
+
 .breadcrumb-nav {
   display: flex;
   align-items: center;
@@ -356,6 +370,51 @@ select.form-control:focus {
 
 .methodology-grid .grid-cell:nth-child(2) {
   flex: 1;
+}
+
+/* Protocol Steps grid: seven columns, so it scrolls sideways rather than crushing
+   the inputs. Header and data cells share the same flex values to stay aligned. */
+.protocol-steps-scroll {
+  overflow-x: auto;
+}
+
+.protocol-steps-grid {
+  min-width: 1020px;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(1),
+.protocol-steps-grid .grid-cell:nth-child(1) {
+  flex: 0.45;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(2),
+.protocol-steps-grid .grid-cell:nth-child(2) {
+  flex: 1.5;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(3),
+.protocol-steps-grid .grid-cell:nth-child(3) {
+  flex: 2.5;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(4),
+.protocol-steps-grid .grid-cell:nth-child(4) {
+  flex: 0.8;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(5),
+.protocol-steps-grid .grid-cell:nth-child(5) {
+  flex: 1.1;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(6),
+.protocol-steps-grid .grid-cell:nth-child(6) {
+  flex: 1.1;
+}
+
+.protocol-steps-grid .grid-header-cell:nth-child(7),
+.protocol-steps-grid .grid-cell:nth-child(7) {
+  flex: 2;
 }
 
 .grid-header-cell {

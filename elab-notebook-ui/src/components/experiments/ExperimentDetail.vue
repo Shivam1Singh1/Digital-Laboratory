@@ -750,7 +750,7 @@ onMounted(() => {
           </div>
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology (Execution Steps)</h3>
-            <button class="btn btn-secondary btn-sm" @click="addMethod" :disabled="isWorkflowLocked() && !isSystemManager">+ Add Method</button>
+            <button class="btn btn-secondary btn-sm btn-add-row" @click="addMethod" :disabled="isWorkflowLocked() && !isSystemManager">+ Add Method</button>
           </div>
 
           <div class="table-container">

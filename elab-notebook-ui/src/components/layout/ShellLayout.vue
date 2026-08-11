@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import axios from 'axios'
@@ -11,6 +11,18 @@ const userStore = useUserStore()
 const router = useRouter()
 const dropdownOpen = ref(false)
 const sidebarCollapsed = ref(false)
+const avatarFailed = ref(false)
+
+// Fall back to initials when there is no image, or when the image URL fails to load
+const showAvatarImage = computed(() => !!userStore.user.user_image && !avatarFailed.value)
+
+const userInitials = computed(() => {
+  if (userStore.user.initials) return userStore.user.initials
+  const parts = (userStore.user.full_name || '').trim().split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return '?'
+})
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
@@ -33,6 +45,11 @@ const logout = async () => {
 
 onMounted(async () => {
   await userStore.fetchEmployeeScope()
+})
+
+// A new image URL deserves a fresh attempt before falling back to initials again
+watch(() => userStore.user.user_image, () => {
+  avatarFailed.value = false
 })
 
 watch(() => userStore.user.name, async (newVal) => {
@@ -115,8 +132,14 @@ watch(() => userStore.user.name, async (newVal) => {
         <!-- Pinned User Card -->
         <div class="user-card">
           <div class="user-avatar-wrapper">
-            <img v-if="userStore.user.user_image" :src="userStore.user.user_image" class="avatar-img" alt="User Avatar" />
-            <div v-else class="avatar-fallback">{{ userStore.user.initials }}</div>
+            <img
+              v-if="showAvatarImage"
+              :src="userStore.user.user_image"
+              class="avatar-img"
+              :alt="userStore.user.full_name"
+              @error="avatarFailed = true"
+            />
+            <div v-else class="avatar-fallback">{{ userInitials }}</div>
           </div>
           <div class="user-meta">
             <span class="user-name">{{ userStore.user.full_name }}</span>
@@ -130,23 +153,26 @@ watch(() => userStore.user.name, async (newVal) => {
     <main class="main-workspace">
       <!-- Top Bar -->
       <header class="top-bar">
-        <button class="top-bar-action-btn sidebar-toggle-btn" @click="toggleSidebar" title="Toggle Sidebar">
-          <svg v-if="sidebarCollapsed" class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <line x1="9" y1="3" x2="9" y2="21"/>
-            <path d="M12 9l3 3-3 3"/>
-          </svg>
-          <svg v-else class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-            <line x1="9" y1="3" x2="9" y2="21"/>
-            <path d="M15 15l-3-3 3-3"/>
-          </svg>
-        </button>
-        <!-- Search bar -->
-        <div class="search-box">
-          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" placeholder="Search experiments, resources..." class="search-input" />
-          <kbd class="search-kbd">⌘K</kbd>
+        <div class="top-bar-left">
+          <button class="top-bar-action-btn sidebar-toggle-btn" @click="toggleSidebar" title="Toggle Sidebar">
+            <svg v-if="sidebarCollapsed" class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="9" y1="3" x2="9" y2="21"/>
+              <path d="M12 9l3 3-3 3"/>
+            </svg>
+            <svg v-else class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <line x1="9" y1="3" x2="9" y2="21"/>
+              <path d="M15 15l-3-3 3-3"/>
+            </svg>
+          </button>
+
+          <!-- Search bar -->
+          <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Search experiments, resources..." class="search-input" />
+            <kbd class="search-kbd">⌘K</kbd>
+          </div>
         </div>
 
         <!-- Right Side items -->
@@ -200,8 +226,14 @@ watch(() => userStore.user.name, async (newVal) => {
           <div class="top-user-menu-wrapper">
             <div class="top-user-menu" @click="toggleDropdown">
               <div class="top-user-avatar">
-                <img v-if="userStore.user.user_image" :src="userStore.user.user_image" class="avatar-img" alt="User Avatar" />
-                <template v-else>{{ userStore.user.initials }}</template>
+                <img
+                  v-if="showAvatarImage"
+                  :src="userStore.user.user_image"
+                  class="avatar-img"
+                  :alt="userStore.user.full_name"
+                  @error="avatarFailed = true"
+                />
+                <span v-else class="avatar-initials">{{ userInitials }}</span>
               </div>
               <div class="top-user-info">
                 <span class="top-user-name">{{ userStore.user.full_name }}</span>

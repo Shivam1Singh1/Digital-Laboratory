@@ -195,7 +195,10 @@
 .user-avatar-wrapper {
   width: 32px;
   height: 32px;
+  min-width: 32px;
+  flex-shrink: 0;
   border-radius: 50%;
+  overflow: hidden;
   background-color: var(--accent);
   display: flex;
   align-items: center;
@@ -205,6 +208,10 @@
 .avatar-fallback {
   font-size: 0.85rem;
   font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  user-select: none;
   color: var(--bg-primary);
 }
 
@@ -245,30 +252,43 @@
   height: 56px;
   min-height: 56px;
   max-height: 56px;
+  box-sizing: border-box;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 1.5rem;
   gap: 1rem;
+}
+
+/* Toggle + search travel together on the left; everything stays on one row */
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .search-box {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   background-color: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 0.75rem;
   height: 36px;
   width: 320px;
+  min-width: 0;
+  flex: 0 1 320px;
   gap: 0.5rem;
 }
 
 .search-icon {
   width: 16px;
   height: 16px;
+  flex-shrink: 0;
   color: var(--text-muted);
 }
 
@@ -276,20 +296,27 @@
   background: transparent;
   border: none;
   color: var(--text-primary);
+  font-family: inherit;
   font-size: 0.85rem;
   outline: none;
-  flex: 1;
-  height: 24px;
-  line-height: 1.2;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-self: stretch;
+  line-height: 1;
   padding: 0;
+  margin: 0;
 }
 
 .search-kbd {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
   font-size: 0.75rem;
+  line-height: 1;
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 0.1rem 0.3rem;
+  padding: 0.2rem 0.35rem;
   color: var(--text-muted);
   font-family: var(--mono);
 }
@@ -297,37 +324,50 @@
 .top-bar-right {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .project-selector {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .project-label {
   font-size: 0.8rem;
+  line-height: 1;
+  white-space: nowrap;
   color: var(--text-muted);
 }
 
 .project-select-dropdown {
+  box-sizing: border-box;
+  height: 34px;
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-primary);
-  padding: 0.35rem 0.75rem;
+  font-family: inherit;
+  padding: 0 0.75rem;
   outline: none;
   cursor: pointer;
   font-size: 0.85rem;
+  max-width: 200px;
 }
 
 .top-bar-action-btn {
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
   background: transparent;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 0.35rem;
+  padding: 0;
   border-radius: 6px;
   display: flex;
   align-items: center;
@@ -344,18 +384,18 @@
 .btn-svg {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
 }
 
 .theme-toggle-group {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 0.25rem;
   background-color: var(--bg-elevated);
   padding: 0.2rem;
   border-radius: 8px;
   border: 1px solid var(--border);
-  margin-left: 0.5rem;
-  margin-right: 0.5rem;
 }
 
 .theme-btn {
@@ -406,16 +446,21 @@
 .top-user-menu {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
+  height: 34px;
   padding-left: 0.75rem;
   border-left: 1px solid var(--border);
   cursor: pointer;
 }
 
 .top-user-avatar {
+  box-sizing: border-box;
   width: 30px;
   height: 30px;
+  min-width: 30px;
+  flex-shrink: 0;
   border-radius: 50%;
+  overflow: hidden;
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
   display: flex;
@@ -426,15 +471,28 @@
   color: var(--accent);
 }
 
+.avatar-initials {
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
 .top-user-info {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  min-width: 0;
 }
 
 .top-user-name {
   font-weight: 600;
   font-size: 0.85rem;
+  line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .top-user-lab {
@@ -446,6 +504,7 @@
 .chevron-icon {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
   color: var(--text-muted);
 }
 
@@ -532,6 +591,5 @@
 
 .sidebar-toggle-btn {
   margin-left: -0.5rem;
-  margin-right: 1rem;
 }
 

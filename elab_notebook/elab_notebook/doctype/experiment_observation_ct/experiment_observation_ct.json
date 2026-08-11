@@ -1,0 +1,60 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "observation",
+  "observed_by",
+  "observed_on",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 5,
+   "fieldname": "observation",
+   "fieldtype": "Text Editor",
+   "in_list_view": 1,
+   "label": "Observation",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "default": "__user",
+   "fieldname": "observed_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Observed By",
+   "options": "User"
+  },
+  {
+   "columns": 2,
+   "default": "Now",
+   "description": "Set automatically when the row is added.",
+   "fieldname": "observed_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Observed On"
+  },
+  {
+   "columns": 2,
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-11 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Elab Notebook",
+ "name": "Experiment Observation CT",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

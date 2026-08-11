@@ -4,3 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+elab_notebook.patches.v1_0.add_experiment_observations_table
+elab_notebook.patches.v1_0.fix_experiment_observation_fetch_from

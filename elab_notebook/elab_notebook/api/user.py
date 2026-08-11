@@ -34,12 +34,22 @@ def get_current_user_profile():
     if not initials:
         initials = user[:2].upper()
         
+    # Experiment.employee_code is a Link to Employee, not to User, so the Employee id
+    # has to travel with the profile - the session user id is not a valid value there.
+    employee = frappe.db.get_value(
+        "Employee", {"user_id": user, "status": "Active"}, ["name", "employee_name"], as_dict=True
+    ) or frappe.db.get_value(
+        "Employee", {"user_id": user}, ["name", "employee_name"], as_dict=True
+    )
+
     return {
         "name": user_doc.name,
         "full_name": user_doc.full_name or user_doc.name,
         "first_name": user_doc.first_name or user_doc.full_name or user_doc.name,
         "initials": initials,
         "user_image": user_doc.user_image,
+        "employee": employee.name if employee else None,
+        "employee_name": (employee.employee_name if employee else None) or user_doc.full_name,
         "role": user_doc.get("designation") or "Laboratory Director"
     }
 

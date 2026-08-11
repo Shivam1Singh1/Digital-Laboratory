@@ -324,6 +324,17 @@ tr:last-child td {
   outline: none;
 }
 
+/* Child-table "+ Add Row" buttons sit inside dense grids, so they run smaller
+   than .btn-sm. Compounded with .btn to win over .btn-sm regardless of import order. */
+.btn.btn-add-row {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 4px;
+  gap: 0.3rem;
+}
+
 .btn-primary {
   background-color: var(--accent);
   color: var(--bg-primary);

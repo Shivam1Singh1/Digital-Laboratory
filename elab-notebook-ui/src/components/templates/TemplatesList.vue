@@ -1,12 +1,10 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { useUserStore } from '../../stores/user'
 import { formatDateTime } from '../../utils/dateFormatter'
 import './TemplatesList.css'
 
-const userStore = useUserStore()
 const router = useRouter()
 const templates = ref([])
 const loading = ref(true)
@@ -43,14 +41,15 @@ const paginatedTemplates = computed(() => {
   return templates.value.slice(start, end)
 })
 
+// Deliberately not filtered by the Active Project selector: once a template is saved
+// it must be findable here, and project-scoping this list silently hid drafts that
+// belonged to a project other than the one selected in the top bar. Function-level
+// scoping is still enforced server-side, so this only ever widens to the user's own
+// Employee Function - never across functions.
 const fetchTemplates = async () => {
   loading.value = true
   try {
-    const params = {}
-    if (userStore.currentProject && userStore.currentProject !== 'all') {
-      params.filters = JSON.stringify({ project: userStore.currentProject })
-    }
-    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_experiment_templates', { params })
+    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_experiment_templates')
     templates.value = res.data.message || []
     currentPage.value = 1
     await fetchTemplateCounts()
@@ -61,10 +60,12 @@ const fetchTemplates = async () => {
   }
 }
 
-watch(() => userStore.currentProject, () => {
-  currentPage.value = 1
-  fetchTemplates()
-})
+// Mirrors isReadOnly in TemplateDetail.vue: once a template is sent for approval it
+// stops being the author's to change, so the row offers View (which reviewers use to
+// open it and run Approve/Reject) instead of Edit. Draft and Rejected stay editable.
+const READ_ONLY_STATES = ['Pending from System Manager', 'Pending For Approval', 'Approved']
+
+const isEditable = (state) => !READ_ONLY_STATES.includes(state)
 
 const getWorkflowStateClass = (state) => {
   if (!state) return 'state-draft'
@@ -152,9 +153,9 @@ onMounted(() => {
             </td>
             <td class="actions-col">
               <div class="actions-group">
-                <!-- Edit button - only for Draft/Pending/Rejected templates -->
+                <!-- Edit - only while the template is still the author's (Draft/Rejected) -->
                 <router-link
-                  v-if="temp.workflow_state !== 'Approved'"
+                  v-if="isEditable(temp.workflow_state)"
                   :to="`/templates/${temp.name}`"
                   class="action-btn text-accent"
                   title="Edit Template"
@@ -162,6 +163,19 @@ onMounted(() => {
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   Edit
+                </router-link>
+
+                <!-- View - once sent for approval the template is locked, but reviewers
+                     still need to open it to approve or reject -->
+                <router-link
+                  v-else
+                  :to="`/templates/${temp.name}`"
+                  class="action-btn text-muted"
+                  title="View Template (locked - awaiting approval or already approved)"
+                  @click.stop
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="action-icon"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  View
                 </router-link>
               </div>
             </td>
