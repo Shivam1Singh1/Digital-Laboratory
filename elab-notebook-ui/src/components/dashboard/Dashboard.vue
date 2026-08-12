@@ -117,7 +117,7 @@ onMounted(() => {
       
       <EntityStatsBlock 
         entityName="Experiments" 
-        doctype="Experiment" 
+        doctype="Lab Experiment" 
         statusField="workflow_state" 
       />
       

@@ -13,7 +13,7 @@ class Sample(Document):
 		if not self.experiment:
 			frappe.throw(_("Experiment is required"), title=_("Missing Experiment"))
 
-		if not frappe.db.exists("Experiment", self.experiment):
+		if not frappe.db.exists("Lab Experiment", self.experiment):
 			frappe.throw(
 				_("Experiment '{0}' does not exist").format(self.experiment),
 				title=_("Invalid Experiment")
@@ -55,11 +55,13 @@ class Sample(Document):
 		if not self.experiment:
 			return
 
-		workflow_state = frappe.db.get_value("Experiment", self.experiment, "workflow_state")
+		workflow_state = frappe.db.get_value("Lab Experiment", self.experiment, "workflow_state")
 
 		# Allow Sample creation/edit in Running, Completed, or Pending Approval states
-		# Lock in Approved, Rejected, or Draft/Saved states
-		allowed_states = ["Running", "Completed", "Pending Approval from System Manager", "Pending Approval"]
+		# Lock in Approved, Rejected, or Draft/Saved states.
+		# Only states Lab Experiment Flow can actually emit are listed - the old
+		# bare "Pending Approval" entry matched nothing.
+		allowed_states = ["Running", "Completed", "Pending Approval from System Manager"]
 
 		if workflow_state not in allowed_states:
 			frappe.throw(

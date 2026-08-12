@@ -164,5 +164,7 @@ class ExperimentTemplate(Document):
 			)
 
 	def on_trash(self):
-		if frappe.db.exists("Experiment", {"template": self.name}) or frappe.db.exists("Experiment", {"experiment_template": self.name}):
+		if frappe.db.exists("Lab Experiment", {"template": self.name}) or frappe.db.exists(
+			"Lab Experiment", {"experiment_template": self.name}
+		):
 			frappe.throw(_("Cannot delete: Experiment(s) exist using this Template."))

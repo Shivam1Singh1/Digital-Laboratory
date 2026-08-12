@@ -223,63 +223,13 @@ def setup_db():
     parent_temp.save(ignore_permissions=True)
     print("Updated Experiment Template DocType")
 
-    print("\n3. Updating Experiment...")
-    # Ensure fields exist on Experiment and make it non-submittable
-    parent_exp = frappe.get_doc("DocType", "Experiment")
-    parent_exp.is_submittable = 0
-    
-    # Ensure Employee role exists and clean permissions
-    has_employee = False
-    for perm in parent_exp.permissions:
-        if perm.role == "Employee":
-            has_employee = True
-            perm.read = 1
-            perm.write = 1
-            perm.create = 1
-            perm.share = 1
-            perm.email = 1
-            perm.export = 1
-            perm.print = 1
-            perm.report = 1
-            perm.submit = 0
-            perm.cancel = 0
-            perm.amend = 0
-        elif perm.role == "System Manager":
-            perm.submit = 0
-            perm.cancel = 0
-            perm.amend = 0
-
-    if not has_employee:
-        parent_exp.append("permissions", {
-            "role": "Employee",
-            "read": 1,
-            "write": 1,
-            "create": 1,
-            "share": 1,
-            "email": 1,
-            "export": 1,
-            "print": 1,
-            "report": 1
-        })
-
-    fields_to_add_exp = [
-        {"fieldname": "experiment_template", "fieldtype": "Link", "label": "Experiment Template", "options": "Experiment Template"},
-        {"fieldname": "experiment_ingredients", "fieldtype": "Table", "label": "Ingredients", "options": "Template Ingredient"},
-        {"fieldname": "experiment_parameters", "fieldtype": "Table", "label": "Parameters", "options": "Template Parameter"},
-        {"fieldname": "experiment_protocol_steps", "fieldtype": "Table", "label": "Protocol Steps", "options": "Template Protocol Step"},
-        {"fieldname": "material_required", "fieldtype": "Table", "label": "Material Required", "options": "Material Required CT"},
-        {"fieldname": "methodology", "fieldtype": "Table", "label": "Methodology", "options": "Methodology CT"},
-        {"fieldname": "status", "fieldtype": "Select", "label": "Status", "options": "Draft\nCompleted"},
-        {"fieldname": "workflow_state", "fieldtype": "Select", "label": "Workflow State", "options": "Draft\nPending from System Manager\nPending For Approval\nRejected\nApproved", "read_only": 1, "in_list_view": 1, "in_standard_filter": 1, "no_copy": 1}
-    ]
-
-    existing_fields_exp = [f.fieldname for f in parent_exp.fields]
-    for f_spec in fields_to_add_exp:
-        if f_spec["fieldname"] not in existing_fields_exp:
-            parent_exp.append("fields", f_spec)
-
-    parent_exp.save(ignore_permissions=True)
-    print("Updated Experiment DocType")
+    # 3. Experiment / Lab Experiment
+    # Retired. This block used to mutate the live custom `Experiment` doctype at
+    # runtime - flipping is_submittable, rewriting permission rows and appending
+    # fields. `Lab Experiment` replaces it as version-controlled code, so its
+    # schema comes from lab_experiment.json and `bench migrate`, not from here.
+    # The legacy `Experiment` doctype is deliberately left untouched.
+    print("\n3. Skipping Experiment - superseded by the code-based Lab Experiment doctype")
 
     print("\n4. Updating Experiment Team...")
     parent_team = frappe.get_doc("DocType", "Experiment Team")
@@ -315,7 +265,7 @@ def setup_db():
             "is_submittable": 1,
             "autoname": "format:{experiment}-{#####}",
             "fields": [
-                {"fieldname": "experiment", "fieldtype": "Link", "label": "Experiment", "options": "Experiment", "reqd": 1},
+                {"fieldname": "experiment", "fieldtype": "Link", "label": "Experiment", "options": "Lab Experiment", "reqd": 1},
                 {"fieldname": "elab_no", "fieldtype": "Data", "label": "Elab No.", "read_only": 1, "fetch_from": "experiment.name"},
                 {"fieldname": "item", "fieldtype": "Link", "label": "Item", "options": "Item", "reqd": 1},
                 {"fieldname": "uom", "fieldtype": "Link", "label": "UOM", "options": "UOM", "read_only": 1, "fetch_from": "item.stock_uom"},

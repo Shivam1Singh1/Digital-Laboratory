@@ -220,6 +220,28 @@ Also verified: autoname → `ET-PLTP-2025-0041-022229`; `head_name` auto-fetch �
 - ⚠️ `workflow_state` is **not** declared in the DocType JSON. The active Workflow **`Template flow`** owns it as an auto-generated Custom Field (standard Frappe behaviour); declaring it in both places raises *"A field with the name workflow_state already exists"* during migrate.
 - ⚠️ `Template flow`'s states are `Draft → Pending from Reviewer → Pending Approval Of HOD → Rejected → Approved By HOD` and it grants transitions to a **`Reviewer`** role — tied to the removed `reviewer` field. This does **not** match the proposed `Draft → Planned → Ready → In Progress → Completed → Under Review → Approved → Closed` flow. Rebuilding it needs role/transition decisions and was left untouched.
 
+#### 🔴 OPEN — Experiment Template approval inbox queries phantom workflow states
+
+Deferred out of the `Lab Experiment` rebuild; **not fixed**, logged here so it is not lost.
+
+[api/dashboard.py](elab_notebook/elab_notebook/api/dashboard.py) lines **334, 357, 359** filter pending `Experiment Template` records on `"Pending from System Manager"` and `"Pending For Approval"`. Neither state exists in `Template flow`, whose real states are `Draft → Pending from Reviewer → Pending Approval Of HOD → Rejected → Approved By HOD` (see the bullet above). The template approval inbox therefore **matches nothing and has never surfaced a pending template**.
+
+This is the same bug class already fixed on the experiment side, where the inbox gated on the same two phantom strings while the live workflow emitted `Pending Approval from System Manager`. The fix is the same shape — align the filters to the states the workflow actually emits — but it belongs to the `Template flow` rebuild, since that workflow's states are themselves under review and a `Reviewer` role no longer backed by a field is involved. Fixing the filters against today's `Template flow` states would only have to be redone when that flow is rebuilt.
+
+#### 🔴 OPEN — three migrated `Lab Experiment` records carry dangling template links
+
+Pre-existing on the legacy records and **faithfully preserved** by the data copy, rather than silently nulled. Not fixed; logged here for a separate cleanup pass.
+
+| Record | Dangling field(s) | Missing `Experiment Template` |
+|---|---|---|
+| `ELN-PLTP-2025-0017-000002-000001` | `template` | `ET-PLTP-2025-0065-020962` |
+| `ELN-PLTP-2025-0017-000002-000002` | `template` | `ET-PLTP-2025-0024-021784` |
+| `ELN-MCPL/LTP/DL/0009-000002-A0001` | `template`, `experiment_template` | `ET--022223` |
+
+`ET--022223` is the mis-named template from the original `Experiment Template` rebuild (`autoname` ran before `fetch_from` populated `project_id` — see [§ 4 Naming fix](#4-naming-fix--before_naming)); the record it points at no longer exists.
+
+The rows were inserted with direct SQL, which does not run link validation, so the copy itself succeeded. **The cost is deferred, not avoided:** opening any of these three in the Desk UI and saving raises `LinkValidationError`, because `validate_links()` runs on save. Cleanup means either pointing each at a real template or clearing the field.
+
 ---
 
 ---

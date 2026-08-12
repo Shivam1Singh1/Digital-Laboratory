@@ -124,6 +124,9 @@ permission_query_conditions = {
 	"Experiment Template": "elab_notebook.permissions.get_permission_query_conditions",
 	# A team roster belongs to the Employee Function head who owns it.
 	"Experiment Team": "elab_notebook.permissions.get_team_permission_query_conditions",
+	"Lab Experiment": "elab_notebook.permissions.get_lab_experiment_permission_query_conditions",
+	# Legacy Experiment keeps its isolation until it is retired - it still holds
+	# data, and an unregistered doctype is readable by every Employee.
 	"Experiment": "elab_notebook.permissions.get_experiment_permission_query_conditions",
 	"Sample": "elab_notebook.permissions.get_sample_permission_query_conditions",
 }
@@ -131,6 +134,7 @@ permission_query_conditions = {
 has_permission = {
 	"Experiment Template": "elab_notebook.permissions.has_permission",
 	"Experiment Team": "elab_notebook.permissions.has_team_permission",
+	"Lab Experiment": "elab_notebook.permissions.has_lab_experiment_permission",
 	"Experiment": "elab_notebook.permissions.has_experiment_permission",
 	"Sample": "elab_notebook.permissions.has_sample_permission",
 }
@@ -147,9 +151,10 @@ has_permission = {
 # ---------------
 # Hook on document methods and events
 
-# Experiment is a UI-created doctype with no controller file, so the participant
-# gate is attached here. before_insert only — existing Experiments and edits to
-# them stay editable.
+# Lab Experiment carries these rules in its own controller
+# (elab_notebook/doctype/lab_experiment/lab_experiment.py), so it needs no entry
+# here. Legacy Experiment is a UI-created doctype with no controller file, so its
+# gate stays attached through doc_events until the doctype is retired.
 doc_events = {
 	"Experiment": {
 		"before_insert": "elab_notebook.experiment_access.validate_experiment_participant",

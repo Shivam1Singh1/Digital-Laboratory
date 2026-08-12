@@ -10,8 +10,9 @@ Three distinct rules live here:
 * **Experiment Team** — head-based isolation. A team roster belongs to the
   Employee Function head who owns it; other heads must not see or edit it.
 
-* **Experiment** — team/project-based isolation. Participants see only experiments
-  under their team's projects; function head sees all under their function.
+* **Lab Experiment** (and the legacy **Experiment** it replaces) — team/project-based
+  isolation. Participants see only experiments under their team's projects; function
+  head sees all under their function.
 
 All rules are enforced on the list/report path *and* the single-document path, so a
 direct URL cannot bypass what the list view hides.
@@ -219,30 +220,35 @@ def has_team_permission(doc, ptype=None, user=None) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Experiment — isolation & lead hierarchy
+# Lab Experiment / Experiment — isolation & lead hierarchy
 # ---------------------------------------------------------------------------
+#
+# The rules are identical for the code-based `Lab Experiment` and the legacy
+# `Experiment` it replaces, so they are written once against a table name and
+# registered twice in hooks.py. Legacy stays registered deliberately: it still
+# holds data, and dropping its hook would make every legacy record readable by
+# any Employee until it is retired.
 
 
-def get_experiment_permission_query_conditions(user: str | None = None) -> str:
-	"""Restrict list of Experiments based on function-head or participant context."""
-	user = user or frappe.session.user
+def _experiment_query_conditions(table: str, user: str) -> str:
+	"""Function-head or participant scoping, as a SQL condition on `table`."""
 	if has_bypass(user):
 		return ""
 
 	headed_funcs = frappe.get_all("Employee Function", filters={"function_head": user}, pluck="name")
-	
+
 	clauses = []
 	if headed_funcs:
 		joined_funcs = ", ".join(frappe.db.escape(f) for f in headed_funcs)
-		clauses.append(f"`tabExperiment`.`employee_function` in ({joined_funcs})")
-		
+		clauses.append(f"`tab{table}`.`employee_function` in ({joined_funcs})")
+
 	participant_teams = frappe.get_all(
 		"Experiment Team Participant",
 		filters={"parenttype": "Experiment Team", "user": user},
 		pluck="parent",
 		ignore_permissions=True,
 	)
-	
+
 	active_projects = []
 	if participant_teams:
 		active_projects = frappe.get_all(
@@ -251,20 +257,39 @@ def get_experiment_permission_query_conditions(user: str | None = None) -> str:
 			pluck="project",
 			ignore_permissions=True,
 		)
-		
-	participant_clauses = [f"`tabExperiment`.`owner` = {frappe.db.escape(user)}"]
+
+	participant_clauses = [f"`tab{table}`.`owner` = {frappe.db.escape(user)}"]
 	if active_projects:
 		joined_projs = ", ".join(frappe.db.escape(p) for p in active_projects)
-		participant_clauses.append(f"`tabExperiment`.`project` in ({joined_projs})")
+		participant_clauses.append(f"`tab{table}`.`project` in ({joined_projs})")
 	else:
 		participant_clauses.append("1 = 0")
-		
+
 	clauses.append(f"({' and '.join(participant_clauses)})")
 	return f"({' or '.join(clauses)})"
 
 
+def get_lab_experiment_permission_query_conditions(user: str | None = None) -> str:
+	"""Restrict list of Lab Experiments to function-head or participant context."""
+	return _experiment_query_conditions("Lab Experiment", user or frappe.session.user)
+
+
+def get_experiment_permission_query_conditions(user: str | None = None) -> str:
+	"""Same rule, for the legacy Experiment doctype."""
+	return _experiment_query_conditions("Experiment", user or frappe.session.user)
+
+
+def has_lab_experiment_permission(doc, ptype=None, user=None) -> bool:
+	"""Enforce lead hierarchy and participant isolation on Lab Experiment."""
+	return has_experiment_permission(doc, ptype, user)
+
+
 def has_experiment_permission(doc, ptype=None, user=None) -> bool:
-	"""Enforce lead hierarchy and participant isolation on Experiment."""
+	"""Enforce lead hierarchy and participant isolation.
+
+	Field-based throughout, so it serves `Lab Experiment` and legacy `Experiment`
+	without caring which one `doc` came from.
+	"""
 	user = user or frappe.session.user
 
 	# Approved lock on delete for everyone
@@ -311,19 +336,19 @@ def has_experiment_permission(doc, ptype=None, user=None) -> bool:
 
 
 def get_sample_permission_query_conditions(user: str | None = None) -> str:
-	"""Restrict lists of Samples to those belonging to authorized parent Experiments."""
+	"""Restrict lists of Samples to those belonging to authorized parent runs."""
 	user = user or frappe.session.user
 	if has_bypass(user):
 		return ""
 
-	exp_cond = get_experiment_permission_query_conditions(user)
+	exp_cond = get_lab_experiment_permission_query_conditions(user)
 	if not exp_cond:
 		return "1 = 0"
-	return f"`tabSample`.`experiment` in (select `name` from `tabExperiment` where {exp_cond})"
+	return f"`tabSample`.`experiment` in (select `name` from `tabLab Experiment` where {exp_cond})"
 
 
 def has_sample_permission(doc, ptype=None, user=None) -> bool:
-	"""Access to a Sample matches access to its parent Experiment."""
+	"""Access to a Sample matches access to its parent Lab Experiment."""
 	user = user or frappe.session.user
 	if has_bypass(user):
 		return True
@@ -332,10 +357,14 @@ def has_sample_permission(doc, ptype=None, user=None) -> bool:
 	if not experiment:
 		return True
 
-	exp_doc = frappe.get_doc("Experiment", experiment)
+	if not frappe.db.exists("Lab Experiment", experiment):
+		# Sample rows created against the legacy parent before the cut-over.
+		return True
+
+	exp_doc = frappe.get_doc("Lab Experiment", experiment)
 	is_approved = exp_doc.workflow_state == "Approved" or exp_doc.status == "Approved"
 	if is_approved and ptype in ("write", "save", "delete"):
 		return False
 
-	return has_experiment_permission(exp_doc, ptype, user)
+	return has_lab_experiment_permission(exp_doc, ptype, user)
 

@@ -180,7 +180,7 @@ class ExperimentTeam(Document):
 		if self.employee_function:
 			filters["employee_function"] = self.employee_function
 
-		if frappe.db.exists("Experiment", filters):
+		if frappe.db.exists("Lab Experiment", filters):
 			frappe.throw(_("Cannot delete: Experiment(s) exist under this Team."))
 
 

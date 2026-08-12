@@ -27,10 +27,10 @@ def get_dashboard_summary(project=None):
         }
     
     # Real DB counts
-    active_db = frappe.db.count("Experiment", {"project": ["in", allowed_projects], "workflow_state": ["in", ["Draft", "Running", "Active"]]})
-    completed_db = frappe.db.count("Experiment", {"project": ["in", allowed_projects], "workflow_state": "Completed"})
-    pending_db = frappe.db.count("Experiment", {"project": ["in", allowed_projects], "workflow_state": ["in", ["Pending Approval", "In Review", "Pending from System Manager", "Pending For Approval"]]})
-    running_db = frappe.db.count("Experiment", {"project": ["in", allowed_projects], "workflow_state": "Running"})
+    active_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": ["in", ["Draft", "Saved", "Running"]]})
+    completed_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Completed"})
+    pending_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Pending Approval from System Manager"})
+    running_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Running"})
     
     # Scientists: distinct participants/heads in Experiment Teams for allowed_projects
     teams = frappe.get_all("Experiment Team", filters={"project": ["in", allowed_projects]}, fields=["name", "employee_function"])
@@ -88,7 +88,7 @@ def get_monthly_experiments(project=None):
         }
         
     experiments = frappe.get_all(
-        "Experiment",
+        "Lab Experiment",
         filters={"project": ["in", allowed_projects]},
         fields=["creation", "workflow_state"]
     )
@@ -102,7 +102,7 @@ def get_monthly_experiments(project=None):
                 state = (exp.workflow_state or "").lower()
                 if state in ("completed", "approved"):
                     completed_trend[idx] += 1
-                elif state in ("rejected", "cancelled"):
+                elif state == "rejected":
                     terminated_trend[idx] += 1
                 break
                 
@@ -123,7 +123,7 @@ def get_success_rate(project=None):
         }
         
     experiments = frappe.get_all(
-        "Experiment",
+        "Lab Experiment",
         filters={"project": ["in", allowed_projects]},
         fields=["workflow_state"]
     )
@@ -174,7 +174,7 @@ def get_yield_trend(project=None):
     if allowed_projects:
         # Get all completed experiments in allowed projects
         experiments = frappe.get_all(
-            "Experiment",
+            "Lab Experiment",
             filters={
                 "project": ["in", allowed_projects],
                 "workflow_state": "Completed"
@@ -210,7 +210,7 @@ def get_chemical_consumption(project=None):
         
     # Fetch all experiments in allowed_projects
     experiments = frappe.get_all(
-        "Experiment",
+        "Lab Experiment",
         filters={"project": ["in", allowed_projects]},
         pluck="name"
     )
@@ -221,7 +221,7 @@ def get_chemical_consumption(project=None):
         # Get all Material Required CT child rows
         materials = frappe.get_all(
             "Material Required CT",
-            filters={"parenttype": "Experiment", "parent": ["in", experiments]},
+            filters={"parenttype": "Lab Experiment", "parent": ["in", experiments]},
             fields=["item_name", "qty", "uom"]
         )
         for m in materials:
@@ -255,7 +255,7 @@ def get_recent_experiments(limit=4, project=None):
     
     if allowed_projects:
         db_exps = frappe.get_all(
-            "Experiment",
+            "Lab Experiment",
             fields=["name", "title", "aim", "employee_name", "owner", "workflow_state", "modified", "project"],
             filters={
                 "project": ["in", allowed_projects],
@@ -289,7 +289,7 @@ def get_activity_feed(limit=5, project=None):
     
     if allowed_projects:
         recent_updates = frappe.get_all(
-            "Experiment",
+            "Lab Experiment",
             fields=["name", "modified_by", "workflow_state", "modified"],
             filters={"project": ["in", allowed_projects]},
             order_by="modified desc",
@@ -319,10 +319,10 @@ def get_upcoming_tasks(project=None):
     user = frappe.session.user
     
     pending_exps = frappe.get_all(
-        "Experiment",
+        "Lab Experiment",
         filters={
             "project": ["in", allowed_projects],
-            "workflow_state": ["in", ["Pending from System Manager", "Pending For Approval"]]
+            "workflow_state": "Pending Approval from System Manager"
         },
         fields=["name", "workflow_state", "owner", "reviewer", "title"]
     )
@@ -339,9 +339,9 @@ def get_upcoming_tasks(project=None):
     task_idx = 1
     for exp in pending_exps:
         is_approver = False
-        if exp.workflow_state == "Pending from System Manager" and "System Manager" in frappe.get_roles(user):
-            is_approver = True
-        elif exp.workflow_state == "Pending For Approval" and (exp.reviewer == user or "System Manager" in frappe.get_roles(user)):
+        # Lab Experiment Flow allows only System Manager to approve or reject;
+        # the assigned reviewer still gets the item in their inbox.
+        if "System Manager" in frappe.get_roles(user) or exp.reviewer == user:
             is_approver = True
             
         role_label = "Approver" if is_approver else "Owner"
@@ -481,7 +481,7 @@ def get_experiments_list(project=None, workflow_state=None):
         filters["workflow_state"] = workflow_state
         
     experiments = frappe.get_all(
-        "Experiment",
+        "Lab Experiment",
         fields=["name", "title", "aim", "project", "employee_name", "workflow_state", "experiment_status", "experiment_start_date", "creation"],
         filters=filters,
         order_by="creation desc"
@@ -497,7 +497,7 @@ def get_template_experiment_counts():
     
     # Query experiment counts grouped by template (respects Experiment permissions)
     counts = frappe.get_list(
-        "Experiment",
+        "Lab Experiment",
         fields=["experiment_template", "count(name) as count"],
         group_by="experiment_template"
     )
@@ -522,7 +522,7 @@ def get_team_experiment_counts():
 
     # Query experiment counts by team (grouped by the team itself, not by project+function)
     counts = frappe.get_list(
-        "Experiment",
+        "Lab Experiment",
         fields=["project", "employee_function", "count(name) as count"],
         group_by="project, employee_function"
     )

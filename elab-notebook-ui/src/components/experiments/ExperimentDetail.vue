@@ -42,7 +42,7 @@ const loadExperiment = async () => {
   loading.value = true
   error.value = ''
   try {
-    const res = await axios.get(`/api/resource/Experiment/${encodeURIComponent(route.params.id)}`)
+    const res = await axios.get(`/api/resource/Lab%20Experiment/${encodeURIComponent(route.params.id)}`)
     experiment.value = res.data.data || null
     await fetchWorkflowActions()
     
@@ -72,7 +72,7 @@ const fetchWorkflowActions = async () => {
       '/api/method/elab_notebook.elab_notebook.api.workflow.get_workflow_actions',
       {
         params: {
-          doctype: 'Experiment',
+          doctype: 'Lab Experiment',
           docname: route.params.id
         }
       }
@@ -94,7 +94,7 @@ const runWorkflowAction = async (action) => {
     const res = await axios.post(
       '/api/method/elab_notebook.elab_notebook.api.workflow.apply_workflow_action',
       {
-        doctype: 'Experiment',
+        doctype: 'Lab Experiment',
         docname: route.params.id,
         action: action
       }
@@ -209,7 +209,7 @@ const loadHistory = async () => {
       params: {
         doctype: 'Version',
         filters: JSON.stringify({
-          ref_doctype: 'Experiment',
+          ref_doctype: 'Lab Experiment',
           docname: route.params.id
         }),
         fields: JSON.stringify(['name', 'owner', 'creation', 'data']),
@@ -253,7 +253,7 @@ const updateExperiment = async () => {
   error.value = ''
   successMessage.value = ''
   try {
-    const res = await axios.put(`/api/resource/Experiment/${encodeURIComponent(route.params.id)}`, experiment.value)
+    const res = await axios.put(`/api/resource/Lab%20Experiment/${encodeURIComponent(route.params.id)}`, experiment.value)
     if (res.data && res.data.data) {
       experiment.value = res.data.data
       successMessage.value = 'Experiment execution details updated successfully!'
@@ -282,17 +282,20 @@ const addMethod = () => {
   })
 }
 
-const removeMethod = (index) => {
-  experiment.value.methodology.splice(index, 1)
+// Rows cloned from an Experiment Template are editable but must not be removed.
+// The server enforces this in LabExperiment.validate_imported_rows_kept(); these
+// checks just keep the UI from offering an action that would be rejected on save.
+const isImportedRow = (row) => Boolean(row?.from_template)
+
+const removeChildRow = (fieldname, index) => {
+  const rows = experiment.value?.[fieldname]
+  if (!rows || isImportedRow(rows[index])) return
+  rows.splice(index, 1)
 }
 
-const removeMaterial = (index) => {
-  experiment.value.material_required.splice(index, 1)
-}
-
-const removeEquipment = (index) => {
-  experiment.value.equipment_details.splice(index, 1)
-}
+const removeMethod = (index) => removeChildRow('methodology', index)
+const removeMaterial = (index) => removeChildRow('material_required', index)
+const removeEquipment = (index) => removeChildRow('equipment_details', index)
 
 // Format field names to readable strings
 const formatFieldName = (name) => {
@@ -356,7 +359,7 @@ const handleSampleNotGenerated = async () => {
   if (!confirm('Are you sure you want to mark this experiment as Failed (No Sample generated)? This action is permanent.')) return
   saving.value = true
   try {
-    await axios.put(`/api/resource/Experiment/${encodeURIComponent(experiment.value.name)}`, {
+    await axios.put(`/api/resource/Lab%20Experiment/${encodeURIComponent(experiment.value.name)}`, {
       sample_generated: 0,
       sample_not_generated: 1,
       experiment_status: 'Failed'
@@ -386,7 +389,7 @@ const registerSample = async () => {
     await axios.post('/api/resource/Sample', payload)
     
     // Auto-complete the experiment
-    await axios.put(`/api/resource/Experiment/${encodeURIComponent(experiment.value.name)}`, {
+    await axios.put(`/api/resource/Lab%20Experiment/${encodeURIComponent(experiment.value.name)}`, {
       sample_generated: 1,
       sample_not_generated: 0,
       experiment_status: 'Completed'
@@ -737,7 +740,10 @@ onMounted(() => {
                   <td>{{ mat.item_name }}</td>
                   <td>{{ mat.uom }}</td>
                   <td><input type="number" v-model="mat.qty" class="form-control table-input" min="0" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
-                  <td><button class="delete-row-btn" @click="removeMaterial(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete material'">×</button></td>
+                  <td>
+                    <button v-if="!isImportedRow(mat)" class="delete-row-btn" @click="removeMaterial(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete material'">×</button>
+                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                  </td>
                 </tr>
                 <tr v-if="!experiment.material_required || experiment.material_required.length === 0">
                   <td colspan="5" class="empty-table-cell">No materials required for this run.</td>
@@ -768,7 +774,10 @@ onMounted(() => {
                   <td><input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="e.g. HPLC Machine" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
                   <td class="font-mono"><input type="text" v-model="eq.equipment_id" class="form-control table-input" placeholder="e.g. HPLC-001" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
                   <td><input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="e.g. Reserved for 9am session" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
-                  <td><button class="delete-row-btn" @click="removeEquipment(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete equipment'">×</button></td>
+                  <td>
+                    <button v-if="!isImportedRow(eq)" class="delete-row-btn" @click="removeEquipment(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete equipment'">×</button>
+                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                  </td>
                 </tr>
                 <tr v-if="!experiment.equipment_details || experiment.equipment_details.length === 0">
                   <td colspan="4" class="empty-table-cell">No equipment allocated.</td>
@@ -806,7 +815,8 @@ onMounted(() => {
                     <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" :disabled="isWorkflowLocked() && !isSystemManager" />
                   </td>
                   <td>
-                    <button class="delete-row-btn" @click="removeMethod(idx)" :disabled="isWorkflowLocked() && !isSystemManager">×</button>
+                    <button v-if="!isImportedRow(meth)" class="delete-row-btn" @click="removeMethod(idx)" :disabled="isWorkflowLocked() && !isSystemManager">×</button>
+                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
                   </td>
                 </tr>
                 <tr v-if="experiment.methodology.length === 0">

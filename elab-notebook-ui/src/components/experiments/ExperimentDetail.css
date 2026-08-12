@@ -435,3 +435,18 @@
   color: var(--success);
 }
 
+
+/* Shown in place of the delete control on rows imported from an Experiment
+   Template - those rows stay editable, but cannot be removed. */
+.imported-row-lock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 0.8rem;
+  line-height: 1;
+  opacity: 0.45;
+  cursor: help;
+  user-select: none;
+}

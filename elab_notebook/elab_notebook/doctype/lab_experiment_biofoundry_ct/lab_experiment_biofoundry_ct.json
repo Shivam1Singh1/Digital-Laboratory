@@ -1,0 +1,158 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-12 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "item_name",
+  "qty",
+  "custom_uom",
+  "oligo_type_copy",
+  "oligo_bank",
+  "name1",
+  "sequence_1",
+  "length_1",
+  "sequence_2",
+  "length_2",
+  "remark",
+  "greater_sequence_1",
+  "greater_sequence_2",
+  "tag_modification_1",
+  "tag_modificatio_2",
+  "purity"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "fetch_from": "item.item_name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Data",
+   "label": "QTY",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "custom_uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "fetch_from": "item.stock_uom",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "oligo_type_copy",
+   "fieldtype": "Data",
+   "label": "Oligo Type Copy",
+   "hidden": 1
+  },
+  {
+   "fieldname": "oligo_bank",
+   "fieldtype": "Link",
+   "label": "Oligo Bank",
+   "options": "Oligo Bank",
+   "mandatory_depends_on": "eval: doc.oligo_type_copy\r\n",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "name1",
+   "fieldtype": "Data",
+   "label": "Name",
+   "fetch_from": "oligo_bank.name1",
+   "hidden": 1
+  },
+  {
+   "fieldname": "sequence_1",
+   "fieldtype": "Data",
+   "label": "Sequence 1",
+   "fetch_from": "oligo_bank.sequence_1",
+   "hidden": 1
+  },
+  {
+   "fieldname": "length_1",
+   "fieldtype": "Data",
+   "label": "Length 1",
+   "fetch_from": "oligo_bank.length_1",
+   "hidden": 1
+  },
+  {
+   "fieldname": "sequence_2",
+   "fieldtype": "Data",
+   "label": "Sequence 2",
+   "fetch_from": "oligo_bank.sequence_2",
+   "hidden": 1
+  },
+  {
+   "fieldname": "length_2",
+   "fieldtype": "Data",
+   "label": "Length 2",
+   "fetch_from": "oligo_bank.length_2",
+   "hidden": 1
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Small Text",
+   "label": "Remark",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "greater_sequence_1",
+   "fieldtype": "Text Editor",
+   "label": "Greater Sequence 1",
+   "fetch_from": "oligo_bank.greater_sequence_1",
+   "hidden": 1
+  },
+  {
+   "fieldname": "greater_sequence_2",
+   "fieldtype": "Text Editor",
+   "label": "Greater sequence 2",
+   "fetch_from": "oligo_bank.greater_sequence_2",
+   "hidden": 1
+  },
+  {
+   "fieldname": "tag_modification_1",
+   "fieldtype": "Data",
+   "label": "Tag Modification 1",
+   "fetch_from": "oligo_bank.tag__modification",
+   "hidden": 1
+  },
+  {
+   "fieldname": "tag_modificatio_2",
+   "fieldtype": "Data",
+   "label": "Tag Modification 2",
+   "fetch_from": "oligo_bank.tag__modification_2",
+   "hidden": 1
+  },
+  {
+   "fieldname": "purity",
+   "fieldtype": "Data",
+   "label": "Purity",
+   "fetch_from": "oligo_bank.purity"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-12 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Elab Notebook",
+ "name": "Lab Experiment Biofoundry CT",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

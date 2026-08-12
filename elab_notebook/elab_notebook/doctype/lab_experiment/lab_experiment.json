@@ -1,0 +1,514 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:{series}",
+ "creation": "2026-08-12 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "template_tab",
+  "employee_code",
+  "employee_name",
+  "project",
+  "project_code",
+  "reviewer",
+  "employee_function",
+  "experiment_start_date",
+  "experiment_end_date",
+  "column_break_rveu",
+  "department",
+  "participants",
+  "template",
+  "remark",
+  "cost_center",
+  "segment",
+  "section_break_wtsv",
+  "protocol_steps",
+  "observation",
+  "observations",
+  "details_tab",
+  "section_break_xqiv",
+  "amended_from",
+  "section_break_udnm",
+  "title",
+  "aim",
+  "series",
+  "elab_notebook",
+  "column_break_mijw",
+  "sub_aim",
+  "experiment",
+  "rationale_section",
+  "rationale",
+  "details_section",
+  "equipment_details",
+  "items_tab",
+  "from_bom",
+  "bom_no",
+  "item",
+  "items",
+  "procedure_tab",
+  "procedure",
+  "precaution",
+  "result_tab",
+  "results",
+  "observation_and_conclusion",
+  "attachments_tab",
+  "result_attachment",
+  "sample_details",
+  "sample",
+  "custom_required_",
+  "order_required_by",
+  "required",
+  "biofoundary_status",
+  "material_request_for_biofoundry",
+  "create_biofoundry",
+  "experiment_template",
+  "experiment_ingredients",
+  "experiment_parameters",
+  "experiment_protocol_steps",
+  "material_required",
+  "methodology",
+  "status",
+  "workflow_state",
+  "sample_generated",
+  "sample_not_generated",
+  "experiment_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "template_tab",
+   "fieldtype": "Tab Break",
+   "label": "Template"
+  },
+  {
+   "fieldname": "employee_code",
+   "fieldtype": "Link",
+   "label": "Employee Code",
+   "options": "Employee",
+   "reqd": 1,
+   "ignore_user_permissions": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "fetch_from": "employee_code.employee_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project_code",
+   "fieldtype": "Data",
+   "label": "Project Code",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reviewer",
+   "fieldtype": "Link",
+   "label": "Reviewer",
+   "options": "User"
+  },
+  {
+   "fieldname": "employee_function",
+   "fieldtype": "Link",
+   "label": "Employee Function",
+   "options": "Employee Function"
+  },
+  {
+   "fieldname": "experiment_start_date",
+   "fieldtype": "Date",
+   "label": "Experiment Start Date",
+   "default": "Today"
+  },
+  {
+   "fieldname": "experiment_end_date",
+   "fieldtype": "Date",
+   "label": "Experiment End Date"
+  },
+  {
+   "fieldname": "column_break_rveu",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "department",
+   "fieldtype": "Data",
+   "label": "Department",
+   "fetch_from": "employee_code.department"
+  },
+  {
+   "fieldname": "participants",
+   "fieldtype": "Table MultiSelect",
+   "label": "Participants",
+   "options": "Lab Experiment Participant CT"
+  },
+  {
+   "fieldname": "template",
+   "fieldtype": "Link",
+   "label": "Template",
+   "options": "Experiment Template"
+  },
+  {
+   "fieldname": "remark",
+   "fieldtype": "Small Text",
+   "label": "Remark",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "segment",
+   "fieldtype": "Link",
+   "label": "Segment",
+   "options": "Segment"
+  },
+  {
+   "fieldname": "section_break_wtsv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "protocol_steps",
+   "fieldtype": "Table",
+   "label": "Protocol Steps",
+   "options": "Lab Experiment Step CT"
+  },
+  {
+   "fieldname": "observation",
+   "fieldtype": "Text Editor",
+   "label": "Observation",
+   "fetch_from": "template.observation_comments",
+   "fetch_if_empty": 1
+  },
+  {
+   "fieldname": "observations",
+   "fieldtype": "Table",
+   "label": "Observations",
+   "options": "Lab Experiment Observation CT"
+  },
+  {
+   "fieldname": "details_tab",
+   "fieldtype": "Tab Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "section_break_xqiv",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Lab Experiment",
+   "read_only": 1,
+   "no_copy": 1,
+   "print_hide": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "section_break_udnm",
+   "fieldtype": "Section Break",
+   "label": "AIM"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "aim",
+   "fieldtype": "Data",
+   "label": "Aim",
+   "reqd": 1
+  },
+  {
+   "fieldname": "series",
+   "fieldtype": "Data",
+   "label": "Series",
+   "read_only": 1
+  },
+  {
+   "fieldname": "elab_notebook",
+   "fieldtype": "Link",
+   "label": "ELab Notebook",
+   "options": "ELab Notebook",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_mijw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sub_aim",
+   "fieldtype": "Small Text",
+   "label": "Sub Aim",
+   "reqd": 1
+  },
+  {
+   "fieldname": "experiment",
+   "fieldtype": "Link",
+   "label": "Refer to Experiment no",
+   "options": "Lab Experiment"
+  },
+  {
+   "fieldname": "rationale_section",
+   "fieldtype": "Section Break",
+   "label": "Rationale"
+  },
+  {
+   "fieldname": "rationale",
+   "fieldtype": "Text",
+   "label": "Rationale"
+  },
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "equipment_details",
+   "fieldtype": "Table",
+   "label": "Equipment Details",
+   "options": "Lab Experiment Equipment CT",
+   "allow_bulk_edit": 1
+  },
+  {
+   "fieldname": "items_tab",
+   "fieldtype": "Tab Break",
+   "label": "Items"
+  },
+  {
+   "fieldname": "from_bom",
+   "fieldtype": "Check",
+   "label": "From BOM",
+   "default": "0"
+  },
+  {
+   "fieldname": "bom_no",
+   "fieldtype": "Link",
+   "label": "BOM No.",
+   "options": "BOM",
+   "depends_on": "eval:doc.from_bom"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Data",
+   "label": "Item",
+   "depends_on": "eval:doc.from_bom",
+   "mandatory_depends_on": "from_bom",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Item Details",
+   "options": "Lab Experiment Item CT"
+  },
+  {
+   "fieldname": "procedure_tab",
+   "fieldtype": "Tab Break",
+   "label": "Procedure"
+  },
+  {
+   "fieldname": "procedure",
+   "fieldtype": "Text Editor",
+   "label": "Procedure"
+  },
+  {
+   "fieldname": "precaution",
+   "fieldtype": "Small Text",
+   "label": "Precaution"
+  },
+  {
+   "fieldname": "result_tab",
+   "fieldtype": "Tab Break",
+   "label": "Result"
+  },
+  {
+   "fieldname": "results",
+   "fieldtype": "Text Editor",
+   "label": "Results"
+  },
+  {
+   "fieldname": "observation_and_conclusion",
+   "fieldtype": "Text",
+   "label": "Observation and Conclusion"
+  },
+  {
+   "fieldname": "attachments_tab",
+   "fieldtype": "Tab Break",
+   "label": "Raw Data"
+  },
+  {
+   "fieldname": "result_attachment",
+   "fieldtype": "Table",
+   "label": "Result attachment",
+   "options": "Lab Experiment Result Attachment CT"
+  },
+  {
+   "fieldname": "sample_details",
+   "fieldtype": "Long Text",
+   "label": "Sample details"
+  },
+  {
+   "fieldname": "sample",
+   "fieldtype": "Table",
+   "label": "Sample",
+   "options": "Lab Experiment Sample CT"
+  },
+  {
+   "fieldname": "custom_required_",
+   "fieldtype": "Tab Break",
+   "label": "Required Items"
+  },
+  {
+   "fieldname": "order_required_by",
+   "fieldtype": "Date",
+   "label": "Order Required by"
+  },
+  {
+   "fieldname": "required",
+   "fieldtype": "Table",
+   "label": "Required",
+   "options": "Lab Experiment Biofoundry CT"
+  },
+  {
+   "fieldname": "biofoundary_status",
+   "fieldtype": "Select",
+   "label": "Biofoundary Status",
+   "options": "\nBiofoundary Created\nOrder Created"
+  },
+  {
+   "fieldname": "material_request_for_biofoundry",
+   "fieldtype": "Link",
+   "label": "Material Request for Biofoundry",
+   "options": "Material Request for Biofoundry"
+  },
+  {
+   "fieldname": "create_biofoundry",
+   "fieldtype": "Button",
+   "label": "Create Biofoundry"
+  },
+  {
+   "fieldname": "experiment_template",
+   "fieldtype": "Link",
+   "label": "Experiment Template",
+   "options": "Experiment Template"
+  },
+  {
+   "fieldname": "experiment_ingredients",
+   "fieldtype": "Table",
+   "label": "Ingredients",
+   "options": "Template Ingredient"
+  },
+  {
+   "fieldname": "experiment_parameters",
+   "fieldtype": "Table",
+   "label": "Parameters",
+   "options": "Template Parameter"
+  },
+  {
+   "fieldname": "experiment_protocol_steps",
+   "fieldtype": "Table",
+   "label": "Protocol Steps",
+   "options": "Template Protocol Step"
+  },
+  {
+   "fieldname": "material_required",
+   "fieldtype": "Table",
+   "label": "Material Required",
+   "options": "Material Required CT"
+  },
+  {
+   "fieldname": "methodology",
+   "fieldtype": "Table",
+   "label": "Methodology",
+   "options": "Methodology CT"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nCompleted"
+  },
+  {
+   "fieldname": "workflow_state",
+   "fieldtype": "Select",
+   "label": "Workflow State",
+   "options": "Draft\nSaved\nRunning\nCompleted\nPending Approval from System Manager\nApproved\nRejected",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "sample_generated",
+   "fieldtype": "Check",
+   "label": "Sample Generated",
+   "default": "0"
+  },
+  {
+   "fieldname": "sample_not_generated",
+   "fieldtype": "Check",
+   "label": "Sample Not Generated",
+   "default": "0"
+  },
+  {
+   "fieldname": "experiment_status",
+   "fieldtype": "Select",
+   "label": "Experiment Status",
+   "options": "In Progress\nCompleted\nFailed",
+   "default": "In Progress"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-12 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Elab Notebook",
+ "name": "Lab Experiment",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "share": 1,
+   "write": 1,
+   "role": "Employee"
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -7,7 +7,8 @@
  "engine": "InnoDB",
  "field_order": [
   "method",
-  "time_to_complete"
+  "time_to_complete",
+  "from_template"
  ],
  "fields": [
   {
@@ -26,6 +27,15 @@
    "in_list_view": 1,
    "label": "Time to Complete (Minutes)",
    "non_negative": 1
+  },
+  {
+   "default": "0",
+   "description": "Set when the row was cloned from an Experiment Template. Such rows may be edited but not deleted.",
+   "fieldname": "from_template",
+   "fieldtype": "Check",
+   "label": "From Template",
+   "no_copy": 1,
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

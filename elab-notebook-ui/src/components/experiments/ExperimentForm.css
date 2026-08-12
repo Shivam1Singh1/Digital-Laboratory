@@ -533,3 +533,6 @@ textarea.form-control.readonly:focus {
   cursor: not-allowed;
   transform: none;
 }
+
+/* .imported-row-lock is defined once in ExperimentDetail.css - these stylesheets
+   are plain global imports, so both forms pick it up. */

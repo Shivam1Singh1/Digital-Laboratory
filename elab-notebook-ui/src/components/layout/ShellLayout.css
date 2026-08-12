@@ -8,8 +8,8 @@
 
 /* Sidebar Layout */
 .left-sidebar {
-  width: 240px;
-  min-width: 240px;
+  width: 216px;
+  min-width: 216px;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -249,6 +249,8 @@
 
 /* Top Bar */
 .top-bar {
+  /* Every control on the bar shares this height so tops/bottoms line up */
+  --topbar-control-h: 36px;
   height: 56px;
   min-height: 56px;
   max-height: 56px;
@@ -278,7 +280,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0 0.75rem;
-  height: 36px;
+  height: var(--topbar-control-h);
   width: 320px;
   min-width: 0;
   flex: 0 1 320px;
@@ -345,7 +347,7 @@
 
 .project-select-dropdown {
   box-sizing: border-box;
-  height: 34px;
+  height: var(--topbar-control-h);
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -360,8 +362,8 @@
 
 .top-bar-action-btn {
   box-sizing: border-box;
-  width: 34px;
-  height: 34px;
+  width: var(--topbar-control-h);
+  height: var(--topbar-control-h);
   flex-shrink: 0;
   background: transparent;
   border: none;
@@ -391,9 +393,11 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  box-sizing: border-box;
+  height: var(--topbar-control-h);
   gap: 0.25rem;
   background-color: var(--bg-elevated);
-  padding: 0.2rem;
+  padding: 0 0.2rem;
   border-radius: 8px;
   border: 1px solid var(--border);
 }
@@ -446,8 +450,9 @@
 .top-user-menu {
   display: flex;
   align-items: center;
+  box-sizing: border-box;
   gap: 0.6rem;
-  height: 34px;
+  height: var(--topbar-control-h);
   padding-left: 0.75rem;
   border-left: 1px solid var(--border);
   cursor: pointer;

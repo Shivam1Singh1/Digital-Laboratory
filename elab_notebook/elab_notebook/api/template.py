@@ -155,7 +155,7 @@ def get_experiment_templates(filters=None):
 
         # Calculate derived count of runs
         for t in templates:
-            t["times_used"] = frappe.db.count("Experiment", {"experiment_template": t.name})
+            t["times_used"] = frappe.db.count("Lab Experiment", {"experiment_template": t.name})
             t["template_name"] = t.get("template_name") or t.get("title") or t.name
 
         frappe.logger().info(f"[get_experiment_templates] Returning: {[t.get('name') for t in templates]}")
@@ -169,15 +169,123 @@ def get_template_detail(template_name):
     doc = frappe.get_doc("Experiment Template", template_name)
     return doc.as_dict()
 
+# ---------------------------------------------------------------------------
+# Template -> Lab Experiment cloning
+# ---------------------------------------------------------------------------
+#
+# One mapping function, used by every path that clones a template. Previously
+# the UI hand-mapped these tables in ExperimentForm.vue while this module mapped
+# a different subset, so which rows existed depended on how the run was created.
+# Keeping the mapping here means `from_template` cannot be set inconsistently:
+# there is only one place that builds the rows.
+#
+# Field name is the Lab Experiment child field; value is (template child field,
+# [column names to copy]).
+TEMPLATE_CHILD_MAP = {
+    "experiment_ingredients": (
+        "template_ingredients",
+        ["chemical", "grade", "default_quantity", "unit", "concentration", "supplier"],
+    ),
+    "experiment_parameters": (
+        "template_parameters",
+        ["parameter_name", "target_value", "min_value", "max_value", "unit", "type"],
+    ),
+    "experiment_protocol_steps": (
+        "template_protocol_steps",
+        ["step_order", "title", "description", "duration", "equipment",
+         "operator_role", "checklist_items"],
+    ),
+    "material_required": (
+        "material_required",
+        ["item_code", "item_name", "uom", "qty"],
+    ),
+    "equipment_details": (
+        "equipment_details",
+        ["equipment_name", "equipment_id", "remarks"],
+    ),
+    "methodology": (
+        "methodology",
+        ["method", "time_to_complete"],
+    ),
+}
+
+
+def _clone_template_children(template_doc):
+    """Return the six child tables cloned from a template, flagged as imported.
+
+    Every row carries from_template = 1. The Lab Experiment controller refuses
+    to let those rows be deleted afterwards, so the flag has to be stamped here
+    rather than by whichever caller happens to build the document.
+    """
+    children = {}
+    for target_field, (source_field, columns) in TEMPLATE_CHILD_MAP.items():
+        rows = []
+        for row in template_doc.get(source_field) or []:
+            cloned = {c: row.get(c) for c in columns}
+            cloned["from_template"] = 1
+            rows.append(cloned)
+        children[target_field] = rows
+    return children
+
+
+@frappe.whitelist()
+def get_template_clone(template_name):
+    """Header values plus the six cloned child tables, ready to seed a new run.
+
+    The create form calls this instead of mapping the tables itself, so the UI
+    and the server agree on what "cloned from a template" means.
+    """
+    temp_doc = frappe.get_doc("Experiment Template", template_name)
+
+    return {
+        "header": {
+            "experiment_template": template_name,
+            "template": template_name,
+            "title": _run_title(temp_doc),
+            "aim": temp_doc.objective_hypothesis or temp_doc.aim or "",
+            "sub_aim": temp_doc.sub_aim or "",
+            "rationale": temp_doc.rationale or "",
+            "remark": temp_doc.remark or "",
+            "project": temp_doc.project or "",
+            "employee_function": temp_doc.employee_function or "",
+            "department": temp_doc.department or "",
+        },
+        "children": _clone_template_children(temp_doc),
+    }
+
+
+def _run_title(temp_doc):
+    """A readable name for the run.
+
+    `title` used to be a read-only Link holding a template id; it is the run's
+    own name now, so seed it with something a human would recognise in a list.
+    """
+    return (
+        temp_doc.objective_hypothesis
+        or temp_doc.aim
+        or temp_doc.template_name
+        or temp_doc.name
+    )
+
+
 @frappe.whitelist()
 def create_experiment_from_template(template_name, overrides=None):
+    """Create a Lab Experiment from a template, server-side.
+
+    Kept as a supported entry point rather than deleted: the Vue form builds its
+    document client-side and never calls this, but it is whitelisted API surface
+    for callers outside the UI (scripts, integrations, bench execute). It now
+    goes through _clone_template_children, so a run created here is identical to
+    one created through the form - including the from_template flags, which
+    previously it never set at all.
+    """
     if isinstance(overrides, str):
         overrides = json.loads(overrides)
     if not overrides:
         overrides = {}
-        
+
     temp_doc = frappe.get_doc("Experiment Template", template_name)
-    
+
     # Resolve top-level values
     aim = overrides.get("experiment_name") or overrides.get("title") or overrides.get("aim") or temp_doc.objective_hypothesis or temp_doc.aim or f"Run: {temp_doc.template_name or temp_doc.name}"
     sub_aim = overrides.get("sub_aim") or temp_doc.sub_aim or "Cloned from template"
@@ -187,12 +295,14 @@ def create_experiment_from_template(template_name, overrides=None):
     lead_code = overrides.get("employee_code") or overrides.get("lead_scientist") or frappe.session.user
     lead_name = overrides.get("employee_name") or frappe.db.get_value("User", lead_code, "full_name") or lead_code
     elab_notebook = overrides.get("elab_notebook") or frappe.db.get_value("ELab Notebook", {}, "name")
-    
+
     exp_dict = {
-        "doctype": "Experiment",
+        "doctype": "Lab Experiment",
         "experiment_template": template_name,
         "template": template_name,
-        "title": template_name,
+        # `title` is the run's own name now (Data), not a Link back to the
+        # template - the template is already carried by the two fields above.
+        "title": aim,
         "aim": aim,
         "sub_aim": sub_aim,
         "elab_notebook": elab_notebook,
@@ -202,48 +312,15 @@ def create_experiment_from_template(template_name, overrides=None):
         "experiment_start_date": start_date,
         "employee_code": lead_code,
         "employee_name": lead_name,
-        "experiment_ingredients": [],
-        "experiment_parameters": [],
-        "experiment_protocol_steps": []
     }
-    
-    # Clone template child table contents
-    for ing in temp_doc.get("template_ingredients") or []:
-        exp_dict["experiment_ingredients"].append({
-            "chemical": ing.chemical,
-            "grade": ing.grade,
-            "default_quantity": ing.default_quantity,
-            "unit": ing.unit,
-            "concentration": ing.concentration,
-            "supplier": ing.supplier
-        })
-        
-    for param in temp_doc.get("template_parameters") or []:
-        exp_dict["experiment_parameters"].append({
-            "parameter_name": param.parameter_name,
-            "target_value": param.target_value,
-            "min_value": param.min_value,
-            "max_value": param.max_value,
-            "unit": param.unit,
-            "type": param.type
-        })
-        
-    for step in temp_doc.get("template_protocol_steps") or []:
-        exp_dict["experiment_protocol_steps"].append({
-            "step_order": step.step_order,
-            "title": step.title,
-            "description": step.description,
-            "duration": step.duration,
-            "equipment": step.equipment,
-            "operator_role": step.operator_role,
-            "checklist_items": step.checklist_items
-        })
-        
+    exp_dict.update(_clone_template_children(temp_doc))
+
     new_exp = frappe.get_doc(exp_dict)
     new_exp.insert(ignore_permissions=True)
     frappe.db.commit()
-    
+
     return new_exp.name
+
 
 @frappe.whitelist()
 def save_experiment_template(template_data):

@@ -3,12 +3,16 @@
    ========================================================================== */
 
 .dashboard-scrollable-content {
+  /* Outer gutters live in vars so the hero's full-bleed negative margins and
+     the responsive overrides below can never drift out of sync. */
+  --dash-pad-x: 1.75rem;
+  --dash-pad-y: 1.5rem;
   flex: 1;
   min-height: 0;
-  padding: 2rem 2.5rem;
+  padding: var(--dash-pad-y) var(--dash-pad-x);
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
   overflow-y: auto;
   overflow-x: hidden;
   background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(59, 130, 246, 0.02) 100%);
@@ -16,11 +20,12 @@
 
 /* Hero section — prominent greeting and stats */
 .dashboard-scrollable-content .page-header.dashboard-hero {
-  padding: 2.5rem 1.5rem 2rem 1.5rem;
-  margin-bottom: 1.5rem;
-  margin-left: -2.5rem;
-  margin-right: -2.5rem;
-  margin-top: -2rem;
+  padding: 1.75rem 1.5rem 1.5rem 1.5rem;
+  margin-bottom: 0.5rem;
+  margin-left: calc(-1 * var(--dash-pad-x));
+  margin-right: calc(-1 * var(--dash-pad-x));
+  margin-top: calc(-1 * var(--dash-pad-y));
+  flex-shrink: 0;
   align-items: flex-start;
   border-bottom: 2px solid rgba(59, 130, 246, 0.1);
   border-top: none;
@@ -79,19 +84,25 @@
   gap: 0.75rem;
 }
 
-/* Entity tiles — 2x2 grid with proper spacing */
+/* Entity tiles — fixed 2x2 grid so each tile claims half the width, and rows
+   stretch to fill whatever vertical space is left instead of hugging content. */
 .dashboard-blocks-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(320px, 1fr);
   gap: 1.5rem;
+  /* Grow into leftover viewport space, but never shrink below the rows' floor */
+  flex: 1 0 auto;
 }
 
 /* Analytics strip — cards with proper spacing */
 .dashboard-details-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(340px, 1fr);
   gap: 1.5rem;
-  margin-top: 1rem;
+  /* Grow into leftover viewport space, but never shrink below the rows' floor */
+  flex: 1 0 auto;
 }
 
 .analytics-card {
@@ -277,13 +288,14 @@
 /* Responsive design */
 @media (max-width: 1100px) {
   .dashboard-scrollable-content {
-    padding: 1.5rem 2rem;
-    gap: 1.5rem;
+    --dash-pad-x: 1.5rem;
+    --dash-pad-y: 1.25rem;
   }
 
   .dashboard-blocks-container,
   .dashboard-details-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: minmax(300px, auto);
   }
 
   .dashboard-hero .page-title {
@@ -293,7 +305,8 @@
 
 @media (max-width: 768px) {
   .dashboard-scrollable-content {
-    padding: 1.25rem 1.5rem;
+    --dash-pad-x: 1rem;
+    --dash-pad-y: 1rem;
     gap: 1.25rem;
   }
 

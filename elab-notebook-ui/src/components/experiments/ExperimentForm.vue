@@ -68,6 +68,18 @@ const experiment = ref({
   observation: ''
 })
 
+// Mirrors TEMPLATE_CHILD_MAP in elab_notebook/api/template.py. Rows in these
+// tables can arrive pre-flagged with from_template = 1, which makes them
+// editable but not deletable.
+const TEMPLATE_CHILD_FIELDS = [
+  'experiment_ingredients',
+  'experiment_parameters',
+  'experiment_protocol_steps',
+  'material_required',
+  'equipment_details',
+  'methodology',
+]
+
 const loadTemplate = async () => {
   if (!templateId.value) {
     loading.value = false
@@ -75,86 +87,26 @@ const loadTemplate = async () => {
   }
   loading.value = true
   try {
-    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_template_detail', {
+    // The server owns the template -> run mapping (api/template.py
+    // _clone_template_children). Mapping the tables here as well is what let the
+    // two clone paths drift apart, and it is how imported rows ended up
+    // unflagged. Every cloned row comes back with from_template = 1 already set.
+    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_template_clone', {
       params: { template_name: templateId.value }
     })
-    const doc = res.data.message || {}
-    
-    // `title` is a Link to Experiment Template, so it can only hold a template id -
-    // a descriptive string like "Run: X" fails link validation. The readable run name
-    // lives in `aim`, which is the required Data field.
-    experiment.value.title = templateId.value || ''
-    experiment.value.aim = doc.aim || doc.template_name || doc.name
-    experiment.value.sub_aim = doc.sub_aim || ''
-    experiment.value.rationale = doc.rationale || ''
-    experiment.value.remark = doc.remark || ''
-    
-    // Map ingredients
-    if (doc.template_ingredients) {
-      experiment.value.experiment_ingredients = doc.template_ingredients.map(ing => ({
-        chemical: ing.chemical,
-        grade: ing.grade,
-        default_quantity: ing.default_quantity,
-        unit: ing.unit,
-        concentration: ing.concentration,
-        supplier: ing.supplier,
-        from_template: true
-      }))
-    }
-    
-    // Map parameters
-    if (doc.template_parameters) {
-      experiment.value.experiment_parameters = doc.template_parameters.map(p => ({
-        parameter_name: p.parameter_name,
-        target_value: p.target_value,
-        min_value: p.min_value,
-        max_value: p.max_value,
-        unit: p.unit,
-        type: p.type
-      }))
-    }
-    
-    // Map protocol steps
-    if (doc.template_protocol_steps) {
-      experiment.value.experiment_protocol_steps = doc.template_protocol_steps.map(s => ({
-        step_order: s.step_order,
-        title: s.title,
-        description: s.description,
-        duration: s.duration,
-        equipment: s.equipment,
-        operator_role: s.operator_role,
-        checklist_items: s.checklist_items,
-        from_template: true
-      }))
-    }
-    
-    // Map material required
-    if (doc.material_required) {
-      experiment.value.material_required = doc.material_required.map(m => ({
-        item_code: m.item_code,
-        item_name: m.item_name,
-        uom: m.uom,
-        qty: m.qty
-      }))
-    }
-    
-    // Map equipment details
-    if (doc.equipment_details) {
-      experiment.value.equipment_details = doc.equipment_details.map(e => ({
-        equipment_name: e.equipment_name,
-        equipment_id: e.equipment_id,
-        remarks: e.remarks,
-        from_template: true
-      }))
-    }
+    const { header = {}, children = {} } = res.data.message || {}
 
-    // Map methodology
-    if (doc.methodology) {
-      experiment.value.methodology = doc.methodology.map(m => ({
-        method: m.method,
-        time_to_complete: m.time_to_complete,
-        from_template: true
-      }))
+    // `title` is the run's own name (Data) - it used to be a read-only Link that
+    // could only hold a template id, which is why older runs are named after
+    // their template.
+    experiment.value.title = header.title || ''
+    experiment.value.aim = header.aim || header.title || ''
+    experiment.value.sub_aim = header.sub_aim || ''
+    experiment.value.rationale = header.rationale || ''
+    experiment.value.remark = header.remark || ''
+
+    for (const field of TEMPLATE_CHILD_FIELDS) {
+      experiment.value[field] = children[field] || []
     }
   } catch (err) {
     console.error('Failed to load template:', err)
@@ -177,14 +129,10 @@ const addMaterial = () => {
 }
 
 const removeMaterial = (index) => {
-  const isTemplate = experiment.value.material_required[index]?.from_template
-  console.log('removeMaterial called - index:', index, 'from_template:', isTemplate)
-  if (isTemplate) {
-    console.warn('Cannot delete template-sourced material')
-    return
-  }
+  // Imported rows are protected server-side too - see
+  // LabExperiment.validate_imported_rows_kept().
+  if (experiment.value.material_required[index]?.from_template) return
   experiment.value.material_required.splice(index, 1)
-  console.log('Material removed')
 }
 
 const addEquipment = () => {
@@ -198,14 +146,10 @@ const addEquipment = () => {
 }
 
 const removeEquipment = (index) => {
-  const isTemplate = experiment.value.equipment_details[index]?.from_template
-  console.log('removeEquipment called - index:', index, 'from_template:', isTemplate)
-  if (isTemplate) {
-    console.warn('Cannot delete template-sourced equipment')
-    return
-  }
+  // Imported rows are protected server-side too - see
+  // LabExperiment.validate_imported_rows_kept().
+  if (experiment.value.equipment_details[index]?.from_template) return
   experiment.value.equipment_details.splice(index, 1)
-  console.log('Equipment removed')
 }
 
 const addMethod = () => {
@@ -218,14 +162,10 @@ const addMethod = () => {
 }
 
 const removeMethod = (index) => {
-  const isTemplate = experiment.value.methodology[index]?.from_template
-  console.log('removeMethod called - index:', index, 'from_template:', isTemplate)
-  if (isTemplate) {
-    console.warn('Cannot delete template-sourced method')
-    return
-  }
+  // Imported rows are protected server-side too - see
+  // LabExperiment.validate_imported_rows_kept().
+  if (experiment.value.methodology[index]?.from_template) return
   experiment.value.methodology.splice(index, 1)
-  console.log('Method removed')
 }
 
 const saveExperiment = async () => {
@@ -249,9 +189,9 @@ const saveExperiment = async () => {
   try {
     const payload = {
       ...experiment.value,
-      doctype: 'Experiment'
+      doctype: 'Lab Experiment'
     }
-    const res = await axios.post('/api/resource/Experiment', payload)
+    const res = await axios.post('/api/resource/Lab%20Experiment', payload)
     if (res.data && res.data.data) {
       const newId = res.data.data.name
       router.push(`/experiments/${encodeURIComponent(newId)}`)
@@ -325,21 +265,49 @@ const loadTeamFinancials = async () => {
 
 // The run's ID is derived from its notebook, so pre-select the project's notebook when
 // there is exactly one - an ambiguous match is left for the user to choose.
-const preselectNotebook = async () => {
-  if (!project.value || experiment.value.elab_notebook) return
+// The notebook is derived from the project rather than chosen: it decides the run's id,
+// so it is not really the author's call. It only stays editable when the project cannot
+// settle it on its own - with no candidate, or more than one, a locked empty field would
+// leave the form permanently unsaveable.
+const notebookOptions = ref([])
+const notebookLoaded = ref(false)
+
+const notebookAutoFilled = computed(
+  () => notebookLoaded.value && notebookOptions.value.length === 1
+)
+
+const notebookHint = computed(() => {
+  if (!notebookLoaded.value) return 'Looking up the notebook for this project…'
+  if (notebookOptions.value.length === 1) return "Set from this run's project."
+  if (notebookOptions.value.length === 0) {
+    return `No notebook exists for project ${project.value || '—'} yet. Pick one, or create a notebook for this project first.`
+  }
+  return `Project ${project.value} has ${notebookOptions.value.length} notebooks — choose which one this run belongs to.`
+})
+
+const loadNotebookForProject = async () => {
+  if (!project.value) {
+    notebookLoaded.value = true
+    return
+  }
   try {
     const res = await axios.get('/api/method/frappe.client.get_list', {
       params: {
         doctype: 'ELab Notebook',
         filters: JSON.stringify({ project: project.value }),
         fields: JSON.stringify(['name']),
-        limit_page_length: 2
+        order_by: 'creation desc',
+        limit_page_length: 0
       }
     })
-    const found = res.data.message || []
-    if (found.length === 1) experiment.value.elab_notebook = found[0].name
+    notebookOptions.value = res.data.message || []
+    if (notebookOptions.value.length === 1) {
+      experiment.value.elab_notebook = notebookOptions.value[0].name
+    }
   } catch (err) {
-    console.error('Failed to preselect ELab Notebook', err)
+    console.error('Failed to look up ELab Notebook', err)
+  } finally {
+    notebookLoaded.value = true
   }
 }
 
@@ -348,7 +316,7 @@ onMounted(() => {
   loadTeamFinancials()
   loadProjectAndFunctionNames()
   loadAvailableItems()
-  preselectNotebook()
+  loadNotebookForProject()
 })
 </script>
 
@@ -451,17 +419,24 @@ onMounted(() => {
               </div>
               <div class="form-group">
                 <label class="form-label">ELab Notebook *</label>
+                <!-- Locked once the project settles it; only ambiguity re-opens the picker. -->
+                <input
+                  v-if="notebookAutoFilled"
+                  type="text"
+                  :value="experiment.elab_notebook"
+                  class="form-control readonly"
+                  readonly
+                />
                 <LinkField
+                  v-else
                   v-model="experiment.elab_notebook"
                   doctype="ELab Notebook"
                   :fields="['project', 'employee_function']"
                   :search-fields="['name']"
                   description-field="project"
-                  placeholder="Search notebooks…"
+                  :placeholder="notebookLoaded ? 'Search notebooks…' : 'Loading…'"
                 />
-                <span class="field-hint">
-                  The run's ID is generated from the notebook it belongs to.
-                </span>
+                <span class="field-hint">{{ notebookHint }}</span>
               </div>
             </div>
 
@@ -583,7 +558,7 @@ onMounted(() => {
                 <template v-for="(mat, idx) in experiment.material_required" :key="idx">
                   <tr :class="{ 'template-row': mat.from_template }">
                     <td>
-                      <div v-if="!mat.from_template" class="search-field-wrapper" :style="{ position: 'relative' }">
+                      <div class="search-field-wrapper" :style="{ position: 'relative' }">
                         <input
                           type="text"
                           :value="materialSearchStates[idx]?.search || mat.item_code"
@@ -610,19 +585,19 @@ onMounted(() => {
                           </div>
                         </div>
                       </div>
-                      <input v-else type="text" :value="mat.item_code" class="form-control table-input readonly" readonly />
                     </td>
                     <td>
-                      <input type="text" v-model="mat.item_name" class="form-control table-input" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" placeholder="Item Description" />
+                      <input type="text" v-model="mat.item_name" class="form-control table-input" placeholder="Item Description" />
                     </td>
                     <td>
-                      <input type="text" v-model="mat.uom" class="form-control table-input" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" placeholder="e.g. L, mL, mg" />
+                      <input type="text" v-model="mat.uom" class="form-control table-input" placeholder="e.g. L, mL, mg" />
                     </td>
                     <td>
-                      <input type="number" v-model="mat.qty" class="form-control table-input" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" min="0" step="any" />
+                      <input type="number" v-model="mat.qty" class="form-control table-input" min="0" step="any" />
                     </td>
                     <td>
                       <button v-if="!mat.from_template" class="delete-row-btn" @click="removeMaterial(idx)" title="Remove item">×</button>
+                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
                     </td>
                   </tr>
                   <tr v-if="mat.added_on" class="history-row">
@@ -660,10 +635,10 @@ onMounted(() => {
                 <template v-for="(eq, idx) in experiment.equipment_details" :key="idx">
                   <tr :class="{ 'template-row': eq.from_template }">
                     <td>
-                      <input type="text" v-model="eq.equipment_name" class="form-control table-input" :readonly="eq.from_template" :class="{ readonly: eq.from_template }" placeholder="Equipment Name" />
+                      <input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="Equipment Name" />
                     </td>
                     <td>
-                      <div v-if="!eq.from_template" class="search-field-wrapper" :style="{ position: 'relative' }">
+                      <div class="search-field-wrapper" :style="{ position: 'relative' }">
                         <input
                           type="text"
                           :value="equipmentSearchStates[idx]?.search || eq.equipment_id"
@@ -690,13 +665,13 @@ onMounted(() => {
                           </div>
                         </div>
                       </div>
-                      <input v-else type="text" :value="eq.equipment_id" class="form-control table-input readonly" readonly />
                     </td>
                     <td>
-                      <input type="text" v-model="eq.remarks" class="form-control table-input" :readonly="eq.from_template" :class="{ readonly: eq.from_template }" placeholder="Allocation comments..." />
+                      <input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="Allocation comments..." />
                     </td>
                     <td>
                       <button v-if="!eq.from_template" class="delete-row-btn" @click="removeEquipment(idx)">×</button>
+                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
                     </td>
                   </tr>
                   <tr v-if="eq.added_on" class="history-row">
@@ -733,13 +708,14 @@ onMounted(() => {
                 <template v-for="(meth, idx) in experiment.methodology" :key="idx">
                   <tr :class="{ 'template-row': meth.from_template }">
                     <td>
-                      <input type="text" v-model="meth.method" class="form-control table-input" :readonly="meth.from_template" :class="{ readonly: meth.from_template }" placeholder="e.g. HPLC separation" />
+                      <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" />
                     </td>
                     <td>
-                      <input type="number" v-model="meth.time_to_complete" class="form-control table-input" :readonly="meth.from_template" :class="{ readonly: meth.from_template }" min="0" />
+                      <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" />
                     </td>
                     <td>
                       <button v-if="!meth.from_template" class="delete-row-btn" @click="removeMethod(idx)">×</button>
+                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
                     </td>
                   </tr>
                   <tr v-if="meth.added_on" class="history-row">

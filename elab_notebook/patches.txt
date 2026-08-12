@@ -6,3 +6,5 @@
 # Patches added in this section will be executed after doctypes are migrated
 elab_notebook.patches.v1_0.add_experiment_observations_table
 elab_notebook.patches.v1_0.fix_experiment_observation_fetch_from
+elab_notebook.patches.v1_0.create_lab_experiment_workflow
+elab_notebook.patches.v1_0.add_from_template_flag

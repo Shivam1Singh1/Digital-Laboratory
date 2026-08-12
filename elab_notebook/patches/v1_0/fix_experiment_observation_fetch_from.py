@@ -2,7 +2,12 @@ import frappe
 
 
 def execute():
-	"""Repair Experiment.observation's fetch_from, which points at a column that does not exist.
+	"""Repair legacy Experiment.observation's fetch_from, which pointed at a column that does not exist.
+
+	Legacy-only. The corrected `template.observation_comments` + fetch_if_empty
+	pair is baked directly into lab_experiment.json, so `Lab Experiment` never
+	needs this repair. Kept registered for the legacy doctype.
+
 
 	The field was configured as fetch_from "template.observation", but Experiment
 	Template stores that content in `observation_comments`. Frappe builds the link

@@ -1,0 +1,126 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-12 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "refer_experiment",
+  "item",
+  "item_name",
+  "uom",
+  "expiry_date",
+  "remarks",
+  "column_break_jxhj",
+  "make",
+  "catalogue_no",
+  "lot_no",
+  "storage",
+  "qty",
+  "warehouse",
+  "actual_qty"
+ ],
+ "fields": [
+  {
+   "fieldname": "refer_experiment",
+   "fieldtype": "Link",
+   "label": "Refer Experiment",
+   "options": "Lab Experiment",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "fetch_from": "item.item_name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "label": "UOM",
+   "fetch_from": "item.stock_uom"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "label": "Expiry Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "column_break_jxhj",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "make",
+   "fieldtype": "Data",
+   "label": "Make",
+   "fetch_from": "item.makes"
+  },
+  {
+   "fieldname": "catalogue_no",
+   "fieldtype": "Data",
+   "label": "Catalogue No.",
+   "fetch_from": "item.cat_no",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "lot_no",
+   "fieldtype": "Data",
+   "label": "Lot No",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "storage",
+   "fieldtype": "Data",
+   "label": "Storage",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Data",
+   "label": "QTY",
+   "reqd": 1
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "actual_qty",
+   "fieldtype": "Int",
+   "label": "Actual Qty"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-12 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Elab Notebook",
+ "name": "Lab Experiment Item CT",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

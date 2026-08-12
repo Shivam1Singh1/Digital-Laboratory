@@ -16,8 +16,11 @@ def test_workflow_states():
     print("="*80)
 
     try:
-        wf = frappe.get_doc('Workflow', 'Template Experiment')
-        print(f"✓ Workflow 'Template Experiment' found")
+        # NOTE: the live Workflow record is literally named 'Template   Experiment'
+        # with three spaces. Do not "tidy" this to a single space - the lookup
+        # then matches nothing and this test fails silently.
+        wf = frappe.get_doc('Workflow', 'Template   Experiment')
+        print("✓ Workflow 'Template   Experiment' found")
         print(f"\nAvailable States:")
         for state in wf.states:
             print(f"  '{state.state}'")
@@ -181,9 +184,9 @@ def test_exact_state_strings():
     print("(Frontend must use case-sensitive, space-aware matching)")
     print()
 
-    states = frappe.db.get_list('Workflow', filters={'name': 'Template Experiment'})
+    states = frappe.db.get_list('Workflow', filters={'name': 'Template   Experiment'})
     if states:
-        wf = frappe.get_doc('Workflow', 'Template Experiment')
+        wf = frappe.get_doc('Workflow', 'Template   Experiment')
         state_strings = {}
         for state in wf.states:
             state_strings[state.state] = len(state.state)  # Show length to detect spaces
