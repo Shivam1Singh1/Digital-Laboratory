@@ -710,16 +710,6 @@ onMounted(() => {
               </div>
             </div>
 
-            <!-- Only runs started from a team carry one. Runs created through the
-                 general New Experiment entry point have no team, so the row is
-                 omitted rather than rendered empty. -->
-            <div v-if="experiment.experiment_team" class="form-group-row">
-              <div class="form-group">
-                <label class="form-label">Experiment Team</label>
-                <input type="text" :value="experiment.experiment_team" class="form-control readonly font-mono" readonly />
-              </div>
-            </div>
-
             <div class="form-group-row">
               <div class="form-group">
                 <label class="form-label">Segment</label>
