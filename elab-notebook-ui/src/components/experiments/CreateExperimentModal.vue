@@ -140,11 +140,15 @@ const handleProceed = () => {
     return
   }
   
-  const queryParams = new URLSearchParams({
+  const params = {
     project: currentProject.value,
     employee_function: currentEmployeeFunction.value,
     template: selectedTemplate.value.name
-  }).toString()
+  }
+  // Only present on the team-originated path; the general New Experiment entry
+  // point omits it and keeps its existing behaviour.
+  if (userStore.createModalTeam) params.experiment_team = userStore.createModalTeam
+  const queryParams = new URLSearchParams(params).toString()
   
   // Close modal
   userStore.closeCreateExperimentModal()
@@ -183,23 +187,29 @@ watch(() => userStore.createModalOpen, (isOpen) => {
         <!-- 1. Project Selector (Direct Sidebar Access Only) -->
         <div v-if="!isContextPrefilled" class="form-group">
           <label class="form-label">Project *</label>
-          <select v-model="selectedProject" class="form-control select-input">
-            <option value="">Select an Authorized Project...</option>
-            <option v-for="proj in projects" :key="proj.name" :value="proj.name">
-              {{ proj.project_name || proj.name }}
-            </option>
-          </select>
+          <div class="select-wrapper">
+            <select v-model="selectedProject" class="form-control select-input">
+              <option value="">Select an Authorized Project...</option>
+              <option v-for="proj in projects" :key="proj.name" :value="proj.name">
+                {{ proj.project_name || proj.name }}
+              </option>
+            </select>
+            <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
 
         <!-- 2. Employee Function Selector (Direct Sidebar Access Only) -->
         <div v-if="!isContextPrefilled" class="form-group">
           <label class="form-label">Employee Function *</label>
-          <select v-model="selectedEmployeeFunction" class="form-control select-input" :disabled="!selectedProject">
-            <option value="">Select a Function...</option>
-            <option v-for="func in employeeFunctions" :key="func" :value="func">
-              {{ func }}
-            </option>
-          </select>
+          <div class="select-wrapper">
+            <select v-model="selectedEmployeeFunction" class="form-control select-input" :disabled="!selectedProject">
+              <option value="">Select a Function...</option>
+              <option v-for="func in employeeFunctions" :key="func" :value="func">
+                {{ func }}
+              </option>
+            </select>
+            <svg class="select-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
         </div>
 
         <!-- 3. Pre-filled Metadata Info (Team Access Flow) -->

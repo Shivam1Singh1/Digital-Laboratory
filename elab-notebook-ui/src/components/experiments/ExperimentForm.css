@@ -3,8 +3,12 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  height: 100vh;
-  overflow: hidden;
+  /* Was height:100vh + overflow:hidden. The pane is already 100vh minus the
+     56px top bar, so a full-viewport child overflowed it AND hid the overflow,
+     making the tail of the form unreachable. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Tabs Selection */
@@ -38,7 +42,7 @@
 }
 
 .tab-btn.active {
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 .tab-btn.active::after {
@@ -48,7 +52,7 @@
   left: 0;
   width: 100%;
   height: 3px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
   border-radius: 2px;
 }
 
@@ -137,8 +141,8 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(96, 165, 250, 0.02) 100%);
-  border: 1.5px solid rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, transparent) 0%, color-mix(in srgb, var(--accent-2) 2%, transparent) 100%);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 10px;
   margin-top: 0.5rem;
 }
@@ -281,7 +285,7 @@
 .item-dropdown {
   position: absolute !important;
   background-color: var(--bg-surface);
-  border: 1.5px solid rgba(59, 130, 246, 0.3);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
   border-radius: 8px;
   box-shadow: 0 10px 32px rgba(0, 0, 0, 0.3);
   z-index: 10000 !important;
@@ -302,7 +306,7 @@
 }
 
 .dropdown-item:hover {
-  background-color: rgba(59, 130, 246, 0.1);
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .dropdown-item strong {
@@ -320,26 +324,26 @@
 
 /* Template Row Styling */
 .template-row {
-  background-color: rgba(59, 130, 246, 0.05);
+  background-color: color-mix(in srgb, var(--accent) 5%, transparent);
   opacity: 0.9;
 }
 
 .template-row .table-input.readonly {
-  background-color: rgba(59, 130, 246, 0.08);
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--text-muted);
   cursor: not-allowed;
-  border-color: rgba(59, 130, 246, 0.2);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .template-row .table-input.readonly:focus {
-  border-color: rgba(59, 130, 246, 0.2);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
   box-shadow: none;
 }
 
 /* History Row Styling */
 .history-row {
-  background: linear-gradient(90deg, rgba(59, 130, 246, 0.04) 0%, transparent 100%);
-  border-top: 1px dashed rgba(59, 130, 246, 0.2) !important;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 4%, transparent) 0%, transparent 100%);
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 20%, transparent) !important;
   border-bottom: none !important;
 }
 
@@ -381,8 +385,8 @@
 
 .form-control:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
   background-color: var(--bg-surface);
 }
 
@@ -447,13 +451,13 @@ textarea.form-control.readonly:focus {
 }
 
 .breadcrumb-link {
-  color: #3b82f6;
+  color: var(--accent);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .breadcrumb-link:hover {
-  color: #2563eb;
+  color: var(--accent-hover);
   text-decoration: underline;
 }
 
@@ -518,14 +522,14 @@ textarea.form-control.readonly:focus {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .btn-primary:disabled {
@@ -536,3 +540,25 @@ textarea.form-control.readonly:focus {
 
 /* .imported-row-lock is defined once in ExperimentDetail.css - these stylesheets
    are plain global imports, so both forms pick it up. */
+
+/* The team-originated create path refuses to continue without a notebook, so the
+   hint has to read as a blocker rather than an aside. */
+.field-hint-error {
+  color: var(--danger);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Recovery actions shown under the ELab Notebook field when the team-flow block
+   fires. Sits with the error hint, not the form's main action row. */
+.team-recovery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.team-recovery .btn {
+  text-decoration: none;
+}

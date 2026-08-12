@@ -1,6 +1,10 @@
 .template-detail-container {
   padding: 1.5rem;
   flex: 1;
+  /* Without min-height:0 a flex child cannot shrink below its content, so the
+     page grows past .main-workspace (overflow:hidden) and is clipped rather
+     than scrolled. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -184,8 +188,11 @@
 
 .meta-card {
   background-color: var(--bg-surface);
+  /* Two-tone wash (violet -> fuchsia) over the flat surface, so panels read as
+     mixed rather than solid. --accent-gradient is theme-aware. */
+  background-image: var(--accent-gradient);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 1.5rem;
 }
 
@@ -1163,7 +1170,11 @@ fieldset[disabled] .minutes-input-wrapper {
   position: sticky;
   top: -1.5rem;
   z-index: 100;
-  background-color: var(--bg-primary);
+  /* Frosted so content scrolls visibly beneath the tab bar rather than
+     disappearing under an opaque strip. */
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   margin: -1.5rem -1.5rem 1.5rem -1.5rem;
   padding: 1.5rem 1.5rem 0.5rem 1.5rem;
   border-bottom: 2px solid var(--border);

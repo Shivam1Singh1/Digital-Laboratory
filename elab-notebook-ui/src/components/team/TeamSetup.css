@@ -1,6 +1,10 @@
 .team-setup-container {
   padding: 1.5rem;
   flex: 1;
+  /* Without min-height:0 a flex child cannot shrink below its content, so the
+     list grows past .main-workspace (overflow:hidden) and gets clipped rather
+     than scrolled. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;

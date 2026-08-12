@@ -14,6 +14,7 @@
   "project_code",
   "reviewer",
   "employee_function",
+  "experiment_team",
   "experiment_start_date",
   "experiment_end_date",
   "column_break_rveu",
@@ -120,6 +121,16 @@
    "fieldtype": "Link",
    "label": "Employee Function",
    "options": "Employee Function"
+  },
+  {
+   "fieldname": "experiment_team",
+   "fieldtype": "Link",
+   "label": "Experiment Team",
+   "options": "Experiment Team",
+   "read_only": 1,
+   "reqd": 1,
+   "no_copy": 1,
+   "description": "The run ID is generated from this team. Set from the team's Create Experiment button, or picked on the form when the run is started from the general New Experiment entry point."
   },
   {
    "fieldname": "experiment_start_date",

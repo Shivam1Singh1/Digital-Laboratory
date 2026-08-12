@@ -3,6 +3,12 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  flex: 1;
+  /* Without min-height:0 a flex child cannot shrink below its content, so the
+     page grows past .main-workspace (overflow:hidden) and is clipped rather
+     than scrolled. */
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Success Banner */
@@ -228,8 +234,8 @@
 }
 
 .status-draft {
-  background-color: rgba(59, 130, 246, 0.12);
-  color: #3B82F6;
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
 }
 
 .status-submitted {
@@ -285,9 +291,9 @@
 }
 
 .state-running {
-  background-color: rgba(59, 130, 246, 0.12);
-  color: #3B82F6;
-  border-color: rgba(59, 130, 246, 0.25);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 .state-completed {

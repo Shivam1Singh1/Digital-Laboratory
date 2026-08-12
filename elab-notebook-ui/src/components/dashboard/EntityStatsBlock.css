@@ -6,6 +6,7 @@
 .entity-stats-block {
   padding: 1.75rem;
   background-color: var(--bg-surface);
+  background-image: var(--accent-gradient);
   border: 1.5px solid var(--border);
   border-radius: 14px;
   display: flex;
@@ -20,7 +21,7 @@
 .entity-stats-block:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 /* Header & Dropdown */
@@ -107,8 +108,8 @@
 .tile-chart {
   position: relative;
   flex: 0 0 auto;
-  width: 170px;
-  height: 170px;
+  width: 150px;
+  height: 150px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,7 +245,7 @@
 .tile-footer-value {
   font-size: 1.25rem;
   font-weight: 800;
-  color: #3b82f6;
+  color: var(--accent);
 }
 
 /* Loading / empty states */
@@ -296,7 +297,10 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background-color: rgba(0, 0, 0, 0.55);
+  /* Frosted overlay: the page stays legible behind the modal instead of being
+     blacked out, which is what makes the panel read as glass rather than a box. */
+  background-color: rgba(0, 0, 0, 0.38);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -307,7 +311,10 @@
   width: min(980px, 100%);
   max-height: 85vh;
   overflow-y: auto;
-  background-color: var(--bg-surface);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  background-image: var(--accent-gradient);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.25rem 1.5rem 1.5rem;
@@ -362,7 +369,9 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: var(--bg-elevated);
+  background-color: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--text-primary);
   font-weight: 600;
   user-select: none;

@@ -37,7 +37,7 @@
   justify-content: space-between;
   padding: 1.5rem 2.5rem;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.02) 0%, transparent 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 100%);
 }
 
 .modal-title {
@@ -107,8 +107,8 @@
 
 .form-control:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
   background-color: var(--bg-surface);
 }
 
@@ -184,17 +184,32 @@
   background-color: var(--bg-elevated);
 }
 
+/* The chevron is a real <svg> overlaid on the select (a select cannot contain
+   one), so it inherits currentColor and themes on its own. It used to be a
+   background-image data: URI with the stroke baked in, which needed a duplicate
+   rule per theme and still could not follow the accent. */
+.select-wrapper {
+  position: relative;
+  display: block;
+}
+
+.select-chevron {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
 .select-input {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239FB3D9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
   background-repeat: no-repeat;
   background-position: right 1rem center;
   background-size: 1.25rem;
   padding-right: 2.75rem;
-}
-
-:root.light-theme .select-input {
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236C6682' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
 }
 
 /* Dropdown list for search results */
@@ -243,7 +258,7 @@
 }
 
 .dropdown-item:hover {
-  background-color: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(96, 165, 250, 0.04) 100%);
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent) 0%, color-mix(in srgb, var(--accent-2) 4%, transparent) 100%);
   padding-left: 1.75rem;
 }
 
@@ -265,13 +280,13 @@
   text-align: center;
   font-size: 0.9rem;
   color: var(--text-muted);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.02) 0%, transparent 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 100%);
 }
 
 /* Template Details Card */
 .template-details-card {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(96, 165, 250, 0.02) 100%);
-  border: 1.5px solid rgba(59, 130, 246, 0.2);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, transparent) 0%, color-mix(in srgb, var(--accent-2) 2%, transparent) 100%);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-radius: 12px;
   padding: 2rem;
   margin-top: 1rem;
@@ -280,7 +295,7 @@
 
 .details-header {
   margin-bottom: 1.5rem;
-  border-bottom: 2px solid rgba(59, 130, 246, 0.3);
+  border-bottom: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
   padding-bottom: 1rem;
 }
 
@@ -336,7 +351,7 @@
   gap: 1.25rem;
   padding: 2.5rem 2.5rem;
   border-top: 1px solid var(--border);
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.01) 0%, transparent 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 1%, transparent) 0%, transparent 100%);
 }
 
 /* Buttons */
@@ -364,14 +379,14 @@
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .btn-primary:disabled {

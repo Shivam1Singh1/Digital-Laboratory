@@ -28,11 +28,15 @@ export const useUserStore = defineStore('user', () => {
   const createModalProject = ref('')
   const createModalProjectName = ref('')
   const createModalEmployeeFunction = ref('')
+  // Set only when the create flow starts from a team. Its presence is what marks
+  // the run as team-originated, which in turn drives the read-only notebook rule.
+  const createModalTeam = ref('')
 
-  const openCreateExperimentModal = (proj = '', empFunc = '', projName = '') => {
+  const openCreateExperimentModal = (proj = '', empFunc = '', projName = '', team = '') => {
     createModalProject.value = proj
     createModalEmployeeFunction.value = empFunc
     createModalProjectName.value = projName
+    createModalTeam.value = team
     createModalOpen.value = true
   }
 
@@ -41,6 +45,7 @@ export const useUserStore = defineStore('user', () => {
     createModalProject.value = ''
     createModalEmployeeFunction.value = ''
     createModalProjectName.value = ''
+    createModalTeam.value = ''
   }
 
   const setTheme = (newTheme) => {
@@ -114,6 +119,7 @@ export const useUserStore = defineStore('user', () => {
     createModalProject,
     createModalProjectName,
     createModalEmployeeFunction,
+    createModalTeam,
     openCreateExperimentModal,
     closeCreateExperimentModal,
     fetchUserProfile,

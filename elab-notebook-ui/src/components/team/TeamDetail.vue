@@ -195,7 +195,7 @@ onMounted(async () => {
         <button
           v-if="canCreate"
           class="btn btn-primary"
-          @click="userStore.openCreateExperimentModal(team.project, team.employee_function, team.project_name)"
+          @click="userStore.openCreateExperimentModal(team.project, team.employee_function, team.project_name, team.name)"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Create Experiment

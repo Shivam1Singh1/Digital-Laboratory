@@ -19,9 +19,19 @@ const successMessage = ref('')
 const activeTab = ref('general')
 const experiment = ref(null)
 
-// The experiment's id is generated from its notebook, so the notebook is the natural
-// parent to jump to. This app has no ELab Notebook page of its own - /elab-notebook/:id
-// renders Experiment Team - so the link opens the Frappe desk form for the record.
+// The experiment's id is generated from its team, so the team is the natural
+// parent to jump to. The desk form is the target because /elab-notebook/:id in
+// this app is the team *setup* page, not a record view.
+const teamUrl = computed(() =>
+  experiment.value?.experiment_team
+    ? `/app/experiment-team/${encodeURIComponent(experiment.value.experiment_team)}`
+    : ''
+)
+
+// Runs created before the naming key moved to Experiment Team still carry a
+// notebook, and it is still what their id was built from - so the link stays,
+// but only for those records. New runs leave elab_notebook empty and the field
+// is hidden entirely rather than rendering an empty row.
 const notebookUrl = computed(() =>
   experiment.value?.elab_notebook
     ? `/app/elab-notebook/${encodeURIComponent(experiment.value.elab_notebook)}`
@@ -643,16 +653,16 @@ onMounted(() => {
           <div class="pane-grid">
             <div class="form-group-row">
               <div class="form-group">
-                <label class="form-label">ELab Notebook</label>
+                <label class="form-label">Experiment Team</label>
                 <a
-                  v-if="experiment.elab_notebook"
-                  :href="notebookUrl"
+                  v-if="experiment.experiment_team"
+                  :href="teamUrl"
                   target="_blank"
                   rel="noopener"
                   class="form-control link-value"
-                  :title="`Open ${experiment.elab_notebook}`"
+                  :title="`Open ${experiment.experiment_team}`"
                 >
-                  <span class="link-value-text">{{ experiment.elab_notebook }}</span>
+                  <span class="link-value-text">{{ experiment.experiment_team }}</span>
                   <svg class="link-value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                     <polyline points="15 3 21 3 21 9" />
@@ -667,6 +677,28 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Legacy runs only: their id was built from a notebook, so the
+                 link is still meaningful. Hidden entirely on newer runs. -->
+            <div v-if="experiment.elab_notebook" class="form-group-row">
+              <div class="form-group">
+                <label class="form-label">ELab Notebook</label>
+                <a
+                  :href="notebookUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="form-control link-value"
+                  :title="`Open ${experiment.elab_notebook}`"
+                >
+                  <span class="link-value-text">{{ experiment.elab_notebook }}</span>
+                  <svg class="link-value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+
             <div class="form-group-row">
               <div class="form-group">
                 <label class="form-label">Employee Function</label>
@@ -675,6 +707,16 @@ onMounted(() => {
               <div class="form-group">
                 <label class="form-label">Template</label>
                 <input type="text" :value="experiment.template || 'None'" class="form-control readonly" readonly />
+              </div>
+            </div>
+
+            <!-- Only runs started from a team carry one. Runs created through the
+                 general New Experiment entry point have no team, so the row is
+                 omitted rather than rendered empty. -->
+            <div v-if="experiment.experiment_team" class="form-group-row">
+              <div class="form-group">
+                <label class="form-label">Experiment Team</label>
+                <input type="text" :value="experiment.experiment_team" class="form-control readonly font-mono" readonly />
               </div>
             </div>
 
@@ -739,10 +781,10 @@ onMounted(() => {
                   <td class="font-mono text-accent">{{ mat.item_code }}</td>
                   <td>{{ mat.item_name }}</td>
                   <td>{{ mat.uom }}</td>
-                  <td><input type="number" v-model="mat.qty" class="form-control table-input" min="0" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td><input type="number" v-model="mat.qty" class="form-control table-input" min="0" :disabled="isImportedRow(mat) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(mat) }" /></td>
                   <td>
                     <button v-if="!isImportedRow(mat)" class="delete-row-btn" @click="removeMaterial(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete material'">×</button>
-                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - read-only and cannot be deleted">&#128274;</span>
                   </td>
                 </tr>
                 <tr v-if="!experiment.material_required || experiment.material_required.length === 0">
@@ -771,12 +813,12 @@ onMounted(() => {
               </thead>
               <tbody>
                 <tr v-for="(eq, idx) in experiment.equipment_details" :key="idx">
-                  <td><input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="e.g. HPLC Machine" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
-                  <td class="font-mono"><input type="text" v-model="eq.equipment_id" class="form-control table-input" placeholder="e.g. HPLC-001" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
-                  <td><input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="e.g. Reserved for 9am session" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td><input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="e.g. HPLC Machine" :disabled="isImportedRow(eq) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(eq) }" /></td>
+                  <td class="font-mono"><input type="text" v-model="eq.equipment_id" class="form-control table-input" placeholder="e.g. HPLC-001" :disabled="isImportedRow(eq) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(eq) }" /></td>
+                  <td><input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="e.g. Reserved for 9am session" :disabled="isImportedRow(eq) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(eq) }" /></td>
                   <td>
                     <button v-if="!isImportedRow(eq)" class="delete-row-btn" @click="removeEquipment(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete equipment'">×</button>
-                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - read-only and cannot be deleted">&#128274;</span>
                   </td>
                 </tr>
                 <tr v-if="!experiment.equipment_details || experiment.equipment_details.length === 0">
@@ -809,14 +851,14 @@ onMounted(() => {
               <tbody>
                 <tr v-for="(meth, idx) in experiment.methodology" :key="idx">
                   <td>
-                    <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" :disabled="isWorkflowLocked() && !isSystemManager" />
+                    <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" :disabled="isImportedRow(meth) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(meth) }" />
                   </td>
                   <td>
-                    <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" :disabled="isWorkflowLocked() && !isSystemManager" />
+                    <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" :disabled="isImportedRow(meth) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(meth) }" />
                   </td>
                   <td>
                     <button v-if="!isImportedRow(meth)" class="delete-row-btn" @click="removeMethod(idx)" :disabled="isWorkflowLocked() && !isSystemManager">×</button>
-                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                    <span v-else class="imported-row-lock" title="Imported from the Experiment Template - read-only and cannot be deleted">&#128274;</span>
                   </td>
                 </tr>
                 <tr v-if="experiment.methodology.length === 0">

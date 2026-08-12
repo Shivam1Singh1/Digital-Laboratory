@@ -5,7 +5,6 @@ import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { formatAuditDate } from '../../utils/dateFormatter'
 import RichTextEditor from '../common/RichTextEditor.vue'
-import LinkField from '../common/LinkField.vue'
 import './ExperimentForm.css'
 
 const route = useRoute()
@@ -15,6 +14,11 @@ const userStore = useUserStore()
 const project = ref(route.query.project || '')
 const employeeFunction = ref(route.query.employee_function || '')
 const templateId = ref(route.query.template || '')
+// Present only when the run was started from a team's Create Experiment button.
+// Everything team-specific below keys off this, so the general New Experiment
+// entry point is untouched.
+const experimentTeam = ref(route.query.experiment_team || '')
+const isTeamFlow = computed(() => Boolean(experimentTeam.value))
 
 const loading = ref(true)
 const saving = ref(false)
@@ -52,8 +56,9 @@ const experiment = ref({
   // employee_code is a Link to Employee - the User id is not a valid value here.
   employee_code: userStore.user.employee || '',
   employee_name: userStore.user.employee_name || userStore.user.full_name,
-  // Required: the naming rule derives the experiment id from its notebook.
-  elab_notebook: '',
+  // Required: the naming rule derives the experiment id from its team. Seeded
+  // from the URL on the team flow; picked below on the general entry point.
+  experiment_team: experimentTeam.value,
 
   segment: '',
   cost_center: '',
@@ -171,8 +176,11 @@ const removeMethod = (index) => {
 const saveExperiment = async () => {
   // Both are Link/derived fields the server rejects with an opaque error, so name the
   // real problem here rather than falling through to "verify all required fields".
-  if (!experiment.value.elab_notebook) {
-    error.value = 'Select an ELab Notebook - the run ID is generated from it.'
+  if (!experiment.value.experiment_team) {
+    error.value = noTeamAvailable.value
+      ? `No team is set up for project ${project.value || '—'} under `
+        + `${employeeFunction.value || 'this function'}. Set one up in Team Setup before starting a run.`
+      : 'Select an Experiment Team - the run ID is generated from it.'
     return
   }
   if (!experiment.value.employee_code) {
@@ -263,51 +271,69 @@ const loadTeamFinancials = async () => {
   }
 }
 
-// The run's ID is derived from its notebook, so pre-select the project's notebook when
-// there is exactly one - an ambiguous match is left for the user to choose.
-// The notebook is derived from the project rather than chosen: it decides the run's id,
-// so it is not really the author's call. It only stays editable when the project cannot
-// settle it on its own - with no candidate, or more than one, a locked empty field would
-// leave the form permanently unsaveable.
-const notebookOptions = ref([])
-const notebookLoaded = ref(false)
+// The run's ID is derived from its team (LabExperiment.set_series), so a run
+// cannot be saved without one. The team flow already settled it upstream - the
+// team's Create Experiment button passes it in the URL - so there the field is
+// only shown, never asked. The general New Experiment entry point has no team
+// in context and has to ask, because a project + function pair maps to many
+// teams by design (api/experiment_team.save_team always creates a new record
+// rather than reusing one).
+const teamOptions = ref([])
+const teamsLoaded = ref(false)
 
-const notebookAutoFilled = computed(
-  () => notebookLoaded.value && notebookOptions.value.length === 1
+// Only the general entry point can dead-end: the team flow arrives with a team
+// already in hand.
+const noTeamAvailable = computed(
+  () => !isTeamFlow.value && teamsLoaded.value && teamOptions.value.length === 0
 )
 
-const notebookHint = computed(() => {
-  if (!notebookLoaded.value) return 'Looking up the notebook for this project…'
-  if (notebookOptions.value.length === 1) return "Set from this run's project."
-  if (notebookOptions.value.length === 0) {
-    return `No notebook exists for project ${project.value || '—'} yet. Pick one, or create a notebook for this project first.`
+const teamHint = computed(() => {
+  if (isTeamFlow.value) return 'This run is being created for this team.'
+  if (!teamsLoaded.value) return 'Looking up the teams for this project…'
+  if (teamOptions.value.length === 0) {
+    return `No team is set up for project ${project.value || '—'} under `
+      + `${employeeFunctionName.value || employeeFunction.value || 'this function'} — set one up first.`
   }
-  return `Project ${project.value} has ${notebookOptions.value.length} notebooks — choose which one this run belongs to.`
+  if (teamOptions.value.length === 1) return "Set from this project's only team."
+  return `This project has ${teamOptions.value.length} teams under this function — choose which one this run belongs to.`
 })
 
-const loadNotebookForProject = async () => {
-  if (!project.value) {
-    notebookLoaded.value = true
+// Shown in the picker: team_name is the friendly label but is empty on teams
+// created before it existed, so the id carries the row on its own.
+const teamLabel = (t) => (t.team_name ? `${t.team_name} — ${t.name}` : t.name)
+
+const loadTeamsForProject = async () => {
+  // Nothing to choose when the team flow already named the team.
+  if (isTeamFlow.value || !project.value) {
+    teamsLoaded.value = true
     return
   }
   try {
+    // No filter for membership here: get_team_permission_query_conditions
+    // already narrows the list to teams the user heads or belongs to, which is
+    // the same gate LabExperiment.validate_participant applies on save.
+    const filters = { project: project.value }
+    if (employeeFunction.value) {
+      filters.employee_function = employeeFunction.value
+    }
     const res = await axios.get('/api/method/frappe.client.get_list', {
       params: {
-        doctype: 'ELab Notebook',
-        filters: JSON.stringify({ project: project.value }),
-        fields: JSON.stringify(['name']),
+        doctype: 'Experiment Team',
+        filters: JSON.stringify(filters),
+        fields: JSON.stringify(['name', 'team_name']),
         order_by: 'creation desc',
         limit_page_length: 0
       }
     })
-    notebookOptions.value = res.data.message || []
-    if (notebookOptions.value.length === 1) {
-      experiment.value.elab_notebook = notebookOptions.value[0].name
+    teamOptions.value = res.data.message || []
+    // A list of one is not a choice - settle it rather than making the user pick.
+    if (teamOptions.value.length === 1) {
+      experiment.value.experiment_team = teamOptions.value[0].name
     }
   } catch (err) {
-    console.error('Failed to look up ELab Notebook', err)
+    console.error('Failed to look up Experiment Team', err)
   } finally {
-    notebookLoaded.value = true
+    teamsLoaded.value = true
   }
 }
 
@@ -316,7 +342,7 @@ onMounted(() => {
   loadTeamFinancials()
   loadProjectAndFunctionNames()
   loadAvailableItems()
-  loadNotebookForProject()
+  loadTeamsForProject()
 })
 </script>
 
@@ -338,7 +364,7 @@ onMounted(() => {
 
       <div class="page-header-right">
         <button class="btn btn-secondary" @click="router.back()">Cancel</button>
-        <button class="btn btn-primary" :disabled="saving || loading" @click="saveExperiment">
+        <button class="btn btn-primary" :disabled="saving || loading || !experiment.experiment_team" @click="saveExperiment">
           {{ saving ? 'Saving...' : 'Save Run' }}
         </button>
       </div>
@@ -418,25 +444,35 @@ onMounted(() => {
                 />
               </div>
               <div class="form-group">
-                <label class="form-label">ELab Notebook *</label>
-                <!-- Locked once the project settles it; only ambiguity re-opens the picker. -->
+                <label class="form-label">Experiment Team *</label>
+                <!-- Locked when the team flow or a single candidate settles it;
+                     only a genuine choice opens the picker. -->
                 <input
-                  v-if="notebookAutoFilled"
+                  v-if="isTeamFlow || teamOptions.length === 1"
                   type="text"
-                  :value="experiment.elab_notebook"
-                  class="form-control readonly"
+                  :value="experiment.experiment_team"
+                  class="form-control readonly font-mono"
                   readonly
                 />
-                <LinkField
+                <select
                   v-else
-                  v-model="experiment.elab_notebook"
-                  doctype="ELab Notebook"
-                  :fields="['project', 'employee_function']"
-                  :search-fields="['name']"
-                  description-field="project"
-                  :placeholder="notebookLoaded ? 'Search notebooks…' : 'Loading…'"
-                />
-                <span class="field-hint">{{ notebookHint }}</span>
+                  v-model="experiment.experiment_team"
+                  class="form-control"
+                  :disabled="!teamsLoaded || !teamOptions.length"
+                >
+                  <option value="">{{ teamsLoaded ? 'Select a team…' : 'Loading…' }}</option>
+                  <option v-for="t in teamOptions" :key="t.name" :value="t.name">
+                    {{ teamLabel(t) }}
+                  </option>
+                </select>
+                <span class="field-hint" :class="{ 'field-hint-error': noTeamAvailable }">{{ teamHint }}</span>
+                <!-- The dead end is deliberate, so it has to offer a way out -
+                     but only ever to Team Setup: nothing is created from here. -->
+                <div v-if="noTeamAvailable" class="team-recovery">
+                  <router-link to="/elab-notebook" class="btn btn-secondary btn-sm">
+                    Go to Team Setup
+                  </router-link>
+                </div>
               </div>
             </div>
 
@@ -558,7 +594,7 @@ onMounted(() => {
                 <template v-for="(mat, idx) in experiment.material_required" :key="idx">
                   <tr :class="{ 'template-row': mat.from_template }">
                     <td>
-                      <div class="search-field-wrapper" :style="{ position: 'relative' }">
+                      <div v-if="!mat.from_template" class="search-field-wrapper" :style="{ position: 'relative' }">
                         <input
                           type="text"
                           :value="materialSearchStates[idx]?.search || mat.item_code"
@@ -585,19 +621,20 @@ onMounted(() => {
                           </div>
                         </div>
                       </div>
+                      <input v-else type="text" :value="mat.item_code" class="form-control table-input readonly" readonly />
                     </td>
                     <td>
-                      <input type="text" v-model="mat.item_name" class="form-control table-input" placeholder="Item Description" />
+                      <input type="text" v-model="mat.item_name" class="form-control table-input" placeholder="Item Description" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" />
                     </td>
                     <td>
-                      <input type="text" v-model="mat.uom" class="form-control table-input" placeholder="e.g. L, mL, mg" />
+                      <input type="text" v-model="mat.uom" class="form-control table-input" placeholder="e.g. L, mL, mg" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" />
                     </td>
                     <td>
-                      <input type="number" v-model="mat.qty" class="form-control table-input" min="0" step="any" />
+                      <input type="number" v-model="mat.qty" class="form-control table-input" min="0" step="any" :readonly="mat.from_template" :class="{ readonly: mat.from_template }" />
                     </td>
                     <td>
                       <button v-if="!mat.from_template" class="delete-row-btn" @click="removeMaterial(idx)" title="Remove item">×</button>
-                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - read-only and cannot be deleted">&#128274;</span>
                     </td>
                   </tr>
                   <tr v-if="mat.added_on" class="history-row">
@@ -635,10 +672,10 @@ onMounted(() => {
                 <template v-for="(eq, idx) in experiment.equipment_details" :key="idx">
                   <tr :class="{ 'template-row': eq.from_template }">
                     <td>
-                      <input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="Equipment Name" />
+                      <input type="text" v-model="eq.equipment_name" class="form-control table-input" placeholder="Equipment Name" :readonly="eq.from_template" :class="{ readonly: eq.from_template }" />
                     </td>
                     <td>
-                      <div class="search-field-wrapper" :style="{ position: 'relative' }">
+                      <div v-if="!eq.from_template" class="search-field-wrapper" :style="{ position: 'relative' }">
                         <input
                           type="text"
                           :value="equipmentSearchStates[idx]?.search || eq.equipment_id"
@@ -665,13 +702,14 @@ onMounted(() => {
                           </div>
                         </div>
                       </div>
+                      <input v-else type="text" :value="eq.equipment_id" class="form-control table-input readonly" readonly />
                     </td>
                     <td>
-                      <input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="Allocation comments..." />
+                      <input type="text" v-model="eq.remarks" class="form-control table-input" placeholder="Allocation comments..." :readonly="eq.from_template" :class="{ readonly: eq.from_template }" />
                     </td>
                     <td>
                       <button v-if="!eq.from_template" class="delete-row-btn" @click="removeEquipment(idx)">×</button>
-                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - read-only and cannot be deleted">&#128274;</span>
                     </td>
                   </tr>
                   <tr v-if="eq.added_on" class="history-row">
@@ -708,14 +746,14 @@ onMounted(() => {
                 <template v-for="(meth, idx) in experiment.methodology" :key="idx">
                   <tr :class="{ 'template-row': meth.from_template }">
                     <td>
-                      <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" />
+                      <input type="text" v-model="meth.method" class="form-control table-input" placeholder="e.g. HPLC separation" :readonly="meth.from_template" :class="{ readonly: meth.from_template }" />
                     </td>
                     <td>
-                      <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" />
+                      <input type="number" v-model="meth.time_to_complete" class="form-control table-input" min="0" :readonly="meth.from_template" :class="{ readonly: meth.from_template }" />
                     </td>
                     <td>
                       <button v-if="!meth.from_template" class="delete-row-btn" @click="removeMethod(idx)">×</button>
-                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - editable, but cannot be deleted">&#128274;</span>
+                      <span v-else class="imported-row-lock" title="Imported from the Experiment Template - read-only and cannot be deleted">&#128274;</span>
                     </td>
                   </tr>
                   <tr v-if="meth.added_on" class="history-row">

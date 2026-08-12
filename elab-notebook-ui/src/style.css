@@ -12,9 +12,19 @@
   --warning: #FBBF24;
   --danger: #F87171;
 
+  /* Secondary accent. Pairs with violet for gradients, chart ramps and any
+     surface that should not read as a single flat colour. Analogous to violet,
+     so it never collides with --success / --warning / --danger. */
+  --accent-2: #e879f9;         /* night fuchsia */
+  --accent-2-soft: rgba(232, 121, 249, 0.14);
+
+  /* Frosted overlay surfaces (modals, sticky headers). */
+  --glass-bg: rgba(32, 34, 48, 0.72);
+  --glass-blur: blur(14px) saturate(140%);
+
   --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 7%, transparent), color-mix(in srgb, #3b82f6 5%, transparent));
+  --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent-2) 6%, transparent));
 }
 
 :root.light-theme {
@@ -30,7 +40,14 @@
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), color-mix(in srgb, #0d9488 6%, transparent));
+
+  --accent-2: #c026d3;         /* day fuchsia */
+  --accent-2-soft: rgba(192, 38, 211, 0.10);
+
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-blur: blur(14px) saturate(140%);
+
+  --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, transparent), color-mix(in srgb, var(--accent-2) 7%, transparent));
 }
 
 

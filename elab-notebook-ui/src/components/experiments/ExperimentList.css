@@ -3,6 +3,13 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  box-sizing: border-box;
+  flex: 1;
+  /* Without min-height:0 a flex child cannot shrink below its content, so the
+     page grows past .main-workspace (overflow:hidden) and is clipped rather
+     than scrolled. */
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Filters Row */
@@ -92,9 +99,9 @@
 }
 
 .status-draft {
-  background-color: rgba(59, 130, 246, 0.08);
-  color: #3B82F6;
-  border: 1px solid rgba(59, 130, 246, 0.16);
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .status-running {
@@ -177,14 +184,6 @@
   border: 1px solid rgba(239, 68, 68, 0.16) !important;
 }
 
-.experiment-list-container {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  min-height: 100vh;   /* fill the screen so there's space to distribute */
-  box-sizing: border-box;
-}
 
 .list-layout {
   display: flex;

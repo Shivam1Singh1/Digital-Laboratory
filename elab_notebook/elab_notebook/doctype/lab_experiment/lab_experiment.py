@@ -73,22 +73,57 @@ class LabExperiment(Document):
 	# ------------------------------------------------------------------
 
 	def set_series(self):
-		"""Derive the run ID from its notebook.
+		"""Derive the run ID from its team: <team>-A0001, A0002 … B0001.
 
 		`autoname` is `format:{series}` and Frappe runs `before_insert` ahead of
 		`set_new_name()`, so populating `series` here is what actually names the
-		record. Ported from the legacy "Experiment Naming Series" Server Script,
-		counting rows is kept as-is for parity - see the note in the migration
-		summary about it not being concurrency-safe.
+		record.
+
+		The key used to be `elab_notebook`, which produced `ELN-<project>-…` ids.
+		ELab Notebook is a DB-only doctype with no page in this app, and the run
+		already knows the team that owns it, so the team is the honest parent.
+		Runs created before this change keep their `ELN-…` ids untouched - only
+		the scan below has to tolerate them, which it already does by skipping
+		any suffix that is not letter + 4 digits.
+
+		Frappe validates mandatory fields *after* `before_insert`, so the guard
+		here is what actually stops an unnamed run - `reqd` on the field alone
+		would let this method build a `None-A0001` id first.
+
+		Scanning names rather than counting rows is deliberate: a plain count
+		re-issues an existing id as soon as one record is deleted.
 		"""
-		if not self.elab_notebook:
+		if not self.experiment_team:
 			frappe.throw(
-				_("Please select an ELab Notebook before saving the Lab Experiment."),
-				title=_("Missing ELab Notebook"),
+				_("Please select an Experiment Team before saving the Lab Experiment."),
+				title=_("Missing Experiment Team"),
 			)
 
-		existing = frappe.db.count("Lab Experiment", {"elab_notebook": self.elab_notebook})
-		self.series = f"{self.elab_notebook}-{existing + 1:06d}"
+		existing = frappe.db.get_all(
+			"Lab Experiment",
+			filters={"experiment_team": self.experiment_team},
+			pluck="name",
+		)
+
+		max_letter, max_number = "A", 0
+		for name in existing:
+			if not name or "-" not in name:
+				continue
+			suffix = name.split("-")[-1]
+			# Only the current letter+4-digit form counts; retired -000001 ids
+			# and anything else are ignored.
+			if len(suffix) != 5 or not suffix[0].isalpha() or not suffix[1:].isdigit():
+				continue
+			letter, number = suffix[0], int(suffix[1:])
+			if letter > max_letter or (letter == max_letter and number > max_number):
+				max_letter, max_number = letter, number
+
+		if max_number >= 9999:
+			next_letter, next_number = chr(ord(max_letter) + 1), 1
+		else:
+			next_letter, next_number = max_letter, max_number + 1
+
+		self.series = f"{self.experiment_team}-{next_letter}{next_number:04d}"
 
 	# ------------------------------------------------------------------
 	# Authorisation
