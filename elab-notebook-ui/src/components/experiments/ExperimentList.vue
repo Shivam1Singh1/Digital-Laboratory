@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { formatDate } from '../../utils/dateFormatter'
+import PageHeader from '../layout/PageHeader.vue'
 import './ExperimentList.css'
 
 const router = useRouter()
@@ -14,7 +15,7 @@ const experiments = ref([])
 const statusFilter = ref('')
 
 const currentPage = ref(1)
-const pageSize = 10
+const pageSize = 7
 
 const totalPages = computed(() => Math.ceil(experiments.value.length / pageSize))
 
@@ -82,32 +83,15 @@ onMounted(() => {
 <template>
   <div class="experiment-list-container">
     <!-- Header -->
-    <div class="page-header">
-      <div class="page-header-left">
-        <nav class="breadcrumb-nav">
-          <router-link to="/" class="breadcrumb-link">Home</router-link>
-          <span class="breadcrumb-separator">&gt;</span>
-          <span class="breadcrumb-current">Experiments</span>
-        </nav>
-        <h1 class="page-title">Experiment Runs</h1>
-        <p class="page-subtitle">Track, execute, and sign off ongoing laboratory runs</p>
-      </div>
+    <PageHeader
+      :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Experiments' }]"
+      title="Experiment Runs"
+      subtitle="Track, execute, and sign off ongoing laboratory runs"
+    />
 
-      <div class="page-header-right">
-        <button class="btn btn-primary" @click="userStore.openCreateExperimentModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New Experiment
-        </button>
-      </div>
-    </div>
-
-    <!-- Filters Row -->
-    <div class="filters-row card">
-      <div class="filter-group">
-        <label class="filter-label">Project Scope:</label>
-        <span class="active-scope-pill">{{ userStore.currentProject === 'all' ? 'All Allowed Projects' : userStore.currentProject }}</span>
-      </div>
-
+    <!-- Filters Row. No project scope here: the top bar's Active Project
+         selector already sets it for the whole app. -->
+    <div class="filters-row">
       <div class="filter-group">
         <label class="filter-label">Filter Status:</label>
         <select v-model="statusFilter" class="filter-select">
@@ -129,10 +113,19 @@ onMounted(() => {
       <p>Fetching experiment run logs...</p>
     </div>
 
-    <!-- Data Table / Empty State -->
-    <div v-else class="list-layout card">
-      <div class="table-container" v-if="experiments.length > 0">
-        <table>
+    <!-- Data Table / Empty State. Same frame as the "Your Teams" card on
+         /elab-notebook: .meta-card + a .table-actions header. -->
+    <section v-else-if="experiments.length > 0" class="meta-card">
+      <div class="table-actions">
+        <div>
+          <h3 class="section-title no-margin">All Runs</h3>
+          <p class="section-sub">Runs visible in the current project scope.</p>
+        </div>
+        <span class="selected-pill">{{ experiments.length }} total</span>
+      </div>
+
+      <div class="table-container">
+        <table class="list-table">
           <thead>
             <tr>
               <th>Run ID</th>
@@ -177,8 +170,9 @@ onMounted(() => {
             </tr>
           </tbody>
         </table>
+      </div>
 
-        <!-- Pagination Controls -->
+      <!-- Pagination Controls -->
         <div v-if="totalPages > 1" class="pagination-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding-bottom: 0.5rem;">
           <button 
             class="btn btn-secondary btn-sm" 
@@ -198,21 +192,20 @@ onMounted(() => {
             Next
           </button>
         </div>
-      </div>
+    </section>
 
-      <div v-else class="empty-state">
-        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="9" y1="15" x2="15" y2="15" />
-          <line x1="9" y1="11" x2="15" y2="11" />
-        </svg>
-        <h3>No experiments found</h3>
-        <p>No experiment runs match the selected project or status filters.</p>
-        <button class="btn btn-secondary mt-3" @click="userStore.openCreateExperimentModal()">
-          Create Your First Run
-        </button>
-      </div>
+    <div v-else class="empty-state">
+      <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="9" y1="15" x2="15" y2="15" />
+        <line x1="9" y1="11" x2="15" y2="11" />
+      </svg>
+      <h3>No experiments found</h3>
+      <p>No experiment runs match the selected project or status filters.</p>
+      <button class="btn btn-secondary mt-3" @click="userStore.openCreateExperimentModal()">
+        Create Your First Run
+      </button>
     </div>
   </div>
 </template>

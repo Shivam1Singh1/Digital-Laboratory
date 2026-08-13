@@ -282,13 +282,6 @@
   font-size: 0.8rem;
 }
 
-.empty-icon {
-  width: 32px;
-  height: 32px;
-  stroke: var(--text-muted);
-  opacity: 0.6;
-}
-
 /* ==========================================================================
    Historical trends modal
    ========================================================================== */
@@ -390,15 +383,6 @@
   font-size: 0.7rem;
   opacity: 0.8;
   margin-left: 0.35rem;
-}
-
-.clickable-row {
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-
-.clickable-row:hover {
-  background-color: var(--bg-elevated);
 }
 
 .cell-badge {
@@ -535,4 +519,14 @@
     align-self: auto;
     max-height: 140px;
   }
+}
+
+/* Compact variant of the shared .empty-icon (styles/list-page.css) for the
+   chart placeholder, which is much smaller than a full-page empty state.
+   Scoped rather than redeclaring the bare class, which is what used to make the
+   size depend on bundle order. */
+.empty-chart-state .empty-icon {
+  width: 32px;
+  height: 32px;
+  opacity: 0.6;
 }

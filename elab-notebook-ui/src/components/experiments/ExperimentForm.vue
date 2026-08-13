@@ -1,10 +1,12 @@
 <script setup>
-import { ref, onMounted, nextTick, computed } from 'vue'
+import { ref, onMounted, nextTick, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { formatAuditDate } from '../../utils/dateFormatter'
+import { readServerError } from '../../utils/serverError'
 import RichTextEditor from '../common/RichTextEditor.vue'
+import AddRow from '../common/AddRow.vue'
 import './ExperimentForm.css'
 
 const route = useRoute()
@@ -49,6 +51,9 @@ const experiment = ref({
   experiment_template: templateId.value,
   aim: '',
   sub_aim: '',
+  // The level this run sits at. Mandatory on new runs (LabExperiment.validate_category)
+  // and fixed once saved, so it is asked for here and nowhere else.
+  experiment_category: '',
   rationale: '',
   remark: '',
   experiment_start_date: new Date().toISOString().slice(0, 16),
@@ -173,6 +178,55 @@ const removeMethod = (index) => {
   experiment.value.methodology.splice(index, 1)
 }
 
+const SAVE_FALLBACK = 'Error saving experiment. Please verify all required fields.'
+
+// Everything the server would reject with a bare "value missing", named here
+// instead - including which Material Required row is at fault. A template may
+// legitimately carry a blank Sub Aim while Lab Experiment requires one, so the
+// form asks for it rather than inventing a placeholder.
+const validateExperiment = () => {
+  // The blur resolver runs on a 200ms delay so a dropdown pick lands first, and
+  // clicking Save straight from the search box beats it. Settle every row here,
+  // keeping what was typed so the message can quote it back.
+  const rowsToCheck = experiment.value.material_required || []
+  const typedPerRow = rowsToCheck.map(
+    (_, idx) => (materialSearchStates.value[idx]?.search || '').trim()
+  )
+  rowsToCheck.forEach((row, idx) => resolveMaterialSearch(row, idx))
+
+  if (!(experiment.value.aim || '').trim()) {
+    activeTab.value = 'general'
+    return 'Aim / Hypothesis is required.'
+  }
+  if (!experiment.value.experiment_category) {
+    activeTab.value = 'hierarchy'
+    return 'Experiment Category is required — pick the level this run sits at.'
+  }
+  if (!(experiment.value.sub_aim || '').trim()) {
+    activeTab.value = 'general'
+    return isFromTemplate.value
+      ? 'Sub Aim is required, and this template does not provide one - enter it before saving.'
+      : 'Sub Aim is required.'
+  }
+
+  for (let i = 0; i < rowsToCheck.length; i++) {
+    const row = rowsToCheck[i]
+    if (!row.item_code) {
+      activeTab.value = 'materials'
+      const typed = typedPerRow[i]
+      return typed
+        ? `Material Required row ${i + 1}: "${typed}" is not an item - select an item from the list, or remove the row.`
+        : `Material Required row ${i + 1}: select an item from the list, or remove the row.`
+    }
+    if (!Number(row.qty)) {
+      activeTab.value = 'materials'
+      return `Material Required row ${i + 1}: enter a quantity greater than zero.`
+    }
+  }
+
+  return ''
+}
+
 const saveExperiment = async () => {
   // Both are Link/derived fields the server rejects with an opaque error, so name the
   // real problem here rather than falling through to "verify all required fields".
@@ -192,6 +246,12 @@ const saveExperiment = async () => {
     return
   }
 
+  const validationError = validateExperiment()
+  if (validationError) {
+    error.value = validationError
+    return
+  }
+
   saving.value = true
   error.value = ''
   try {
@@ -202,13 +262,34 @@ const saveExperiment = async () => {
     const res = await axios.post('/api/resource/Lab%20Experiment', payload)
     if (res.data && res.data.data) {
       const newId = res.data.data.name
+      createdId.value = newId
+
+      // Children are linked in a second call: `parent_experiment` lives on the
+      // child, so there is nothing to write until the parent has a name. The
+      // link itself is all-or-nothing server-side, but it is a separate
+      // transaction from the create - so a failure here leaves a real run with
+      // no children, and saying so is the only honest option. Re-saving would
+      // create a second run, which is why Save is closed off once createdId is set.
+      if (selectedChildren.value.size) {
+        try {
+          await axios.post(`/api/method/${HIERARCHY_API}.link_child_experiments`, {
+            parent: newId,
+            children: Array.from(selectedChildren.value)
+          })
+        } catch (linkErr) {
+          console.error('Failed to link child experiments:', linkErr)
+          error.value = `Run ${newId} was created, but no child experiments were linked: `
+            + readServerError(linkErr, 'the server rejected the batch.')
+            + ` Open ${newId} and link them from its Experiment Tree tab.`
+          return
+        }
+      }
+
       router.push(`/experiments/${encodeURIComponent(newId)}`)
     }
   } catch (err) {
     console.error('Failed to save experiment:', err)
-    error.value = err.response?.data?._server_messages 
-      ? JSON.parse(err.response.data._server_messages).join(', ') 
-      : 'Error saving experiment. Please verify all required fields.'
+    error.value = readServerError(err, SAVE_FALLBACK)
   } finally {
     saving.value = false
   }
@@ -243,10 +324,51 @@ const loadAvailableItems = async () => {
   }
 }
 
-const selectMaterial = (mat, item) => {
+const selectMaterial = (mat, idx, item) => {
   mat.item_code = item.name
   mat.item_name = item.item_name || item.name
   mat.uom = item.uom || ''
+  if (materialSearchStates.value[idx]) {
+    materialSearchStates.value[idx].search = item.name
+  }
+}
+
+// item_code is a Link to Item, so only a real Item id may be stored. Typing in
+// the search box updates the search state alone - the code is set by picking a
+// suggestion. Text typed but never picked used to survive on screen while
+// item_code stayed empty, and the row only failed on save with the server's
+// generic "value missing". Resolve or wipe it when the cell loses focus so the
+// cell always shows what the row actually holds.
+const findMaterialItem = (text) => {
+  const query = (text || '').trim().toLowerCase()
+  if (!query) return null
+  const exact = availableMaterials.value.find((m) => m.name.toLowerCase() === query)
+  if (exact) return exact
+  const matches = availableMaterials.value.filter(
+    (m) =>
+      m.name.toLowerCase().includes(query) ||
+      (m.item_name || '').toLowerCase().includes(query)
+  )
+  // Only an unambiguous match may be applied on the user's behalf.
+  return matches.length === 1 ? matches[0] : null
+}
+
+const resolveMaterialSearch = (mat, idx) => {
+  const state = materialSearchStates.value[idx]
+  if (!state) return
+  const typed = (state.search || '').trim()
+  // Already settled by picking a suggestion.
+  if (typed && typed === mat.item_code) return
+
+  const item = findMaterialItem(typed)
+  if (item) {
+    selectMaterial(mat, idx, item)
+    return
+  }
+  // Nothing matched (or the text was cleared): leave the cell empty rather than
+  // showing text with no item behind it.
+  state.search = ''
+  mat.item_code = ''
 }
 
 const selectEquipment = (eq, item) => {
@@ -337,12 +459,117 @@ const loadTeamsForProject = async () => {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Category hierarchy
+// ---------------------------------------------------------------------------
+// The level a run sits at, and the runs one level below it that this one adopts
+// on creation. The level ordering is not retyped here: get_category_options
+// ships it from elab_notebook.api.hierarchy, which is the same tuple the
+// server validates against.
+
+const HIERARCHY_API = 'elab_notebook.elab_notebook.api.hierarchy'
+
+const categoryOptions = ref([])
+const childCandidates = ref([])
+const selectedChildren = ref(new Set())
+const childFilter = ref('')
+const loadingChildren = ref(false)
+
+// Set once the run exists. Save is blocked afterwards so a failed link step
+// cannot be retried into a second run.
+const createdId = ref('')
+
+const childCategory = computed(
+  () =>
+    categoryOptions.value.find((o) => o.category === experiment.value.experiment_category)
+      ?.child_category || ''
+)
+
+// Both scope values are required to resolve candidates, and a blank
+// employee_function is deliberately not matched against other blanks - see
+// get_available_children. Runs predating the hierarchy have no function set, and
+// blank-matching would pull unrelated orphans into a tree.
+const canPickChildren = computed(
+  () => Boolean(childCategory.value && project.value && employeeFunction.value)
+)
+
+const childPickerHint = computed(() => {
+  if (!experiment.value.experiment_category) {
+    return 'Pick an Experiment Category first.'
+  }
+  if (!childCategory.value) {
+    return `${experiment.value.experiment_category} is the lowest level — it has no children to link.`
+  }
+  if (!employeeFunction.value) {
+    return 'This run has no Employee Function, so no child experiments can be resolved. '
+      + 'Linking stays available from the Experiment Tree tab once one is set.'
+  }
+  if (!project.value) {
+    return 'This run has no Project, so no child experiments can be resolved.'
+  }
+  return `Unlinked ${childCategory.value}s in project ${project.value} under ${employeeFunction.value}. `
+    + 'Attaching is optional — you can also link them later from the Experiment Tree tab.'
+})
+
+const filteredChildCandidates = computed(() => {
+  const needle = childFilter.value.trim().toLowerCase()
+  if (!needle) return childCandidates.value
+  return childCandidates.value.filter((c) =>
+    [c.name, c.title, c.aim].some((v) => (v || '').toLowerCase().includes(needle))
+  )
+})
+
+const toggleChild = (name) => {
+  // Reassigning is what Vue tracks; mutating the Set in place does not re-render.
+  const next = new Set(selectedChildren.value)
+  next.has(name) ? next.delete(name) : next.add(name)
+  selectedChildren.value = next
+}
+
+const loadCategoryOptions = async () => {
+  try {
+    const res = await axios.get(`/api/method/${HIERARCHY_API}.get_category_options`)
+    categoryOptions.value = res.data.message || []
+  } catch (err) {
+    console.error('Failed to load experiment categories:', err)
+  }
+}
+
+const loadChildCandidates = async () => {
+  selectedChildren.value = new Set()
+  childFilter.value = ''
+  childCandidates.value = []
+  if (!canPickChildren.value) return
+
+  loadingChildren.value = true
+  try {
+    const res = await axios.get(`/api/method/${HIERARCHY_API}.get_available_children`, {
+      params: {
+        project: project.value,
+        employee_function: employeeFunction.value,
+        parent_category: experiment.value.experiment_category,
+      },
+    })
+    childCandidates.value = res.data.message || []
+  } catch (err) {
+    console.error('Failed to load available child experiments:', err)
+    childCandidates.value = []
+  } finally {
+    loadingChildren.value = false
+  }
+}
+
+// Changing the level changes which runs are adoptable, so the pool is rebuilt
+// and any earlier selection dropped rather than carried across levels.
+watch(() => experiment.value.experiment_category, loadChildCandidates)
+
 onMounted(() => {
   loadTemplate()
   loadTeamFinancials()
   loadProjectAndFunctionNames()
   loadAvailableItems()
   loadTeamsForProject()
+  loadCategoryOptions()
 })
 </script>
 
@@ -364,7 +591,21 @@ onMounted(() => {
 
       <div class="page-header-right">
         <button class="btn btn-secondary" @click="router.back()">Cancel</button>
-        <button class="btn btn-primary" :disabled="saving || loading || !experiment.experiment_team" @click="saveExperiment">
+        <!-- Once the run exists, saving again would create a second one. The only
+             way forward is the run itself. -->
+        <router-link
+          v-if="createdId"
+          :to="`/experiments/${encodeURIComponent(createdId)}`"
+          class="btn btn-primary"
+        >
+          Open {{ createdId }}
+        </router-link>
+        <button
+          v-else
+          class="btn btn-primary"
+          :disabled="saving || loading || !experiment.experiment_team"
+          @click="saveExperiment"
+        >
           {{ saving ? 'Saving...' : 'Save Run' }}
         </button>
       </div>
@@ -419,12 +660,19 @@ onMounted(() => {
         >
           Protocol Steps
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'observations' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'observations' }"
           @click="activeTab = 'observations'"
         >
           Observation
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'hierarchy' }"
+          @click="activeTab = 'hierarchy'"
+        >
+          Experiment Hierarchy
         </button>
       </div>
 
@@ -519,14 +767,12 @@ onMounted(() => {
             </div>
 
             <!-- Template Details Section -->
-            <div v-if="experiment.aim || experiment.sub_aim || experiment.rationale" class="template-details-section">
+            <!-- Sub Aim is deliberately absent here: it is editable below, and a
+                 read-only copy would read as fixed by the template. -->
+            <div v-if="experiment.aim || experiment.rationale" class="template-details-section">
               <div v-if="experiment.aim" class="form-group">
                 <label class="form-label">Aim / Hypothesis</label>
                 <textarea class="form-control readonly" :value="experiment.aim" readonly rows="2"></textarea>
-              </div>
-              <div v-if="experiment.sub_aim" class="form-group">
-                <label class="form-label">Sub Aim</label>
-                <textarea class="form-control readonly" :value="experiment.sub_aim" readonly rows="2"></textarea>
               </div>
               <div v-if="experiment.rationale" class="form-group">
                 <label class="form-label">Rationale</label>
@@ -537,7 +783,7 @@ onMounted(() => {
             <div class="form-group">
               <label class="form-label">Aim / Hypothesis *</label>
               <textarea
-                :value="experiment.aim"
+                v-model="experiment.aim"
                 class="form-control textarea"
                 :readonly="isFromTemplate"
                 :class="{ readonly: isFromTemplate }"
@@ -546,22 +792,23 @@ onMounted(() => {
               ></textarea>
             </div>
 
+            <!-- Sub Aim stays editable even on a template run: it is mandatory on
+                 Lab Experiment but optional on Experiment Template, so a template
+                 can arrive without one and this is the only place to supply it. -->
             <div class="form-group">
-              <label class="form-label">Sub Aim</label>
+              <label class="form-label">Sub Aim *</label>
               <textarea
-                :value="experiment.sub_aim"
+                v-model="experiment.sub_aim"
                 class="form-control textarea"
-                :readonly="isFromTemplate"
-                :class="{ readonly: isFromTemplate }"
                 rows="2"
-                placeholder="Sub-aim (optional)..."
+                placeholder="Sub-aim of the experiment..."
               ></textarea>
             </div>
 
             <div class="form-group">
               <label class="form-label">Rationale</label>
               <textarea
-                :value="experiment.rationale"
+                v-model="experiment.rationale"
                 class="form-control textarea"
                 :readonly="isFromTemplate"
                 :class="{ readonly: isFromTemplate }"
@@ -576,7 +823,6 @@ onMounted(() => {
         <div v-if="activeTab === 'materials'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Required Formulation Ingredients</h3>
-            <button class="btn btn-secondary btn-sm btn-add-row" @click="addMaterial">+ Add Material</button>
           </div>
 
           <div class="table-container">
@@ -604,7 +850,10 @@ onMounted(() => {
                             materialSearchStates[idx].showDropdown = true;
                           }"
                           @focus="() => { if(!materialSearchStates[idx]) materialSearchStates[idx] = {}; materialSearchStates[idx].showDropdown = true; }"
-                          @blur="() => setTimeout(() => { if(materialSearchStates[idx]) materialSearchStates[idx].showDropdown = false; }, 200)"
+                          @blur="() => setTimeout(() => {
+                            if (materialSearchStates[idx]) materialSearchStates[idx].showDropdown = false;
+                            resolveMaterialSearch(mat, idx);
+                          }, 200)"
                           class="form-control table-input search-input"
                           placeholder="Search item..."
                           style="position: relative; z-index: 100;"
@@ -613,7 +862,7 @@ onMounted(() => {
                           <div
                             v-for="item in availableMaterials.filter(m => !materialSearchStates[idx]?.search || m.name.toLowerCase().includes(materialSearchStates[idx].search.toLowerCase()) || m.item_name.toLowerCase().includes(materialSearchStates[idx].search.toLowerCase()))"
                             :key="item.name"
-                            @mousedown="() => { mat.item_code = item.name; mat.item_name = item.item_name; mat.uom = item.uom || ''; materialSearchStates[idx].search = item.name; materialSearchStates[idx].showDropdown = false; }"
+                            @mousedown="() => { selectMaterial(mat, idx, item); materialSearchStates[idx].showDropdown = false; }"
                             class="dropdown-item"
                           >
                             <strong>{{ item.name }}</strong><br>
@@ -644,7 +893,10 @@ onMounted(() => {
                   </tr>
                 </template>
                 <tr v-if="experiment.material_required.length === 0">
-                  <td colspan="5" class="empty-table-cell">No materials required for this run. Click '+ Add Material' to insert.</td>
+                  <td colspan="5" class="empty-table-cell">No materials required for this run yet.</td>
+                </tr>
+                <tr class="add-row-tr">
+                  <td colspan="5"><AddRow label="Add Material" @add="addMaterial" /></td>
                 </tr>
               </tbody>
             </table>
@@ -655,7 +907,6 @@ onMounted(() => {
         <div v-if="activeTab === 'equipment'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
-            <button class="btn btn-secondary btn-sm btn-add-row" @click="addEquipment">+ Add Equipment</button>
           </div>
 
           <div class="table-container">
@@ -721,6 +972,9 @@ onMounted(() => {
                 <tr v-if="experiment.equipment_details.length === 0">
                   <td colspan="4" class="empty-table-cell">No equipment allocated.</td>
                 </tr>
+                <tr class="add-row-tr">
+                  <td colspan="4"><AddRow label="Add Equipment" @add="addEquipment" /></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -730,7 +984,6 @@ onMounted(() => {
         <div v-if="activeTab === 'methodology'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology</h3>
-            <button class="btn btn-secondary btn-sm btn-add-row" @click="addMethod">+ Add Method</button>
           </div>
 
           <div class="table-container">
@@ -764,6 +1017,9 @@ onMounted(() => {
                 </template>
                 <tr v-if="experiment.methodology.length === 0">
                   <td colspan="3" class="empty-table-cell">No specific methodology steps.</td>
+                </tr>
+                <tr class="add-row-tr">
+                  <td colspan="3"><AddRow label="Add Method" @add="addMethod" /></td>
                 </tr>
               </tbody>
             </table>
@@ -805,6 +1061,83 @@ onMounted(() => {
             <h3 class="pane-subtitle">Observation Comments</h3>
             <div class="form-group stacked-field">
               <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" />
+            </div>
+          </section>
+        </div>
+
+        <!-- 7. EXPERIMENT HIERARCHY TAB -->
+        <!-- Category comes first because it decides which level the picker below
+             offers - and it is fixed once this run is saved, so this is the only
+             chance to set it. -->
+        <div v-if="activeTab === 'hierarchy'" class="tab-pane">
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Experiment Hierarchy</h3>
+
+            <div class="form-group stacked-field">
+              <label class="form-label">Experiment Category *</label>
+              <select v-model="experiment.experiment_category" class="form-control">
+                <option value="">Select a level…</option>
+                <option v-for="opt in categoryOptions" :key="opt.category" :value="opt.category">
+                  {{ opt.category }}
+                </option>
+              </select>
+              <span class="field-hint">
+                Fixed once this run is saved. There can be only one Master Experiment
+                per project and Employee Function.
+              </span>
+            </div>
+
+            <div v-if="experiment.experiment_category" class="form-group stacked-field">
+              <label class="form-label">
+                Link {{ childCategory ? `${childCategory}s` : 'Child Experiments' }}
+              </label>
+              <span class="field-hint">{{ childPickerHint }}</span>
+
+              <template v-if="canPickChildren">
+                <div v-if="loadingChildren" class="hierarchy-status">
+                  Looking for available experiments…
+                </div>
+                <div v-else-if="!childCandidates.length" class="hierarchy-empty">
+                  No unlinked {{ childCategory }} exists for this project and Employee
+                  Function yet. Create them first, then link them from this run's
+                  Experiment Tree tab.
+                </div>
+                <template v-else>
+                  <div class="hierarchy-picker-head">
+                    <input
+                      v-model="childFilter"
+                      type="text"
+                      class="form-control hierarchy-filter"
+                      placeholder="Filter by ID, title or aim…"
+                    />
+                    <span class="hierarchy-pill">{{ selectedChildren.size }} selected</span>
+                  </div>
+                  <div v-if="!filteredChildCandidates.length" class="hierarchy-empty">
+                    No available experiment matches “{{ childFilter }}”.
+                  </div>
+                  <ul v-else class="hierarchy-candidates">
+                    <li
+                      v-for="c in filteredChildCandidates"
+                      :key="c.name"
+                      class="hierarchy-candidate"
+                      :class="{ picked: selectedChildren.has(c.name) }"
+                      @click="toggleChild(c.name)"
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="selectedChildren.has(c.name)"
+                        @click.stop="toggleChild(c.name)"
+                      />
+                      <div class="hierarchy-candidate-text">
+                        <span class="hierarchy-candidate-id font-mono">{{ c.name }}</span>
+                        <span class="hierarchy-candidate-sub">
+                          {{ c.title || c.aim || 'Untitled run' }}
+                        </span>
+                      </div>
+                    </li>
+                  </ul>
+                </template>
+              </template>
             </div>
           </section>
         </div>

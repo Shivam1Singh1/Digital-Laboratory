@@ -1,0 +1,186 @@
+/* Sample detail.
+ *
+ * .status-pill, .loading-state and .empty-state come from
+ * styles/list-page.css; .card, .btn and .form-control from style.css. Only what
+ * is specific to this page is defined here.
+ */
+
+/* See the note in SampleList.css: .main-workspace is overflow:hidden, so the
+   page has to scroll itself or it is clipped with no scrollbar. */
+.sample-detail-container {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* This one IS a column flex container, so its cards are shrinkable by default
+   and would compress to fit rather than overflow - which is the same thing that
+   stopped the Templates list from scrolling. Pin them at their natural height. */
+.sample-detail-container > * {
+  flex-shrink: 0;
+}
+
+/* ExperimentForm.css sets .card globally to display: flex, max-height: 100%,
+   and overflow: hidden, which clips our cards and squashes inputs inside them.
+   Restore them to standard block, unconstrained cards on this page. */
+.sample-detail-container > .card {
+  display: block;
+  flex: none;
+  max-height: none;
+  overflow: visible;
+}
+
+.subtitle-sep {
+  margin: 0 0.5rem;
+  color: var(--text-muted);
+}
+
+.sample-detail-alert {
+  padding: 0.7rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.sample-detail-alert-error {
+  background-color: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.sample-detail-alert-ok {
+  background-color: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.sample-card {
+  padding: 1.25rem;
+}
+
+.sample-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.sample-card-title {
+  margin: 0 0 0.85rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sample-card-head .sample-card-title {
+  margin: 0;
+}
+
+/* Matches the warning colour used for the Approved/locked banners elsewhere. */
+.sample-lock-pill {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.sample-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem 1.5rem;
+  margin: 0;
+}
+
+.sample-field {
+  min-width: 0;
+}
+
+.sample-field-wide {
+  grid-column: 1 / -1;
+}
+
+.sample-field dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.sample-field dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.sample-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.sample-link:hover {
+  text-decoration: underline;
+}
+
+.sample-comments-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-top: 0.7rem;
+}
+
+/* Form controls (e.g. comments textarea) */
+.form-control {
+  width: 100%;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+  background-color: var(--bg-surface);
+}
+
+.form-control.readonly {
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.8;
+  border-color: var(--border);
+}
+
+.form-control.readonly:focus {
+  border-color: var(--border);
+  box-shadow: none;
+  background-color: var(--bg-elevated);
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 100px;
+}

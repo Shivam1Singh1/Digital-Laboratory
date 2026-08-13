@@ -11,6 +11,109 @@
   overflow-y: auto;
 }
 
+/* This container is the page's scroller, and its children are flex items with
+   the default flex-shrink: 1. Left alone, an over-tall tab card is *squeezed*
+   instead of overflowing, so nothing ever overflows, the container never
+   scrolls, and .tab-content (flex: 1) collapses to a sliver with its own
+   scrollbar - which is what made the tables unreachable. Pinning the children
+   to their natural height moves the scrolling back up to the page. */
+/* ExperimentForm.css declares a global `.card` (component CSS here is not
+   scoped) as `flex: 1; max-height: 100%; overflow: hidden` for the create form's
+   single full-height card. On this page that capped the tab card at the
+   container's height and clipped the rest: measured 764px of content inside a
+   386px box, so nothing ever overflowed the container and no scrollbar appeared
+   anywhere. Undo all three here and let the card be as tall as its content. */
+.experiment-detail-container > .card,
+.experiment-detail-container > .detail-layout {
+  flex: none;
+  max-height: none;
+  overflow: visible;
+}
+
+/* The form page nests .tab-content in a height-bounded card and wants it to
+   scroll internally; here the page scrolls, so the pane must simply be as tall
+   as its content - otherwise the inner scroller reappears. */
+.experiment-detail-container .tab-content {
+  flex: none;
+  overflow: visible;
+}
+
+/* overflow-x:auto zeroes this row's automatic min-height, so as a flex item it
+   is free to be squeezed to nothing - leaving just its bottom border and no
+   visible tab buttons. Same trap as .page-header, same fix. */
+.experiment-detail-container .form-tabs-row {
+  flex-shrink: 0;
+}
+
+/* This header carries the run actions as well as the title block, so it is the
+   tallest thing on the page and every pixel here is taken from the tabs. Tighter
+   than the shared .page-header, and scoped so the template/team/dashboard
+   headers keep their own proportions. */
+.experiment-detail-container .page-header {
+  padding: 0.9rem 1.25rem;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0;
+}
+
+.experiment-detail-container .page-header .breadcrumb-nav {
+  font-size: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.experiment-detail-container .page-header .page-title {
+  font-size: 1.15rem;
+  line-height: 1.3;
+}
+
+.experiment-detail-container .page-header .page-subtitle {
+  margin: 0.35rem 0 0 0;
+  font-size: 0.78rem;
+}
+
+/* Run actions, merged into the header card as its own full-width row.
+   flex-basis:100% makes it wrap onto a line of its own inside the header's
+   flex row, under the title block and the Back to List button. */
+.experiment-detail-container .run-actions-row {
+  flex: 1 1 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border);
+  /* Above the header's decorative flask motif. */
+  position: relative;
+  z-index: 1;
+}
+
+.experiment-detail-container .run-actions-hint {
+  margin: 0;
+  /* Shrinkable so the buttons keep the row instead of wrapping under it. */
+  flex: 1 1 16rem;
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.experiment-detail-container .run-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.experiment-detail-container .run-actions .btn {
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 /* Success Banner */
 .form-success-banner {
   padding: 0.75rem 1rem;
@@ -233,11 +336,6 @@
   text-transform: uppercase;
 }
 
-.status-draft {
-  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-}
-
 .status-submitted {
   background-color: rgba(16, 185, 129, 0.12);
   color: #10B981;
@@ -338,9 +436,6 @@
   display: inline-block;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 /* Read-only field styling */
 .form-control.readonly,
@@ -455,4 +550,116 @@
   opacity: 0.45;
   cursor: help;
   user-select: none;
+}
+
+/* Register Output Sample modal panel.
+   The markup asked for .modal-container / .sample-register-modal and neither
+   existed in any stylesheet, so the panel rendered fully transparent: the
+   overlay's dark blur showed straight through it and every field read as
+   disabled even though nothing is. Mirrors .modal-content in
+   CreateExperimentModal.css - the app's other modal - and is scoped to this
+   page because .modal-container is used nowhere else. */
+.experiment-detail-container .modal-container {
+  display: flex;
+  flex-direction: column;
+  width: 90%;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 0 1px rgba(0, 0, 0, 0.1);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.experiment-detail-container .sample-register-modal {
+  max-width: 620px;
+}
+
+/* Draft runs have no tab row, so the Experiment Tree gets its own card there
+   (see the ExperimentTree block in ExperimentDetail.vue). */
+.tree-draft-head {
+  margin-bottom: 1rem;
+}
+
+.tree-draft-title {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tree-draft-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Sample comments. Below the samples table rather than a column in it - a
+   textarea in a table cell is unusable at this width. */
+.sample-comments-wrapper {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.sample-comments-notice {
+  padding: 0.6rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  background-color: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+.sample-comments-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.95rem;
+  background-color: var(--bg-primary);
+}
+
+.sample-comments-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.sample-comments-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.sample-comments-for {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* Matches the warning colour the pane's existing lock banner uses. */
+.sample-comments-lock {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.sample-comments-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  margin-top: 0.6rem;
 }

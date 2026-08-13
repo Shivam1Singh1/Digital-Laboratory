@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { formatDateTime } from '../../utils/dateFormatter'
+import PageHeader from '../layout/PageHeader.vue'
 import './TemplatesList.css'
 
 const router = useRouter()
@@ -31,14 +32,22 @@ const getExperimentCount = (name) => {
 }
 
 const currentPage = ref(1)
-const pageSize = 10
+// Sized for the taller rows: roughly a screenful, so the table paginates rather
+// than running off the bottom of the page.
+const pageSize = 7
 
-const totalPages = computed(() => Math.ceil(templates.value.length / pageSize))
+const totalPages = computed(() => Math.max(Math.ceil(templates.value.length / pageSize), 1))
 
 const paginatedTemplates = computed(() => {
   const start = (currentPage.value - 1) * pageSize
   const end = start + pageSize
   return templates.value.slice(start, end)
+})
+
+// Deleting the last row of the final page would otherwise strand the view on a
+// page that no longer exists.
+watch(totalPages, (pages) => {
+  if (currentPage.value > pages) currentPage.value = pages
 })
 
 // Deliberately not filtered by the Active Project selector: once a template is saved
@@ -83,24 +92,12 @@ onMounted(() => {
 
 <template>
   <div class="templates-list-container">
-    <div class="page-header">
-      <div class="page-header-left">
-        <nav class="breadcrumb-nav">
-          <router-link to="/" class="breadcrumb-link">Home</router-link>
-          <span class="breadcrumb-separator">&gt;</span>
-          <span class="breadcrumb-current">Experiment Templates</span>
-        </nav>
-        <h1 class="page-title">Experiment Templates</h1>
-        <p class="page-subtitle">Standardized procedures and default parameters for repeatable runs.</p>
-      </div>
-
-      <div class="page-header-right">
-        <router-link to="/templates/new" class="btn btn-primary">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Add Template
-        </router-link>
-      </div>
-    </div>
+    <PageHeader
+      :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Experiment Templates' }]"
+      title="Experiment Templates"
+      subtitle="Standardized procedures and default parameters for repeatable runs."
+      :action="{ label: 'Add Template', onClick: () => router.push('/templates/new') }"
+    />
 
     <!-- Loading Indicator -->
     <div v-if="loading" class="loading-state">
@@ -121,9 +118,19 @@ onMounted(() => {
       <router-link to="/templates/new" class="btn btn-primary mt-4">Create Template</router-link>
     </div>
 
-    <!-- Table Grid -->
-    <div v-else class="table-card">
-      <table class="templates-table">
+    <!-- Table Grid. Same frame as the "Your Teams" card on /elab-notebook:
+         .meta-card + a .table-actions header, then the table, then pagination. -->
+    <section v-else class="meta-card">
+      <div class="table-actions">
+        <div>
+          <h3 class="section-title no-margin">All Templates</h3>
+          <p class="section-sub">Drafts you own, plus every template approved for your function.</p>
+        </div>
+        <span class="selected-pill">{{ templates.length }} total</span>
+      </div>
+
+      <div class="table-container">
+      <table class="list-table templates-table">
         <thead>
           <tr>
             <th>Template ID</th>
@@ -131,7 +138,6 @@ onMounted(() => {
             <th>Status</th>
             <th>Experiments</th>
             <th>Last Updated</th>
-            <th>Times Used</th>
             <th class="actions-col">Actions</th>
           </tr>
         </thead>
@@ -148,9 +154,6 @@ onMounted(() => {
               <span class="experiment-count">{{ getExperimentCount(temp.name) }}</span>
             </td>
             <td>{{ formatDateTime(temp.modified) }}</td>
-            <td class="count-col">
-              <span class="use-count">{{ temp.times_used || 0 }}</span>
-            </td>
             <td class="actions-col">
               <div class="actions-group">
                 <!-- Edit - only while the template is still the author's (Draft/Rejected) -->
@@ -182,12 +185,13 @@ onMounted(() => {
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- Pagination Controls -->
-      <div v-if="totalPages > 1" class="pagination-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding-bottom: 1rem;">
-        <button 
-          class="btn btn-secondary btn-sm" 
-          :disabled="currentPage === 1" 
+      <div v-if="totalPages > 1" class="pagination-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding-bottom: 0.5rem;">
+        <button
+          class="btn btn-secondary btn-sm"
+          :disabled="currentPage === 1"
           @click="currentPage--"
         >
           Previous
@@ -195,14 +199,14 @@ onMounted(() => {
         <span class="pagination-info" style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">
           Page {{ currentPage }} of {{ totalPages }}
         </span>
-        <button 
-          class="btn btn-secondary btn-sm" 
-          :disabled="currentPage === totalPages" 
+        <button
+          class="btn btn-secondary btn-sm"
+          :disabled="currentPage === totalPages"
           @click="currentPage++"
         >
           Next
         </button>
       </div>
-    </div>
+    </section>
   </div>
 </template>

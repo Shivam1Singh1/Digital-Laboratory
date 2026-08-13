@@ -1,0 +1,51 @@
+/* Samples list.
+ *
+ * The list-page chrome - .filters-row, .table-container, .list-table,
+ * .status-pill, .empty-state, .loading-state, .pagination-* - comes from
+ * styles/list-page.css, the card frame from .meta-card and the in-card header
+ * from .table-actions / .section-title / .selected-pill. Nothing is redefined
+ * here: those shared classes are the single source for all four list pages,
+ * which is what keeps them identical to the /elab-notebook reference.
+ *
+ * Only what is genuinely specific to this page lives below.
+ */
+
+/* .main-workspace is overflow:hidden, so a page that does not scroll itself is
+   simply clipped - no scrollbar anywhere. flex:1 + min-height:0 is what lets
+   this fill the workspace and then overflow inside it. Every other page in the
+   app carries the same three properties. Deliberately block flow rather than a
+   flex column: children of a column flex parent are shrinkable by default and
+   get compressed instead of overflowing. */
+.sample-list-container {
+  padding: 1.5rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sample-list-error {
+  margin-bottom: 1rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background-color: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+/* Parent-run cell: id, then the run's title and state underneath. */
+.sample-run-cell {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sample-run-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin: 0.1rem 0 0.25rem;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

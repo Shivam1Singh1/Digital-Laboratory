@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { extractFrappeError } from '../../utils/frappeError'
+import PageHeader from '../layout/PageHeader.vue'
 import './TeamSetup.css'
 
 const userStore = useUserStore()
@@ -131,7 +132,7 @@ const filteredMyTeams = computed(() => {
 })
 
 const currentPage = ref(1)
-const pageSize = 10
+const pageSize = 7
 
 const totalPages = computed(() => Math.ceil(filteredMyTeams.value.length / pageSize))
 
@@ -255,26 +256,12 @@ onMounted(async () => {
 
 <template>
   <div class="team-setup-container">
-    <div class="page-header">
-      <div class="page-header-left">
-        <nav class="breadcrumb-nav">
-          <router-link to="/" class="breadcrumb-link">Home</router-link>
-          <span class="breadcrumb-separator">&gt;</span>
-          <span class="breadcrumb-current">Elab Notebook</span>
-        </nav>
-        <h1 class="page-title">Elab Notebook</h1>
-        <p class="page-subtitle">
-          Decide, project by project, who may create experiments.
-        </p>
-      </div>
-
-      <div class="page-header-right" v-if="isHead">
-        <button class="btn btn-primary" @click="openDialog">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Create Team
-        </button>
-      </div>
-    </div>
+    <PageHeader
+      :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Elab Notebook' }]"
+      title="Elab Notebook"
+      subtitle="Decide, project by project, who may create experiments."
+      :action="isHead ? { label: 'Create Team', onClick: openDialog } : null"
+    />
 
     <div v-if="error && !showDialog" class="form-error-banner">
       <strong>Something went wrong</strong>
@@ -455,7 +442,7 @@ onMounted(async () => {
             <input
               v-model="search"
               type="text"
-              class="form-control search-box"
+              class="member-search"
               placeholder="Filter by name or email..."
             />
             <div v-if="!members.length" class="grid-empty standalone">

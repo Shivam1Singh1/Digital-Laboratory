@@ -211,13 +211,6 @@ a:hover {
   font-family: var(--mono);
 }
 
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
 /* Table styling */
 table {
   width: 100%;
@@ -268,39 +261,10 @@ tr:last-child td {
   color: var(--text-muted);
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.25rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 4px;
-  line-height: 1;
-}
-
-.status-completed {
-  background-color: rgba(52, 211, 153, 0.12);
-  color: var(--success);
-  border: 1px solid rgba(52, 211, 153, 0.2);
-}
-
-.status-running {
-  background-color: rgba(76, 141, 255, 0.12);
-  color: var(--accent);
-  border: 1px solid rgba(76, 141, 255, 0.2);
-}
-
 .status-in-review {
   background-color: rgba(251, 191, 36, 0.12);
   color: var(--warning);
   border: 1px solid rgba(251, 191, 36, 0.2);
-}
-
-.status-approved {
-  background-color: rgba(52, 211, 153, 0.18);
-  color: var(--success);
-  border: 1px solid rgba(52, 211, 153, 0.3);
 }
 
 .status-on-hold {
@@ -343,14 +307,6 @@ tr:last-child td {
 
 /* Child-table "+ Add Row" buttons sit inside dense grids, so they run smaller
    than .btn-sm. Compounded with .btn to win over .btn-sm regardless of import order. */
-.btn.btn-add-row {
-  padding: 0.25rem 0.6rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.4;
-  border-radius: 4px;
-  gap: 0.3rem;
-}
 
 .btn-primary {
   background-color: var(--accent);
@@ -421,4 +377,3 @@ tr:last-child td {
   background-color: var(--bg-surface) !important;
   color: var(--text-primary) !important;
 }
-

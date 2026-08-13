@@ -10,27 +10,6 @@
   overflow-y: auto;
 }
 
-.team-setup-container .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.5rem;
-}
-
-.team-setup-container .page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  margin: 0;
-}
-
-.team-setup-container .page-subtitle {
-  margin: 0.35rem 0 0;
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
 .team-layout {
   display: flex;
   flex-direction: column;
@@ -79,8 +58,34 @@
   white-space: nowrap;
 }
 
-.search-box {
+/* Member filter input. Deliberately not `.search-box` — that is the global
+   top-bar control, and its `flex: 0 1 320px` becomes a 320px *height* here
+   because `.form-group` is a column flex container. */
+.member-search {
+  display: block;
+  flex: none;
+  width: 100%;
+  box-sizing: border-box;
+  height: auto;
   margin-bottom: 0.85rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.member-search::placeholder {
+  color: var(--text-muted);
+}
+
+.member-search:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 /* Candidate roster */
@@ -219,14 +224,6 @@
 
 .save-notice.standalone {
   margin: 0 0 0.85rem;
-}
-
-/* Teams Table */
-.table-container {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-color: var(--bg-primary);
-  overflow-x: auto;
 }
 
 .teams-table {

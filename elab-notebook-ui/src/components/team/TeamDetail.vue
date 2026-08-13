@@ -361,7 +361,7 @@ onMounted(async () => {
           <input
             v-model="search"
             type="text"
-            class="form-control search-box"
+            class="member-search"
             placeholder="Filter by name or email…"
           />
           <div v-if="!candidates.length" class="grid-empty standalone">

@@ -43,9 +43,23 @@
 
 .template-detail-container .page-header-right .btn,
 .template-detail-container .page-header-right .btn-workflow {
-  padding: 0.35rem 0.8rem;
-  font-size: 0.78rem;
-  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  height: 32px;
+  box-sizing: border-box;
+}
+
+.btn-icon-svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 
 .breadcrumb-nav {
@@ -61,10 +75,22 @@
   color: var(--text-muted);
   text-decoration: none;
   transition: color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .breadcrumb-link:hover {
   color: var(--accent);
+}
+
+.breadcrumb-icon {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.8;
 }
 
 .breadcrumb-separator {
@@ -75,6 +101,9 @@
 .breadcrumb-current {
   color: var(--text-primary);
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .page-title {
@@ -83,6 +112,44 @@
   color: var(--text-primary);
   letter-spacing: -0.02em;
   margin: 0;
+  display: flex;
+  align-items: center;
+}
+
+.page-title-subtitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.company-avatar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  display: inline-block;
+}
+
+.company-name-text {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* Faint flask watermark subtle gradient glow behind it */
+.page-header-bg-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 70%);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Buttons */
@@ -126,27 +193,6 @@
   border-radius: 4px;
 }
 
-.spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid var(--border);
-  border-left-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.btn-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  border-left-color: var(--bg-primary);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 
 /* Server / validation error banner */
 .form-error-banner {
@@ -194,6 +240,13 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), 0 0 1px 1px rgba(255, 255, 255, 0.05) inset;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.meta-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35), 0 0 12px 1px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .section-title {
@@ -377,51 +430,6 @@ select.form-control:focus {
 
 .methodology-grid .grid-cell:nth-child(2) {
   flex: 1;
-}
-
-/* Protocol Steps grid: seven columns, so it scrolls sideways rather than crushing
-   the inputs. Header and data cells share the same flex values to stay aligned. */
-.protocol-steps-scroll {
-  overflow-x: auto;
-}
-
-.protocol-steps-grid {
-  min-width: 1020px;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(1),
-.protocol-steps-grid .grid-cell:nth-child(1) {
-  flex: 0.45;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(2),
-.protocol-steps-grid .grid-cell:nth-child(2) {
-  flex: 1.5;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(3),
-.protocol-steps-grid .grid-cell:nth-child(3) {
-  flex: 2.5;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(4),
-.protocol-steps-grid .grid-cell:nth-child(4) {
-  flex: 0.8;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(5),
-.protocol-steps-grid .grid-cell:nth-child(5) {
-  flex: 1.1;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(6),
-.protocol-steps-grid .grid-cell:nth-child(6) {
-  flex: 1.1;
-}
-
-.protocol-steps-grid .grid-header-cell:nth-child(7),
-.protocol-steps-grid .grid-cell:nth-child(7) {
-  flex: 2;
 }
 
 .grid-header-cell {
@@ -627,19 +635,6 @@ select.form-control:focus {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-style: italic;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 5rem 2rem;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
 }
 
 .field-hint.warn {
@@ -1065,10 +1060,23 @@ select.form-control:focus {
   color: var(--text-muted);
 }
 
+@keyframes pending-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
 .state-pending {
   background-color: rgba(245, 158, 11, 0.15);
   color: rgb(245, 158, 11);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  animation: pending-pulse 2s infinite;
 }
 
 .state-approved {
@@ -1105,37 +1113,45 @@ select.form-control:focus {
   border: 1px solid transparent;
 }
 
+/* Approve: Primary Filled Button */
 .btn-success {
-  background-color: rgba(16, 185, 129, 0.15);
-  color: rgb(16, 185, 129);
-  border-color: rgba(16, 185, 129, 0.3);
+  background-color: var(--success);
+  color: var(--bg-surface);
+  border: 1.5px solid var(--success);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--success) 20%, transparent);
 }
 
 .btn-success:hover:not(:disabled) {
-  background-color: rgb(16, 185, 129);
-  color: var(--bg-primary);
+  background-color: color-mix(in srgb, var(--success) 85%, white);
+  border-color: color-mix(in srgb, var(--success) 85%, white);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px color-mix(in srgb, var(--success) 35%, transparent);
 }
 
+/* Reject: Outlined/Ghost Button */
 .btn-danger {
-  background-color: rgba(239, 68, 68, 0.15);
-  color: rgb(239, 68, 68);
-  border-color: rgba(239, 68, 68, 0.3);
+  background-color: transparent;
+  color: var(--danger);
+  border: 1.5px solid var(--danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background-color: rgb(239, 68, 68);
-  color: var(--bg-primary);
+  background-color: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: color-mix(in srgb, var(--danger) 85%, white);
+  transform: translateY(-1px);
 }
 
+/* Send Back: Outlined/Ghost Button */
 .btn-warning {
-  background-color: rgba(245, 158, 11, 0.15);
-  color: rgb(245, 158, 11);
-  border-color: rgba(245, 158, 11, 0.3);
+  background-color: transparent;
+  color: var(--warning);
+  border: 1.5px solid var(--warning);
 }
 
 .btn-warning:hover:not(:disabled) {
-  background-color: rgb(245, 158, 11);
-  color: var(--bg-primary);
+  background-color: color-mix(in srgb, var(--warning) 12%, transparent);
+  color: color-mix(in srgb, var(--warning) 85%, white);
+  transform: translateY(-1px);
 }
 
 /* Disabled fieldset style overrides for Approved templates */
@@ -1153,7 +1169,7 @@ fieldset[disabled] .form-control {
 }
 
 fieldset[disabled] button:not(.btn-workflow):not(.btn-secondary):not(.btn-primary),
-fieldset[disabled] .btn-add-row,
+fieldset[disabled] .add-row,
 fieldset[disabled] .btn-delete-row,
 fieldset[disabled] .action-btn,
 fieldset[disabled] .remove-btn,
@@ -1193,8 +1209,11 @@ fieldset[disabled] .minutes-input-wrapper {
   cursor: pointer;
   white-space: nowrap;
   position: relative;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   border-radius: 6px 6px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .template-tabs-row .tab-btn:hover {
@@ -1206,14 +1225,34 @@ fieldset[disabled] .minutes-input-wrapper {
   color: var(--accent);
 }
 
-.template-tabs-row .tab-btn.active::after {
+.template-tabs-row .tab-btn::after {
   content: '';
   position: absolute;
   bottom: -2px;
   left: 0;
-  width: 100%;
-  height: 2px;
+  width: 0;
+  height: 3px;
   background-color: var(--accent);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 3px 3px 0 0;
+}
+
+.template-tabs-row .tab-btn.active::after {
+  width: 100%;
+}
+
+.tab-icon-svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+
+.template-tabs-row .tab-btn.active .tab-icon-svg {
+  opacity: 1;
 }
 
 .section-divider {

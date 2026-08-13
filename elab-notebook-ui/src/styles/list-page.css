@@ -1,0 +1,323 @@
+/* =============================================================================
+ * Shared list-page furniture
+ *
+ * The filter bar, table shell, status pills, pagination, loading and empty
+ * states used by Experiments, Templates, Samples and the Dashboard's list
+ * sections.
+ *
+ * These classes used to live scattered across four component stylesheets -
+ * .filters-row and .active-scope-pill in ExperimentList.css, .empty-state in
+ * TemplatesList.css, .pagination-controls in Dashboard.css, .table-container in
+ * both style.css and TeamSetup.css. Every component's CSS is bundled into one
+ * app-wide sheet by Vite, so each page silently borrowed whatever its siblings
+ * happened to define, and which of two competing rules won came down to bundle
+ * order. That is why the four lists drifted apart.
+ *
+ * This file is now the only place any of them is declared, and it is imported
+ * once in main.js rather than per page - .spinner alone is used by eleven
+ * components, so a per-page import would just recreate the borrowing.
+ *
+ * A page that genuinely needs to differ should scope its override to its own
+ * container (`.team-setup-container .empty-state`), not redeclare the bare
+ * class here.
+ * ========================================================================== */
+
+/* --- Filter bar ---------------------------------------------------------- */
+
+.filters-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  /* Wraps rather than clipping: a `nowrap` + `overflow: hidden` pairing cuts
+     the trailing control off on a narrow window instead of moving it to a
+     second line. */
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  box-sizing: border-box;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* Hug the controls. `height: auto` is the default, but it is stated here
+     because this bar previously carried a fixed 7vh height enforced with
+     !important, then fought by more !important from a page-scoped rule.
+     The `card` class was also removed from the markup: ExperimentForm.css
+     declares `.card { flex: 1; padding: 1.75rem 2rem; max-height: 100% }` at the
+     same specificity as this rule, so whichever Vite emitted last won - and
+     `flex: 1` stretched the bar into a tall empty box. .filters-row already
+     paints its own surface, border and radius, so `card` added nothing but the
+     collision. */
+  height: auto;
+  flex: 0 0 auto;
+  /* Owns the space to the table below, so pages do not need a flex gap that
+     would also stack under PageHeader's 24px margin. */
+  margin-bottom: 1.25rem;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  white-space: nowrap;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.filter-select {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 0.35rem 0.75rem;
+  outline: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.filter-select:hover,
+.filter-select:focus {
+  border-color: var(--accent);
+}
+
+/* --- Table shell --------------------------------------------------------- */
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+/* --- List table ---------------------------------------------------------- */
+
+/* Elab Notebook (/elab-notebook) is the reference for every list page. Its
+   card frame is `.meta-card` and its header is `.table-actions` - Templates,
+   Experiments and Samples now use those same two classes rather than a private
+   copy each, so there is nothing left to drift.
+ *
+ * The table is the one piece the reference declares privately, as .teams-table
+ * in TeamSetup.css. That file is the reference and is left untouched, so the
+ * values below are copied from it verbatim: th 0.85rem/1.25rem at 0.75rem/700
+ * uppercase, td 1rem/1.25rem at 0.875rem, 1px var(--border) rules between rows
+ * and a rgba(255,255,255,0.04) hover.
+ *
+ * This beats the bare `table`/`th`/`td` element rules in style.css (which pay
+ * 0.75rem/1rem and font-weight 500) on specificity, which is what the three
+ * pages were picking up before. */
+.list-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.list-table th {
+  background-color: rgba(255, 255, 255, 0.02);
+  padding: 0.85rem 1.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 700;
+}
+
+.list-table td {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+.list-table tbody tr {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.list-table tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.clickable-row:hover {
+  background-color: var(--bg-elevated);
+}
+
+/* --- Status pills -------------------------------------------------------- */
+
+.status-pill {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.status-pill-sm {
+  font-size: 0.6rem;
+  padding: 0.12rem 0.4rem;
+}
+
+/* One declaration each. ExperimentList.css previously declared .status-draft
+   and .status-approved twice, the second pair with !important purely to beat
+   the first pair in the same file. */
+.status-draft {
+  background-color: var(--border);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.status-running {
+  background-color: rgba(245, 158, 11, 0.08);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.16);
+}
+
+.status-pending {
+  background-color: rgba(245, 158, 11, 0.08);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.16);
+}
+
+.status-completed,
+.status-approved {
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.16);
+}
+
+.status-rejected,
+.status-review {
+  background-color: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.16);
+}
+
+/* --- Pagination ---------------------------------------------------------- */
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1.5px solid var(--border);
+  flex-shrink: 0;
+}
+
+.pagination-info {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  min-width: 50px;
+  text-align: center;
+}
+
+.pagination-btn {
+  background-color: var(--bg-elevated);
+  border: 1.5px solid var(--border);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Loading & empty states ---------------------------------------------- */
+
+.loading-state,
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 4rem 2rem;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-align: center;
+  flex: 1;
+}
+
+.empty-state h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0;
+  max-width: 340px;
+}
+
+.empty-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-muted);
+}
+
+/* --- Spinner ------------------------------------------------------------- */
+
+.spinner {
+  width: 28px;
+  height: 28px;
+  /* var(--border), not a hardcoded translucent white: the white ring was
+     invisible against the light theme's white surfaces. */
+  border: 3px solid var(--border);
+  border-left-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border-width: 2px;
+  border-left-color: var(--bg-primary);
+  margin-bottom: 0;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

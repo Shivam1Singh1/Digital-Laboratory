@@ -39,6 +39,10 @@
   "column_break_mijw",
   "sub_aim",
   "experiment",
+  "hierarchy_section",
+  "experiment_category",
+  "column_break_hierarchy",
+  "parent_experiment",
   "rationale_section",
   "rationale",
   "details_section",
@@ -269,6 +273,34 @@
    "fieldtype": "Link",
    "label": "Refer to Experiment no",
    "options": "Lab Experiment"
+  },
+  {
+   "fieldname": "hierarchy_section",
+   "fieldtype": "Section Break",
+   "label": "Experiment Hierarchy"
+  },
+  {
+   "description": "Fixed at creation. Mandatory on new records, but deliberately not reqd: runs created before the hierarchy existed carry a blank category and must stay saveable. LabExperiment.validate_category enforces it on insert.",
+   "fieldname": "experiment_category",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Experiment Category",
+   "options": "\nMaster Experiment\nSub Master Experiment\nSub Experiment\nSub Sub Experiment",
+   "read_only_depends_on": "eval:!doc.__islocal && doc.experiment_category"
+  },
+  {
+   "fieldname": "column_break_hierarchy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Set only by attaching this run as a child from its parent. One parent per run.",
+   "fieldname": "parent_experiment",
+   "fieldtype": "Link",
+   "label": "Parent Experiment",
+   "no_copy": 1,
+   "options": "Lab Experiment",
+   "read_only": 1,
+   "search_index": 1
   },
   {
    "fieldname": "rationale_section",

@@ -5,6 +5,9 @@ import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import LinkField from '../common/LinkField.vue'
 import RichTextEditor from '../common/RichTextEditor.vue'
+import ExperimentTree from './ExperimentTree.vue'
+import AddRow from '../common/AddRow.vue'
+import { readServerError } from '../../utils/serverError'
 import './ExperimentDetail.css'
 
 const route = useRoute()
@@ -15,6 +18,20 @@ const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const successMessage = ref('')
+
+// Tab ids, in the order the row renders them. Also the allow-list for ?tab= -
+// an unknown value falls back to General rather than blanking the pane.
+const TAB_KEYS = [
+  'general',
+  'materials',
+  'equipment',
+  'methodology',
+  'procedure',
+  'observations',
+  'history',
+  'samples',
+  'tree',
+]
 
 const activeTab = ref('general')
 const experiment = ref(null)
@@ -145,6 +162,72 @@ const getWorkflowActionClass = (action) => {
   if (act.includes('reject')) return 'btn-danger'
   if (act.includes('correction') || act.includes('back') || act.includes('resubmit')) return 'btn-warning'
   return 'btn-primary'
+}
+
+// _server_messages is a JSON list of JSON strings; joining it raw puts the
+// encoded payload on screen.
+// The run's stage. `workflow_state` drives the flow; `experiment_status` is the
+// scientific outcome and is deliberately left alone until the outcome is known
+// (LabExperiment.validate_terminal_outcome freezes it the moment it goes
+// Completed/Failed, which is why finishing must not be a side effect of saving).
+const runState = computed(() => experiment.value?.workflow_state || 'Draft')
+const isDraft = computed(() => runState.value === 'Draft')
+const isRunning = computed(() => runState.value === 'Running')
+
+// Actions the run action bar drives explicitly. The header lists whatever else
+// the workflow offers (Approve / Reject / Edit & Resubmit) so there are never
+// two buttons for the same transition - and no raw "Save" action next to the
+// form's own Save.
+const DRIVEN_ACTIONS = ['Save', 'Start Running', 'Complete Experiment', 'Send For Approval']
+const headerWorkflowActions = computed(() =>
+  workflowActions.value.filter((a) => !DRIVEN_ACTIONS.includes(a.action))
+)
+
+// Neither Draft -> Running nor Running -> Pending Approval is a single hop in
+// "Lab Experiment Flow"; each is two existing transitions. Applying them in
+// sequence leaves the Workflow record untouched. If the second call fails the
+// run simply stops at the intermediate state and the bar re-renders from
+// whatever came back, so nothing is stranded.
+const applyWorkflowChain = async (actions, message) => {
+  runningWorkflowAction.value = true
+  error.value = ''
+  successMessage.value = ''
+  try {
+    for (const action of actions) {
+      await axios.post(
+        '/api/method/elab_notebook.elab_notebook.api.workflow.apply_workflow_action',
+        { doctype: 'Lab Experiment', docname: route.params.id, action }
+      )
+    }
+    successMessage.value = message
+    setTimeout(() => {
+      successMessage.value = ''
+    }, 4000)
+  } catch (err) {
+    console.error('Workflow transition failed', err)
+    error.value = readServerError(err, 'Could not move this run to its next state.')
+  } finally {
+    await loadExperiment()
+    await loadHistory()
+    runningWorkflowAction.value = false
+  }
+}
+
+const startRun = () =>
+  applyWorkflowChain(['Save', 'Start Running'], 'Run started - every tab is editable from here on.')
+
+const completeAndSendForApproval = () => {
+  if (
+    !confirm(
+      'Send this run for approval? It stays editable until a System Manager approves it.'
+    )
+  ) {
+    return
+  }
+  return applyWorkflowChain(
+    ['Complete Experiment', 'Send For Approval'],
+    'Sent for approval.'
+  )
 }
 
 // Check if workflow state is locked (Approved or Rejected)
@@ -284,12 +367,30 @@ const updateExperiment = async () => {
   }
 }
 
-// Item edits
+// Item edits. Materials and Equipment had no add-row action at all here, so on a
+// run cloned from a template - where the only rows are imported and therefore
+// read-only - those tables could not be changed in any way.
+const addMaterial = () => {
+  experiment.value.material_required.push({ item_code: '', item_name: '', uom: '', qty: 1 })
+}
+
+const addEquipment = () => {
+  experiment.value.equipment_details.push({ equipment_name: '', equipment_id: '', remarks: '' })
+}
+
 const addMethod = () => {
   experiment.value.methodology.push({
     method: '',
     time_to_complete: 0
   })
+}
+
+// item_code is a Link to Item, so a row the user adds has to pick a real one -
+// and picking it fills the descriptive columns the same way the create form does.
+const onMaterialItemSelect = (mat, item) => {
+  if (!item) return
+  mat.item_name = item.item_name || item.name
+  mat.uom = item.stock_uom || item.uom || ''
 }
 
 // Rows cloned from an Experiment Template are editable but must not be removed.
@@ -328,8 +429,54 @@ const newSample = ref({
   item: '',
   name_of_sample: '',
   qty: 0,
-  uom: ''
+  uom: '',
+  comments: ''
 })
+
+// Comments are edited per sample and saved on their own, so the textarea is
+// backed by a draft keyed on the sample id rather than by samplesList - a
+// reload mid-edit would otherwise wipe what was being typed.
+const commentDrafts = ref({})
+const savingCommentsFor = ref('')
+const commentsNotice = ref('')
+
+const commentDraft = (sample) =>
+  commentDrafts.value[sample.name] ?? (sample.comments || '')
+
+const setCommentDraft = (sample, value) => {
+  commentDrafts.value = { ...commentDrafts.value, [sample.name]: value }
+}
+
+const commentsDirty = (sample) => commentDraft(sample).trim() !== (sample.comments || '').trim()
+
+// Comments freeze at Pending Approval, which is what isSampleLocked() already
+// covers. Unlike the sample's other fields there is no System Manager override:
+// Sample.validate_comments_lock mirrors validate_post_approval_lock, which binds
+// everyone, so offering the control to a System Manager would only produce a
+// server rejection.
+const isCommentsLocked = () => isSampleLocked()
+
+const saveSampleComments = async (sample) => {
+  savingCommentsFor.value = sample.name
+  sampleError.value = ''
+  commentsNotice.value = ''
+  try {
+    await axios.put(`/api/resource/Sample/${encodeURIComponent(sample.name)}`, {
+      comments: commentDraft(sample)
+    })
+    commentsNotice.value = `Comments saved for ${sample.elab_no || sample.name}.`
+    setTimeout(() => { commentsNotice.value = '' }, 4000)
+    // Drop the draft so the reloaded row becomes the source of truth again.
+    const { [sample.name]: _dropped, ...rest } = commentDrafts.value
+    commentDrafts.value = rest
+    await loadSamples()
+  } catch (err) {
+    console.error('Failed to save sample comments:', err)
+    sampleError.value = readServerError(err, 'Could not save the comments for this sample.')
+  } finally {
+    savingCommentsFor.value = ''
+  }
+}
 
 const onItemSelect = (opt) => {
   newSample.value.uom = opt ? opt.stock_uom || '' : ''
@@ -345,7 +492,7 @@ const loadSamples = async () => {
     const res = await axios.get('/api/resource/Sample', {
       params: {
         filters: JSON.stringify({ experiment: experiment.value.name }),
-        fields: JSON.stringify(['name', 'elab_no', 'item', 'name_of_sample', 'qty', 'uom', 'docstatus']),
+        fields: JSON.stringify(['name', 'elab_no', 'item', 'name_of_sample', 'qty', 'uom', 'docstatus', 'comments']),
         limit: 100
       }
     })
@@ -365,27 +512,56 @@ const getExperimentStatusClass = (status) => {
   return 'state-pending'
 }
 
-const handleSampleNotGenerated = async () => {
-  if (!confirm('Are you sure you want to mark this experiment as Failed (No Sample generated)? This action is permanent.')) return
+// The Failed outcome survives the flow change: a run that produced nothing still
+// has to be recorded and signed off. It is its own button, never folded into
+// Complete & Send for Approval, and it is the only place that writes
+// experiment_status = Failed. That write is permanent -
+// LabExperiment.validate_terminal_outcome refuses to move a terminal outcome.
+const markFailedNoSample = async () => {
+  if (
+    !confirm(
+      'Mark this run as Failed with no sample?\n\n'
+        + 'The Failed outcome is permanent and the run is then sent for approval. '
+        + 'Its data stays editable until a System Manager approves it.'
+    )
+  ) {
+    return
+  }
   saving.value = true
+  error.value = ''
   try {
     await axios.put(`/api/resource/Lab%20Experiment/${encodeURIComponent(experiment.value.name)}`, {
       sample_generated: 0,
       sample_not_generated: 1,
       experiment_status: 'Failed'
     })
-    await loadExperiment()
   } catch (err) {
     console.error('Failed to update execution status:', err)
-    alert('Error: Failed to mark experiment as failed.')
+    error.value = readServerError(err, 'Could not mark this run as Failed.')
+    return
   } finally {
     saving.value = false
   }
+  await applyWorkflowChain(
+    ['Complete Experiment', 'Send For Approval'],
+    'Marked as Failed (no sample) and sent for approval.'
+  )
+}
+
+// Errors belong inside the dialog, next to the fields that caused them - an
+// alert() dumped the raw _server_messages JSON on screen and threw away what the
+// user had typed the moment they dismissed it.
+const sampleError = ref('')
+
+const openRegisterModal = () => {
+  sampleError.value = ''
+  showRegisterModal.value = true
 }
 
 const registerSample = async () => {
+  sampleError.value = ''
   if (!newSample.value.item || newSample.value.qty <= 0) {
-    alert('Please select an item and enter a valid quantity.')
+    sampleError.value = 'Select an item and enter a quantity greater than zero.'
     return
   }
   savingSample.value = true
@@ -394,27 +570,36 @@ const registerSample = async () => {
       experiment: experiment.value.name,
       item: newSample.value.item,
       name_of_sample: newSample.value.name_of_sample,
-      qty: newSample.value.qty
+      qty: newSample.value.qty,
+      comments: newSample.value.comments
     }
+    // Posted without a docstatus, so the Sample lands as a Draft and stays
+    // editable. Submitting it is the user's own later action, after which every
+    // field except `comments` is frozen - that one is allow_on_submit so it can
+    // keep taking notes until the run is sent for approval.
     await axios.post('/api/resource/Sample', payload)
-    
-    // Auto-complete the experiment
+
+    // Producing a sample no longer ends the run: it records the fact and leaves
+    // the run Running and editable. experiment_status is settled only by
+    // Complete & Send for Approval or Mark as Failed, because
+    // validate_terminal_outcome freezes these fields as soon as it goes terminal.
     await axios.put(`/api/resource/Lab%20Experiment/${encodeURIComponent(experiment.value.name)}`, {
       sample_generated: 1,
-      sample_not_generated: 0,
-      experiment_status: 'Completed'
+      sample_not_generated: 0
     })
-    
+
+
     // Reset and reload
-    newSample.value = { item: '', name_of_sample: '', qty: 0, uom: '' }
+    newSample.value = { item: '', name_of_sample: '', qty: 0, uom: '', comments: '' }
     showRegisterModal.value = false
     await loadSamples()
     await loadExperiment()
   } catch (err) {
     console.error('Failed to register sample:', err)
-    alert(err.response?.data?._server_messages 
-      ? JSON.parse(err.response.data._server_messages).join(', ') 
-      : 'Failed to register sample. Please verify the experiment is completed.')
+    sampleError.value = readServerError(
+      err,
+      'Could not register the sample. Please check the details and try again.'
+    )
   } finally {
     savingSample.value = false
   }
@@ -471,11 +656,58 @@ watch(activeTab, (newTab) => {
   if (newTab === 'samples') {
     loadSamples()
   }
+  // Keep the tab in the URL so a link out of the tree lands on the same tab, and
+  // so a reload or a shared link comes back to it. `replace` because switching
+  // tabs is not a navigation step worth a Back-button entry.
+  if (newTab !== (route.query.tab || 'general')) {
+    router.replace({ query: { ...route.query, tab: newTab === 'general' ? undefined : newTab } })
+  }
 })
 
-onMounted(() => {
-  loadExperiment()
+const applyTabFromRoute = () => {
+  const wanted = String(route.query.tab || '')
+  activeTab.value = TAB_KEYS.includes(wanted) ? wanted : 'general'
+}
+
+const loadEverything = async () => {
+  // Sequenced rather than fired together: loadSamples reads experiment.value.name
+  // and returns early without it, so launching them in parallel meant the samples
+  // list stayed empty until the Samples tab was opened - and the Create Sample
+  // button, which is gated on "no sample exists yet", was deciding from a list
+  // that had never loaded.
+  await loadExperiment()
   loadHistory()
+  loadSamples()
+}
+
+// Clicking through the Experiment Tree changes only the :id param, and Vue
+// reuses this component when the route record is unchanged - so onMounted alone
+// left the header, tabs and samples showing the run we navigated away from
+// while the tree itself had already moved on.
+watch(
+  () => route.params.id,
+  (next, previous) => {
+    if (!next || next === previous) return
+    // Drop the outgoing run's data before fetching the new one. The header and
+    // the tab panes are gated on `experiment` alone, not on `loading` - the
+    // loading block is their sibling, not their wrapper - so leaving it in place
+    // renders the run we just navigated away from underneath the new run's URL
+    // until the fetch returns.
+    experiment.value = null
+    samplesList.value = []
+    historyList.value = []
+    commentDrafts.value = {}
+    commentsNotice.value = ''
+    error.value = ''
+    successMessage.value = ''
+    applyTabFromRoute()
+    loadEverything()
+  }
+)
+
+onMounted(() => {
+  applyTabFromRoute()
+  loadEverything()
 })
 </script>
 
@@ -519,10 +751,13 @@ onMounted(() => {
       <div class="page-header-right">
         <span v-if="loadingWorkflowActions" class="workflow-loading-spinner"></span>
         <template v-else>
-          <button 
-            v-for="act in workflowActions" 
-            :key="act.action" 
-            class="btn btn-workflow btn-sm" 
+          <!-- Only the transitions the run action bar does not drive itself, so
+               Start / Complete & Send for Approval never appear twice and the
+               workflow's own "Save" action cannot be mistaken for saving edits. -->
+          <button
+            v-for="act in headerWorkflowActions"
+            :key="act.action"
+            class="btn btn-workflow btn-sm"
             :class="getWorkflowActionClass(act.action)"
             @click="runWorkflowAction(act.action)"
             :disabled="runningWorkflowAction"
@@ -531,9 +766,52 @@ onMounted(() => {
           </button>
         </template>
         <button class="btn btn-secondary" @click="router.push('/experiments')">Back to List</button>
-        <button class="btn btn-primary" :disabled="saving" @click="updateExperiment">
-          {{ saving ? 'Saving...' : 'Update Execution' }}
-        </button>
+      </div>
+
+      <!-- Run actions live in the header card rather than a second card below it:
+           the status badges above already say which state the run is in, so a
+           separate bar repeated that and cost a whole card of vertical space. -->
+      <div class="run-actions-row">
+        <p class="run-actions-hint">
+          <template v-if="isDraft">Start the run to open every tab for editing.</template>
+          <template v-else-if="isRunning">Edit any tab and Save as often as you like — come back over as many days as the work takes.</template>
+          <template v-else-if="isWorkflowLocked()">This run is {{ experiment.workflow_state }} and is no longer editable.</template>
+          <template v-else>Awaiting approval. The run stays editable until a System Manager approves it.</template>
+        </p>
+        <div class="run-actions">
+          <button
+            class="btn btn-sm btn-secondary"
+            :disabled="saving || (isWorkflowLocked() && !isSystemManager)"
+            @click="updateExperiment"
+          >
+            {{ saving ? 'Saving...' : 'Save' }}
+          </button>
+
+          <button v-if="isDraft" class="btn btn-sm btn-primary" :disabled="runningWorkflowAction" @click="startRun">
+            {{ runningWorkflowAction ? 'Starting...' : 'Start' }}
+          </button>
+
+          <template v-if="isRunning">
+            <!-- Gated in the UI on exactly what Sample enforces server-side: the run
+                 must be Running, and one non-cancelled Sample per run is the limit -
+                 so the user never has to discover that through a backend error. -->
+            <span :title="getCreateSampleTooltip()">
+              <button class="btn btn-sm btn-success" :disabled="!canCreateSample()" @click="openRegisterModal">
+                Create Sample
+              </button>
+            </span>
+            <button
+              class="btn btn-sm btn-danger"
+              :disabled="saving || runningWorkflowAction"
+              @click="markFailedNoSample"
+            >
+              Mark as Failed - No Sample
+            </button>
+            <button class="btn btn-sm btn-primary" :disabled="runningWorkflowAction" @click="completeAndSendForApproval">
+              Complete &amp; Send for Approval
+            </button>
+          </template>
+        </div>
       </div>
     </div>
 
@@ -558,34 +836,15 @@ onMounted(() => {
       <p>The requested run ID does not exist or you lack sufficient access.</p>
     </div>
 
-    <!-- Action Block: Sample Generated? -->
-    <div v-if="experiment && experiment.experiment_status === 'In Progress'" class="sample-generated-bar card" style="background-image: var(--accent-gradient); display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); overflow: hidden; position: relative;">
-      <!-- Subtle beaker motif positioned inside the bar -->
-      <div style="position: absolute; right: 2rem; bottom: -0.5rem; opacity: 0.05; pointer-events: none; color: var(--accent);">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="width: 72px; height: 72px;">
-          <path d="M6 3h12M9 3v4L4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2L15 7V3" />
-        </svg>
-      </div>
-      <div class="bar-left" style="display: flex; align-items: center; gap: 0.75rem;">
-        <svg class="flask-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 24px; height: 24px; color: var(--accent); flex-shrink: 0;">
-          <path d="M6 3h12M9 3v4L4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2L15 7V3" />
-        </svg>
-        <div style="text-align: left;">
-          <h4 style="margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">Execution Outcome: Has a Sample been generated from this run?</h4>
-          <p style="margin: 0.15rem 0 0 0; font-size: 0.8rem; color: var(--text-muted);">Please document whether this experiment succeeded in generating output samples.</p>
-        </div>
-      </div>
-      <div class="bar-right" style="display: flex; gap: 0.75rem; position: relative; z-index: 1;">
-        <button class="btn btn-sm btn-success" @click="showRegisterModal = true" style="padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;">
-          Yes, Register Sample
-        </button>
-        <button class="btn btn-sm btn-danger" @click="handleSampleNotGenerated" style="padding: 0.5rem 1rem; border-radius: 6px; font-weight: 600;">
-          No, Failed/No Output
-        </button>
-      </div>
-    </div>
-
-    <div v-else class="detail-layout card">
+    <!-- Run action bar. It sits ABOVE the tabs rather than replacing them: the
+         old Yes/No outcome gate was the tabs' v-if counterpart, so an in-progress
+         run had nothing on screen to edit and the only ways out both ended the
+         run. Lab work spans days, so the run stays open and editable and only an
+         explicit action closes it. -->
+    <!-- Tabs render from Running onwards and are no longer the run bar's v-else.
+         The `experiment` guard stays: the panes below dereference it directly,
+         and one TypeError there takes down the whole app render. -->
+    <div v-if="experiment && !isDraft" class="detail-layout card">
       <!-- Tabs -->
       <div class="form-tabs-row">
         <button 
@@ -637,12 +896,19 @@ onMounted(() => {
         >
           History/Audit Log
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'samples' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'samples' }"
           @click="activeTab = 'samples'"
         >
           Samples
+        </button>
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'tree' }"
+          @click="activeTab = 'tree'"
+        >
+          Experiment Tree
         </button>
       </div>
 
@@ -754,7 +1020,9 @@ onMounted(() => {
           <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit materials in this state.
           </div>
-          <h3 class="pane-subtitle">Formulation Ingredients</h3>
+          <div class="pane-header-row">
+            <h3 class="pane-subtitle">Formulation Ingredients</h3>
+          </div>
           <div class="table-container">
             <table>
               <thead>
@@ -768,9 +1036,26 @@ onMounted(() => {
               </thead>
               <tbody>
                 <tr v-for="(mat, idx) in experiment.material_required" :key="idx">
-                  <td class="font-mono text-accent">{{ mat.item_code }}</td>
-                  <td>{{ mat.item_name }}</td>
-                  <td>{{ mat.uom }}</td>
+                  <!-- Imported rows stay read-only text; a row the user added gets
+                       a real Item picker, otherwise it could never be filled in. -->
+                  <td v-if="isImportedRow(mat)" class="font-mono text-accent">{{ mat.item_code }}</td>
+                  <td v-else>
+                    <LinkField
+                      v-model="mat.item_code"
+                      doctype="Item"
+                      :fields="['item_name', 'stock_uom']"
+                      :search-fields="['name', 'item_name']"
+                      description-field="item_name"
+                      placeholder="Search item..."
+                      input-class="form-control table-input"
+                      :disabled="isWorkflowLocked() && !isSystemManager"
+                      @select="(item) => onMaterialItemSelect(mat, item)"
+                    />
+                  </td>
+                  <td v-if="isImportedRow(mat)">{{ mat.item_name }}</td>
+                  <td v-else><input type="text" v-model="mat.item_name" class="form-control table-input" placeholder="Item description" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
+                  <td v-if="isImportedRow(mat)">{{ mat.uom }}</td>
+                  <td v-else><input type="text" v-model="mat.uom" class="form-control table-input" placeholder="e.g. Nos" :disabled="isWorkflowLocked() && !isSystemManager" /></td>
                   <td><input type="number" v-model="mat.qty" class="form-control table-input" min="0" :disabled="isImportedRow(mat) || (isWorkflowLocked() && !isSystemManager)" :class="{ readonly: isImportedRow(mat) }" /></td>
                   <td>
                     <button v-if="!isImportedRow(mat)" class="delete-row-btn" @click="removeMaterial(idx)" :disabled="isWorkflowLocked() && !isSystemManager" :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete material'">×</button>
@@ -779,6 +1064,9 @@ onMounted(() => {
                 </tr>
                 <tr v-if="!experiment.material_required || experiment.material_required.length === 0">
                   <td colspan="5" class="empty-table-cell">No materials required for this run.</td>
+                </tr>
+                <tr class="add-row-tr">
+                  <td colspan="5"><AddRow label="Add Material" :disabled="isWorkflowLocked() && !isSystemManager" @add="addMaterial" /></td>
                 </tr>
               </tbody>
             </table>
@@ -790,7 +1078,9 @@ onMounted(() => {
           <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit equipment in this state.
           </div>
-          <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
+          <div class="pane-header-row">
+            <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
+          </div>
           <div class="table-container">
             <table>
               <thead>
@@ -814,6 +1104,9 @@ onMounted(() => {
                 <tr v-if="!experiment.equipment_details || experiment.equipment_details.length === 0">
                   <td colspan="4" class="empty-table-cell">No equipment allocated.</td>
                 </tr>
+                <tr class="add-row-tr">
+                  <td colspan="4"><AddRow label="Add Equipment" :disabled="isWorkflowLocked() && !isSystemManager" @add="addEquipment" /></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -826,7 +1119,6 @@ onMounted(() => {
           </div>
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology (Execution Steps)</h3>
-            <button class="btn btn-secondary btn-sm btn-add-row" @click="addMethod" :disabled="isWorkflowLocked() && !isSystemManager">+ Add Method</button>
           </div>
 
           <div class="table-container">
@@ -852,7 +1144,10 @@ onMounted(() => {
                   </td>
                 </tr>
                 <tr v-if="experiment.methodology.length === 0">
-                  <td colspan="3" class="empty-table-cell">No methodology steps. Click '+ Add Method' to insert.</td>
+                  <td colspan="3" class="empty-table-cell">No methodology steps yet.</td>
+                </tr>
+                <tr class="add-row-tr">
+                  <td colspan="3"><AddRow label="Add Method" :disabled="isWorkflowLocked() && !isSystemManager" @add="addMethod" /></td>
                 </tr>
               </tbody>
             </table>
@@ -990,7 +1285,7 @@ onMounted(() => {
               <button
                 class="btn btn-primary"
                 :disabled="!canCreateSample()"
-                @click="showRegisterModal = true"
+                @click="openRegisterModal"
               >
                 + Create Sample
               </button>
@@ -1070,13 +1365,86 @@ onMounted(() => {
             <div v-else class="empty-list-pane">
               No samples have been registered for this experiment run yet.
             </div>
+
+            <!-- Comments sit below the table rather than in a column: a textarea
+                 in a table cell is unusable, and there is at most one live
+                 sample per run anyway (validate_one_sample_per_experiment). -->
+            <div v-if="samplesList.length > 0" class="sample-comments-wrapper">
+              <div v-if="commentsNotice" class="sample-comments-notice">{{ commentsNotice }}</div>
+
+              <section
+                v-for="sample in samplesList"
+                :key="`comments-${sample.name}`"
+                class="sample-comments-card"
+              >
+                <div class="sample-comments-head">
+                  <h4 class="sample-comments-title">
+                    Comments
+                    <span class="sample-comments-for font-mono">{{ sample.elab_no || sample.name }}</span>
+                  </h4>
+                  <span v-if="isCommentsLocked()" class="sample-comments-lock">Locked</span>
+                </div>
+
+                <textarea
+                  class="form-control textarea"
+                  :class="{ readonly: isCommentsLocked() }"
+                  :value="commentDraft(sample)"
+                  :readonly="isCommentsLocked()"
+                  rows="3"
+                  :placeholder="isCommentsLocked()
+                    ? 'Comments are locked in this state.'
+                    : 'Notes on this sample…'"
+                  @input="setCommentDraft(sample, $event.target.value)"
+                ></textarea>
+
+                <div class="sample-comments-foot">
+                  <span class="field-hint">
+                    <template v-if="isCommentsLocked()">
+                      Frozen because this run is {{ experiment.workflow_state }}. Comments lock
+                      when the run is sent for approval — for everyone, System Managers included.
+                    </template>
+                    <template v-else>
+                      Editable until this run is sent for approval.
+                    </template>
+                  </span>
+                  <button
+                    v-if="!isCommentsLocked()"
+                    class="btn btn-secondary btn-sm"
+                    :disabled="savingCommentsFor === sample.name || !commentsDirty(sample)"
+                    @click="saveSampleComments(sample)"
+                  >
+                    {{ savingCommentsFor === sample.name ? 'Saving…' : 'Save Comments' }}
+                  </button>
+                </div>
+              </section>
+            </div>
           </div>
+        </div>
+
+        <!-- 9. EXPERIMENT TREE TAB -->
+        <div v-if="activeTab === 'tree'" class="tab-pane">
+          <ExperimentTree :experiment-id="String(route.params.id)" />
         </div>
       </div>
     </div>
 
+    <!-- The tab row above only renders from Saved onwards, but a run lands here
+         in Draft the moment it is created - which is exactly when its author
+         wants to see the children they just attached. So Draft gets the tree on
+         its own, from the same component. -->
+    <div v-if="experiment && isDraft" class="detail-layout card">
+      <div class="tree-draft-head">
+        <h3 class="tree-draft-title">Experiment Tree</h3>
+        <p class="tree-draft-hint">
+          Start the run to open the rest of the tabs. The hierarchy stays editable
+          until this run is Approved.
+        </p>
+      </div>
+      <ExperimentTree :experiment-id="String(route.params.id)" />
+    </div>
+
     <!-- 8. Register Sample Modal Dialog -->
-    <div v-if="showRegisterModal" class="modal-overlay">
+    <div v-if="showRegisterModal && experiment" class="modal-overlay" @click.self="showRegisterModal = false">
       <div class="modal-container sample-register-modal">
         <div class="modal-header">
           <h3 class="modal-title">Register Output Sample</h3>
@@ -1084,6 +1452,11 @@ onMounted(() => {
         </div>
         
         <div class="modal-body">
+          <div v-if="sampleError" class="form-error-banner" style="margin-bottom: 1rem;">
+            <strong>Error:</strong> {{ sampleError }}
+            <button class="form-error-close" @click="sampleError = ''">×</button>
+          </div>
+
           <div class="form-group-row">
             <div class="form-group">
               <label class="form-label">Parent Experiment ID</label>
@@ -1133,6 +1506,17 @@ onMounted(() => {
                 <span class="qty-uom-suffix" v-if="newSample.uom">{{ newSample.uom }}</span>
               </div>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Comments</label>
+            <textarea
+              v-model="newSample.comments"
+              class="form-control textarea"
+              rows="3"
+              placeholder="Optional notes on this sample…"
+            ></textarea>
+            <span class="field-hint">Editable until this run is sent for approval.</span>
           </div>
         </div>
 

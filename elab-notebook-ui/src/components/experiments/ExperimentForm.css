@@ -562,3 +562,103 @@ textarea.form-control.readonly:focus {
 .team-recovery .btn {
   text-decoration: none;
 }
+
+/* Experiment Hierarchy tab: category + the child-experiment picker.
+ *
+ * The pane's frame (.meta-card / .pane-subtitle / .stacked-field) is the same
+ * one the Observation pane uses, so only the picker's own parts are styled here.
+ *
+ * Own class prefix rather than reusing `.candidate*` from TeamSetup.css. Every
+ * component's CSS here is imported globally, so a shared name resolves to
+ * whichever file the bundler emitted last - which is how the team dialog's
+ * filter input ended up 320px tall.
+ */
+.hierarchy-status,
+.hierarchy-empty {
+  margin-top: 0.6rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.hierarchy-picker-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+.hierarchy-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+.hierarchy-pill {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.hierarchy-candidates {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.hierarchy-candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.hierarchy-candidate:last-child {
+  border-bottom: none;
+}
+
+.hierarchy-candidate:hover {
+  background-color: var(--bg-elevated);
+}
+
+.hierarchy-candidate.picked {
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.hierarchy-candidate-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.hierarchy-candidate-id {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hierarchy-candidate-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

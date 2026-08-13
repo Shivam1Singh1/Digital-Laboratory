@@ -1,8 +1,12 @@
 .experiment-list-container {
+  /* Even 1.5rem, matching .team-setup-container on the reference page. */
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  /* No flex gap: PageHeader carries its own 24px bottom margin, and a gap
+     here would stack on top of it and make this page spacier than the other
+     three. Spacing between the filter bar and the table is .filters-row's
+     own margin, in styles/list-page.css. */
   box-sizing: border-box;
   flex: 1;
   /* Without min-height:0 a flex child cannot shrink below its content, so the
@@ -12,66 +16,12 @@
   overflow-y: auto;
 }
 
-/* Filters Row */
-.filters-row {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 2rem;
-  flex-wrap: nowrap;
-  width: 100%;                 /* full available width */
-  height: 7vh !important;      /* ~7% of the screen height */
-  min-height: 52px !important; /* floor so it never gets too cramped */
-  max-height: 72px !important; /* ceiling on very tall screens */
-  padding: 0 1.5rem !important;/* vertical padding removed; height controls it */
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-sizing: border-box;
+/* Children of a column flex parent are shrinkable by default, so the card would
+   be compressed to the container's height instead of overflowing it - nothing
+   would exceed the container, no scrollbar would appear, and every row past the
+   fold would be unreachable. Same fix as .templates-list-container. */
+.experiment-list-container > .meta-card {
   flex-shrink: 0;
-  overflow: hidden;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.75rem;
-  white-space: nowrap;
-}
-
-.filter-label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.active-scope-pill {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--accent);
-  background-color: rgba(124, 58, 237, 0.08);
-  padding: 0.25rem 0.75rem;
-  border-radius: 50px;
-  border: 1px solid var(--border);
-}
-
-.filter-select {
-  background-color: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text-primary);
-  padding: 0.35rem 0.75rem;
-  outline: none;
-  cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.filter-select:hover {
-  border-color: var(--accent);
 }
 
 /* Table Specific Text Styles */
@@ -87,120 +37,6 @@
   margin-top: 0.15rem;
 }
 
-/* Status Badges */
-.status-pill {
-  display: inline-block;
-  padding: 0.2rem 0.6rem;
-  border-radius: 50px;
-  font-weight: 700;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.status-draft {
-  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
-  color: var(--accent);
-  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.status-running {
-  background-color: rgba(245, 158, 11, 0.08);
-  color: #F59E0B;
-  border: 1px solid rgba(245, 158, 11, 0.16);
-}
-
-.status-completed {
-  background-color: rgba(16, 185, 129, 0.08);
-  color: #10B981;
-  border: 1px solid rgba(16, 185, 129, 0.16);
-}
-
-.status-approved {
-  background-color: rgba(139, 92, 246, 0.08);
-  color: #8B5CF6;
-  border: 1px solid rgba(139, 92, 246, 0.16);
-}
-
-.status-review {
-  background-color: rgba(239, 68, 68, 0.08);
-  color: #EF4444;
-  border: 1px solid rgba(239, 68, 68, 0.16);
-}
-
 .mt-3 {
   margin-top: 0.75rem;
-}
-
-.list-layout {
-  display: flex;
-  flex-direction: column;
-  overflow: visible;
-}
-
-.list-layout.card {
-  padding: 0;
-}
-
-.list-layout .table-container {
-  width: calc(100% - 3rem);
-  margin: 1.5rem;
-  overflow-x: auto;
-  overflow-y: visible;
-  border: none;
-  border-radius: 0;
-  flex: none;
-  max-height: none;
-}
-
-.list-layout table {
-  width: 100%;
-  table-layout: fixed;
-  min-width: 750px;
-}
-
-/* Specific Workflow State Color Mappings */
-.status-draft {
-  background-color: var(--border) !important;
-  color: var(--text-muted) !important;
-  border: 1px solid var(--border) !important;
-}
-
-.status-pending {
-  background-color: rgba(245, 158, 11, 0.08) !important;
-  color: #F59E0B !important;
-  border: 1px solid rgba(245, 158, 11, 0.16) !important;
-}
-
-.status-approved {
-  background-color: rgba(16, 185, 129, 0.08) !important;
-  color: #10B981 !important;
-  border: 1px solid rgba(16, 185, 129, 0.16) !important;
-}
-
-.status-rejected {
-  background-color: rgba(239, 68, 68, 0.08) !important;
-  color: #EF4444 !important;
-  border: 1px solid rgba(239, 68, 68, 0.16) !important;
-}
-
-
-.list-layout {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;      /* let the inner scroll area handle overflow */
-  flex: 1 1 auto;        /* grow to take all remaining vertical space */
-  min-height: 0;         /* required so a flex child can actually scroll */
-}
-
-.list-layout .table-container {
-  width: calc(100% - 3rem);
-  margin: 1.5rem;
-  overflow-x: auto;
-  overflow-y: auto;      /* scroll rows inside instead of overflowing */
-  border: none;
-  border-radius: 0;
-  flex: 1 1 auto;        /* fill the card's height */
-  min-height: 0;
-  max-height: none;
 }

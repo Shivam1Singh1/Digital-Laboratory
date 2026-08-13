@@ -8,6 +8,8 @@ import TeamDetail from './components/team/TeamDetail.vue'
 import ExperimentList from './components/experiments/ExperimentList.vue'
 import ExperimentForm from './components/experiments/ExperimentForm.vue'
 import ExperimentDetail from './components/experiments/ExperimentDetail.vue'
+import SampleList from './components/samples/SampleList.vue'
+import SampleDetail from './components/samples/SampleDetail.vue'
 import { useUserStore } from './stores/user'
 
 const routes = [
@@ -54,6 +56,16 @@ const routes = [
         path: 'experiments/:id',
         name: 'ExperimentDetail',
         component: ExperimentDetail
+      },
+      {
+        path: 'samples',
+        name: 'SampleList',
+        component: SampleList
+      },
+      {
+        path: 'samples/:id',
+        name: 'SampleDetail',
+        component: SampleDetail
       }
     ]
   }

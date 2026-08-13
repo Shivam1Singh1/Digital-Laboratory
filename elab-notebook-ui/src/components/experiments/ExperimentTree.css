@@ -1,0 +1,507 @@
+/* Experiment Tree
+ *
+ * Every class here is `tree-`-prefixed and defined in this file. The rest of
+ * this app imports its component CSS globally, so a shared name like
+ * `.search-box` or `.candidate` silently picks up whichever definition happened
+ * to be bundled last - this component stays out of that entirely.
+ *
+ * Only `.btn*` and `.font-mono` are borrowed, and those live in style.css,
+ * which is always loaded.
+ */
+
+.experiment-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tree-status {
+  padding: 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.tree-alert {
+  padding: 0.7rem 0.95rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.tree-alert-error {
+  background-color: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+.tree-alert-ok {
+  background-color: color-mix(in srgb, var(--success) 12%, transparent);
+  border: 1px solid var(--success);
+  color: var(--success);
+}
+
+/* Upward view ------------------------------------------------------------ */
+
+.tree-ancestry {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  font-size: 0.8rem;
+}
+
+.tree-ancestry-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-right: 0.25rem;
+}
+
+.tree-ancestry-none {
+  color: var(--text-muted);
+}
+
+.tree-crumb-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.tree-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+a.tree-crumb:hover {
+  border-color: var(--accent);
+  background-color: var(--bg-elevated);
+}
+
+.tree-crumb-current {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.tree-crumb-cat {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.tree-crumb-sep {
+  color: var(--text-muted);
+}
+
+/* Toolbar ---------------------------------------------------------------- */
+
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.tree-summary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Attach picker ---------------------------------------------------------- */
+
+.tree-picker {
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 0.95rem;
+  background-color: var(--bg-primary);
+}
+
+.tree-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.tree-picker-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tree-selected-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.tree-hint {
+  margin: 0 0 0.7rem;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.tree-filter {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: auto;
+  margin-bottom: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tree-filter::placeholder {
+  color: var(--text-muted);
+}
+
+.tree-filter:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.tree-empty {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.tree-candidates {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.tree-candidate {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+
+.tree-candidate:last-child {
+  border-bottom: none;
+}
+
+.tree-candidate:hover {
+  background-color: var(--bg-elevated);
+}
+
+.tree-candidate.picked {
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.tree-candidate-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tree-candidate-id {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tree-candidate-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-picker-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+/* Downward view ----------------------------------------------------------
+ *
+ * Drawn as a real tree: one guide column per ancestor level, each carrying the
+ * trunk down past this row when that ancestor still has siblings pending, then
+ * a tee or corner into the node itself.
+ *
+ * Rows are flush with no gap between them, which is what lets the vertical
+ * segments meet across row boundaries - a gap here breaks every line in the
+ * trunk. Indentation is the guide columns' own width, not a margin, so the
+ * lines and the content cannot drift out of step.
+ */
+
+.tree-rows {
+  --tree-indent: 1.5rem;
+  --tree-rail: 0.75rem; /* line's x-offset inside its column: half of the indent */
+  --tree-line: color-mix(in srgb, var(--accent) 38%, var(--border));
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background-color: var(--bg-surface);
+  overflow-x: auto;
+}
+
+.tree-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 2.9rem;
+}
+
+.tree-guide {
+  flex: 0 0 var(--tree-indent);
+  position: relative;
+}
+
+/* The ancestor's trunk keeps running through this row. */
+.tree-guide-on::before {
+  content: '';
+  position: absolute;
+  left: var(--tree-rail);
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--tree-line);
+}
+
+.tree-elbow {
+  flex: 0 0 var(--tree-indent);
+  position: relative;
+}
+
+/* Corner into the node: down the rail, then across. */
+.tree-elbow::before {
+  content: '';
+  position: absolute;
+  left: var(--tree-rail);
+  top: 0;
+  height: 50%;
+  width: var(--tree-rail);
+  border-left: 1px solid var(--tree-line);
+  border-bottom: 1px solid var(--tree-line);
+  border-bottom-left-radius: 5px;
+}
+
+/* A tee, not a corner: more siblings follow, so the trunk continues below. */
+.tree-elbow:not(.tree-elbow-last)::after {
+  content: '';
+  position: absolute;
+  left: var(--tree-rail);
+  top: 50%;
+  bottom: 0;
+  border-left: 1px solid var(--tree-line);
+}
+
+/* The clickable node. A router-link on descendants, a plain span on the run
+   being viewed - there is nowhere to navigate to from yourself. */
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0.2rem 0;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+a.tree-node:hover {
+  background-color: var(--bg-elevated);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+a.tree-node:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* The run being viewed is the root of what is shown, so it reads as the anchor
+   rather than as one row among its descendants. */
+.tree-node-current {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.tree-cat-badge {
+  flex: 0 0 auto;
+  font-size: 0.63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tree-node-current .tree-cat-badge {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.tree-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tree-row-id {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tree-row-title {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-you-are-here {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+/* Sits outside .tree-node so it stays a button inside a clickable row. */
+.tree-unlink-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-right: 0.7rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.24rem 0.55rem;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tree-unlink-btn:hover:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.tree-unlink-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Workflow state chips --------------------------------------------------- */
+
+.tree-state {
+  flex: 0 0 auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.tree-state-draft {
+  background-color: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  color: var(--text-muted);
+}
+
+.tree-state-running {
+  background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent);
+}
+
+.tree-state-completed,
+.tree-state-approved {
+  background-color: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+}
+
+.tree-state-pending {
+  background-color: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+}
+
+.tree-state-rejected {
+  background-color: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+/* Deep rows would otherwise push the id column off a narrow viewport. The rows
+   must not wrap - wrapping puts the node under its own guide columns and the
+   trunk stops lining up - so the indent tightens and .tree-rows scrolls
+   sideways instead. The state chip is what goes, being the one thing here also
+   shown in the page header. */
+@media (max-width: 720px) {
+  .tree-rows {
+    --tree-indent: 0.9rem;
+    --tree-rail: 0.45rem;
+  }
+
+  .tree-node {
+    gap: 0.45rem;
+    padding: 0.45rem 0.5rem;
+  }
+
+  .tree-node .tree-state {
+    display: none;
+  }
+}

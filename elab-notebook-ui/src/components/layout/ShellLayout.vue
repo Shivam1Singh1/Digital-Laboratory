@@ -102,8 +102,8 @@ watch(() => userStore.user.name, async (newVal) => {
           </router-link>
 
           <router-link to="/samples" class="nav-item" active-class="active">
-            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            Sample
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6v6l4 9a3 3 0 0 1-2.7 4.3H7.7A3 3 0 0 1 5 17l4-9z"/><line x1="9" y1="2" x2="15" y2="2"/><line x1="7" y1="15" x2="17" y2="15"/></svg>
+            Samples
           </router-link>
         </div>
 

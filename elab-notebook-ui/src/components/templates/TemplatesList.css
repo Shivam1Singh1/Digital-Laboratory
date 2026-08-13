@@ -1,4 +1,5 @@
 .templates-list-container {
+  /* Even 1.5rem, matching .team-setup-container on the reference page. */
   padding: 1.5rem;
   flex: 1;
   /* Without min-height:0 a flex child cannot shrink below its content, so the
@@ -10,60 +11,17 @@
   overflow-y: auto;
 }
 
-/* Page Header */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 2rem;
-}
-
-.page-header-left {
-  display: flex;
-  flex-direction: column;
-}
-
-.breadcrumb-nav {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-}
-
-.breadcrumb-link {
-  color: var(--text-muted);
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.breadcrumb-link:hover {
-  color: var(--accent);
-}
-
-.breadcrumb-separator {
-  color: var(--text-muted);
-  opacity: 0.5;
-}
-
-.breadcrumb-current {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.page-title {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.02em;
-  margin: 0 0 0.25rem 0;
-}
-
-.page-subtitle {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  margin: 0;
+/* The scroll fix. `overflow-y: auto` above was not enough on its own: in a
+   column flex container every child is shrinkable by default, so the card was
+   compressed to the container's height instead of overflowing it. Nothing ever
+   exceeded the container, so no scrollbar appeared, and every row past the fold
+   was unreachable.
+   Pinning the children at their natural height is what makes the parent
+   overflow, which is what makes it scroll. */
+.templates-list-container > .meta-card,
+.templates-list-container > .loading-state,
+.templates-list-container > .empty-state {
+  flex-shrink: 0;
 }
 
 /* Buttons */
@@ -106,118 +64,40 @@
   height: 16px;
 }
 
-/* States */
-.loading-state,
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 5rem 2rem;
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-  flex: 1;
-}
-
-.empty-icon {
-  width: 48px;
-  height: 48px;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-}
-
-.empty-state h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 0.5rem 0;
-}
-
-.empty-state p {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  margin: 0 0 1rem 0;
-  max-width: 320px;
-}
-
 .mt-4 {
   margin-top: 1rem;
 }
 
-/* Spinner */
-.spinner {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-left-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
 
-.btn-spinner {
-  width: 14px;
-  height: 14px;
-  border-width: 2px;
-  border-left-color: var(--bg-primary);
-  margin-bottom: 0;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Tables styling */
-.table-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-.templates-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-}
-
+/* Tables styling.
+   The frame, header row, cell padding and hover all come from .meta-card and
+   .list-table (styles/list-page.css), which carry the reference page's values.
+   Only what is specific to this table is declared here. */
 .templates-table th {
-  background-color: rgba(255, 255, 255, 0.02);
-  padding: 0.85rem 1.25rem;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  border-bottom: 1px solid var(--border);
-  font-weight: 700;
+  white-space: nowrap;
 }
 
-.templates-table td {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-primary);
-  font-size: 0.875rem;
-  vertical-align: middle;
+/* The Template ID and Last Updated columns were wrapping onto two lines, which
+   set the row height for every other cell. Both are short enough to fit on one
+   line once they are allowed to. */
+.templates-table td:first-child,
+.templates-table td:nth-child(5) {
+  white-space: nowrap;
 }
 
-.templates-table tbody tr {
-  transition: background-color 0.2s ease;
+/* .workflow-state-badge is defined in TemplateDetail.css and ExperimentDetail.css
+   (every component's CSS is bundled app-wide). Its margin-left is meant for a
+   page heading, not a table cell, and the longest state - "Pending from System
+   Manager" - wrapped onto two lines, which set the height of every cell in that
+   row. Scoped to this table so the shared badge is unchanged everywhere else. */
+.templates-table .workflow-state-badge {
+  margin-left: 0;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  padding: 0.2rem 0.5rem;
+  letter-spacing: 0.03em;
 }
 
-.templates-table tbody tr.clickable-row {
-  cursor: pointer;
-}
-
-.templates-table tbody tr.clickable-row:hover {
-  background-color: rgba(255, 255, 255, 0.04);
-}
-
-.templates-table tbody tr:hover {
-  background-color: rgba(255, 255, 255, 0.015);
-}
 
 .template-info {
   display: flex;
@@ -515,3 +395,5 @@
   border-color: rgba(239, 68, 68, 0.16);
 }
 
+/* Pagination uses the shared .pagination-controls / .pagination-info classes
+   from styles/list-page.css, matching Elab Notebook, Experiments and Samples. */

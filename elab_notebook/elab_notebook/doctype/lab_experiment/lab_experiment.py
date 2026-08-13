@@ -19,6 +19,11 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
+from elab_notebook.elab_notebook.api.hierarchy import (
+	CATEGORIES,
+	ROOT_CATEGORY,
+	assert_can_link,
+)
 from elab_notebook.experiment_access import is_authorized_for_project
 from elab_notebook.permissions import has_bypass
 
@@ -60,6 +65,11 @@ class LabExperiment(Document):
 
 	def validate(self):
 		self.populate_from_template()
+		# Hierarchy runs ahead of the approval lock so a rejected link names the
+		# rule it broke, instead of the lock's generic "cannot be modified".
+		self.validate_category()
+		self.validate_master_singleton()
+		self.validate_parent_link()
 		self.validate_imported_rows_kept()
 		self.validate_terminal_outcome()
 		self.validate_post_approval_lock()
@@ -196,6 +206,180 @@ class LabExperiment(Document):
 			self.employee_function = tmpl.employee_function
 		if not self.project:
 			self.project = tmpl.project
+
+	# ------------------------------------------------------------------
+	# Category hierarchy
+	# ------------------------------------------------------------------
+	#
+	# The rules themselves live in elab_notebook.api.hierarchy, next to the
+	# whitelisted calls the UI drives. They are re-run here because
+	# `/api/resource/Lab Experiment` can write `experiment_category` and
+	# `parent_experiment` directly, and the UI's filtering is a convenience
+	# rather than the control.
+
+	def validate_category(self):
+		"""Mandatory on new runs, fixed once set.
+
+		Not `reqd` on the field: runs created before the hierarchy existed carry
+		a blank category, and a reqd flag would make every one of them
+		unsaveable - including for the approver trying to move it through the
+		workflow. Requiring it here catches new runs only.
+
+		A blank category may still be filled in later, which is what lets those
+		older runs join a tree at all. Changing a category that is already set is
+		what stays blocked, since the parent and children were validated against
+		the old value.
+		"""
+		category = (self.experiment_category or "").strip()
+
+		if category and category not in CATEGORIES:
+			frappe.throw(
+				_("{0} is not a valid Experiment Category. Choose one of: {1}.").format(
+					frappe.bold(category), ", ".join(CATEGORIES)
+				),
+				title=_("Invalid Category"),
+			)
+
+		if self.is_new():
+			if not category:
+				frappe.throw(
+					_("Experiment Category is required. Pick the level this run sits at: {0}.").format(
+						", ".join(CATEGORIES)
+					),
+					title=_("Missing Experiment Category"),
+				)
+			return
+
+		stored = frappe.db.get_value("Lab Experiment", self.name, "experiment_category")
+		if stored and stored != category:
+			frappe.throw(
+				_(
+					"Experiment Category is fixed at creation. {0} is a {1} and cannot be "
+					"changed to {2} - its parent and children were linked against the old level."
+				).format(frappe.bold(self.name), frappe.bold(stored), frappe.bold(category or _("blank"))),
+				title=_("Category Is Fixed"),
+			)
+
+	def validate_master_singleton(self):
+		"""At most one Master Experiment per project + employee function.
+
+		Scoped rather than global: every other rule in this app scopes by that
+		pair, and a global singleton would let whichever project created one
+		first block every other project and function permanently.
+
+		Read with `frappe.db.get_value`, which bypasses permissions on purpose -
+		the constraint holds against runs the current user cannot see, otherwise
+		two users in different teams could each create a Master for the same pair.
+		"""
+		if self.experiment_category != ROOT_CATEGORY:
+			return
+
+		if not self.project or not self.employee_function:
+			frappe.throw(
+				_(
+					"A {0} needs both a Project and an Employee Function - they are what "
+					"scope it to being the only one of its kind."
+				).format(ROOT_CATEGORY),
+				title=_("Missing Scope"),
+			)
+
+		existing = frappe.db.get_value(
+			"Lab Experiment",
+			{
+				"experiment_category": ROOT_CATEGORY,
+				"project": self.project,
+				"employee_function": self.employee_function,
+				"name": ("!=", self.name or ""),
+			},
+			"name",
+		)
+		if existing:
+			frappe.throw(
+				_(
+					"{0} is already the {1} for project {2} under {3}. There can only be one - "
+					"link this run under it as a {4} instead."
+				).format(
+					frappe.bold(existing),
+					ROOT_CATEGORY,
+					frappe.bold(self.project),
+					frappe.bold(self.employee_function),
+					CATEGORIES[1],
+				),
+				title=_("Master Experiment Exists"),
+			)
+
+	def validate_parent_link(self):
+		"""`parent_experiment` is written by linking from the parent, not here.
+
+		Three transitions are possible and each is treated differently:
+
+		* blank -> parent: the real link. Validated against the full rule set.
+		* parent -> blank: an unlink. Allowed; `unlink_child_experiment` carries
+		  the authorisation checks, and an Approved run is already frozen by
+		  `validate_post_approval_lock`.
+		* parent -> other parent: rejected. Re-parenting is unlink then link, two
+		  deliberate steps, so it can never be a side effect of a link call.
+		"""
+		previous = (
+			None if self.is_new() else frappe.db.get_value("Lab Experiment", self.name, "parent_experiment")
+		)
+		previous = previous or None
+		current = self.parent_experiment or None
+
+		if previous == current:
+			return
+
+		if self.is_new():
+			frappe.throw(
+				_(
+					"Parent Experiment cannot be set while creating a run. Create it first, "
+					"then attach it from its parent's Experiment Tree."
+				),
+				title=_("Not Set Here"),
+			)
+
+		if previous and current:
+			frappe.throw(
+				_("{0} is already linked under {1}. Unlink it there before linking it to {2}.").format(
+					frappe.bold(self.name), frappe.bold(previous), frappe.bold(current)
+				),
+				title=_("Already Linked"),
+			)
+
+		if not current:
+			return
+
+		parent_row = frappe.db.get_value(
+			"Lab Experiment",
+			current,
+			[
+				"name",
+				"experiment_category",
+				"parent_experiment",
+				"project",
+				"employee_function",
+				"workflow_state",
+				"status",
+			],
+			as_dict=True,
+		)
+		if not parent_row:
+			frappe.throw(_("Experiment {0} not found.").format(frappe.bold(current)))
+
+		assert_can_link(
+			parent_row,
+			{
+				"name": self.name,
+				"experiment_category": self.experiment_category,
+				# The stored value, not the one being written - otherwise the
+				# exclusivity check would compare the new link against itself.
+				"parent_experiment": previous,
+				"project": self.project,
+				"employee_function": self.employee_function,
+				"workflow_state": self.workflow_state,
+				"status": self.status,
+			},
+		)
 
 	def validate_imported_rows_kept(self):
 		"""Rows cloned from a template may be edited, but not deleted.

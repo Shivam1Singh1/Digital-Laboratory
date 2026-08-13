@@ -26,11 +26,13 @@
   pointer-events: none;
 }
 
+/* Kept in lockstep with .top-bar's height - the logo block and the search row
+   sit side by side, so they share a baseline. */
 .sidebar-header {
-  height: 56px;
-  min-height: 56px;
-  max-height: 56px;
-  padding: 0 1.5rem;
+  height: 46px;
+  min-height: 46px;
+  max-height: 46px;
+  padding: 0 1.25rem;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -249,17 +251,19 @@
 
 /* Top Bar */
 .top-bar {
-  /* Every control on the bar shares this height so tops/bottoms line up */
-  --topbar-control-h: 36px;
-  height: 56px;
-  min-height: 56px;
-  max-height: 56px;
+  /* Every control on the bar shares this height so tops/bottoms line up - and
+     so the whole bar can be resized from these two values alone. Keep
+     .sidebar-header's height in step with the bar height. */
+  --topbar-control-h: 30px;
+  height: 46px;
+  min-height: 46px;
+  max-height: 46px;
   box-sizing: border-box;
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 1.5rem;
+  padding: 0 1.25rem;
   gap: 1rem;
 }
 

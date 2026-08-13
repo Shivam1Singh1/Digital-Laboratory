@@ -20,7 +20,7 @@
 
 /* Hero section — prominent greeting and stats */
 .dashboard-scrollable-content .page-header.dashboard-hero {
-  padding: 1.75rem 1.5rem 1.5rem 1.5rem;
+  padding: 0.9rem 1.5rem 0.85rem 1.5rem;
   margin-bottom: 0.5rem;
   margin-left: calc(-1 * var(--dash-pad-x));
   margin-right: calc(-1 * var(--dash-pad-x));
@@ -34,11 +34,12 @@
   border-radius: 0;
 }
 
-.breadcrumb-nav {
+.dashboard-hero .breadcrumb-nav {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 1.25rem;
+  font-size: 13px;
+  margin-bottom: 0.15rem;
 }
 
 .breadcrumb-link {
@@ -61,9 +62,10 @@
 }
 
 .dashboard-hero .page-title {
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   font-weight: 800;
-  margin-bottom: 0.5rem;
+  line-height: 1.25;
+  margin-bottom: 0;
   letter-spacing: -0.5px;
   background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent) 65%, var(--accent-2) 100%);
   -webkit-background-clip: text;
@@ -71,8 +73,8 @@
   background-clip: text;
 }
 
-.page-subtitle {
-  font-size: 0.95rem;
+.dashboard-hero .page-subtitle {
+  font-size: 0.8rem;
   color: var(--text-muted);
   margin: 0;
   font-weight: 500;
@@ -241,53 +243,6 @@
   white-space: nowrap;
 }
 
-/* Pagination Controls */
-.pagination-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding-top: 1rem;
-  border-top: 1.5px solid var(--border);
-  flex-shrink: 0;
-}
-
-.pagination-btn {
-  background-color: var(--bg-elevated);
-  border: 1.5px solid var(--border);
-  color: var(--text-primary);
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-}
-
-.pagination-btn:hover:not(:disabled) {
-  background-color: color-mix(in srgb, var(--accent) 10%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  color: var(--accent);
-  transform: translateY(-2px);
-}
-
-.pagination-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.pagination-info {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  font-weight: 600;
-  min-width: 50px;
-  text-align: center;
-}
-
 /* Responsive design */
 @media (max-width: 1100px) {
   .dashboard-scrollable-content {
@@ -302,7 +257,7 @@
   }
 
   .dashboard-hero .page-title {
-    font-size: 1.5rem;
+    font-size: 1.25rem;
   }
 }
 

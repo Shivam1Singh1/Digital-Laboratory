@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import LinkField from '../common/LinkField.vue'
 import MinutesInput from '../common/MinutesInput.vue'
+import AddRow from '../common/AddRow.vue'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import { formatMinutes } from '../../utils/duration'
 import { extractFrappeError } from '../../utils/frappeError'
@@ -83,7 +84,11 @@ const equipmentDetails = ref([])
 const methodology = ref([])
 const methodologyComments = ref('')
 // Structured protocol steps. ExperimentForm copies these into a run's
-// experiment_protocol_steps, which is why the template has to be able to author them.
+// experiment_protocol_steps. The table that used to author them was removed from
+// the Methodology tab, but the rows are still loaded and sent back on save: the
+// field is part of the save payload, so dropping it here would blank the steps of
+// every template that already has them the next time someone hits Save. The
+// free-form Protocol field below is what authors use now.
 const protocolSteps = ref([])
 const steps = ref('')
 const observationComments = ref('')
@@ -479,19 +484,6 @@ const addEquipmentRow = () =>
 const addMethodologyRow = () =>
   methodology.value.push({ method: '', time_to_complete: 0 })
 
-// step_order is pre-filled with the next number so the run's checklist keeps its
-// order without the author having to number rows by hand.
-const addProtocolStepRow = () =>
-  protocolSteps.value.push({
-    step_order: protocolSteps.value.length + 1,
-    title: '',
-    description: '',
-    duration: '',
-    equipment: '',
-    operator_role: '',
-    checklist_items: ''
-  })
-
 const removeRow = (rows, idx) => rows.splice(idx, 1)
 
 // ---------------------------------------------------------------------- saving
@@ -649,25 +641,58 @@ onMounted(async () => {
       </div>
       <div class="page-header-left">
         <nav class="breadcrumb-nav">
-          <router-link to="/" class="breadcrumb-link">Home</router-link>
+          <router-link to="/" class="breadcrumb-link">
+            <svg class="breadcrumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+              <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            Home
+          </router-link>
           <span class="breadcrumb-separator">&gt;</span>
-          <router-link to="/templates" class="breadcrumb-link">Experiment Templates</router-link>
+          <router-link to="/templates" class="breadcrumb-link">
+            <svg class="breadcrumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            Experiment Templates
+          </router-link>
           <span class="breadcrumb-separator">&gt;</span>
-          <span class="breadcrumb-current">{{ isNew ? 'New Template' : docName }}</span>
+          <span class="breadcrumb-current">
+            <svg class="breadcrumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 20h9"/>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            {{ isNew ? 'New Template' : docName }}
+          </span>
         </nav>
         <h1 class="page-title">
-          {{ isNew ? 'New Experiment Template' : (isReadOnly ? `View Template: ${title || docName}` : `Edit Template: ${title || docName}`) }}
+          <span class="title-action-label">{{ isNew ? 'New Experiment Template' : (isReadOnly ? 'View Template' : 'Edit Template') }}</span>
           <span v-if="showStatusBadge && workflowState" class="workflow-state-badge" :class="getWorkflowStateClass(workflowState)">
             {{ workflowState }}
           </span>
         </h1>
+        <div v-if="!isNew" class="page-title-subtitle">
+          <span class="company-avatar-dot"></span>
+          <span class="company-name-text">{{ title || docName }}</span>
+        </div>
       </div>
 
       <div class="page-header-right">
-        <router-link to="/templates" class="btn btn-secondary">Back</router-link>
+        <router-link to="/templates" class="btn btn-secondary">
+          <svg class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back
+        </router-link>
         <template v-if="showSaveButton">
           <button class="btn btn-primary" @click="saveTemplate" :disabled="saving">
             <span v-if="saving" class="spinner btn-spinner"></span>
+            <svg v-else class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
+            </svg>
             {{ saving ? 'Saving...' : 'Save Template' }}
           </button>
         </template>
@@ -681,7 +706,18 @@ onMounted(async () => {
             @click="runWorkflowAction(act)"
             :disabled="runningWorkflowAction"
           >
-            {{ act.action }}
+            <svg v-if="act.action.toLowerCase().includes('approve')" class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            <svg v-else-if="act.action.toLowerCase().includes('reject')" class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            <svg v-else-if="act.action.toLowerCase().includes('correction') || act.action.toLowerCase().includes('back')" class="btn-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M9 14L4 9l5-5"/>
+              <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/>
+            </svg>
+            <span>{{ act.action }}</span>
           </button>
         </template>
       </div>
@@ -706,6 +742,10 @@ onMounted(async () => {
           :class="{ active: activeTab === 'ownership' }" 
           @click="activeTab = 'ownership'"
         >
+          <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
           Ownership
         </button>
         <button 
@@ -713,6 +753,11 @@ onMounted(async () => {
           :class="{ active: activeTab === 'objective' }" 
           @click="activeTab = 'objective'"
         >
+          <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="2" />
+          </svg>
           Objective
         </button>
         <button 
@@ -720,6 +765,10 @@ onMounted(async () => {
           :class="{ active: activeTab === 'requirements' }" 
           @click="activeTab = 'requirements'"
         >
+          <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
           Requirements
         </button>
         <button 
@@ -727,6 +776,9 @@ onMounted(async () => {
           :class="{ active: activeTab === 'methodology' }" 
           @click="activeTab = 'methodology'"
         >
+          <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 3h12M9 3v4L4 18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2L15 7V3" />
+          </svg>
           Methodology
         </button>
         <button 
@@ -734,6 +786,10 @@ onMounted(async () => {
           :class="{ active: activeTab === 'observation' }" 
           @click="activeTab = 'observation'"
         >
+          <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
           Observation
         </button>
       </div>
@@ -892,7 +948,6 @@ onMounted(async () => {
           <section class="meta-card">
             <div class="table-actions">
               <h3 class="section-title no-margin">Material Required</h3>
-              <button class="btn btn-secondary btn-sm btn-add-row" @click="addMaterialRow">+ Add Row</button>
             </div>
 
             <div class="grid-table-container">
@@ -943,7 +998,9 @@ onMounted(async () => {
                 </template>
 
                 <!-- Empty State -->
-                <div v-else class="grid-empty-message">No materials added. Click "+ Add Row" to start.</div>
+                <div v-else class="grid-empty-message">No materials added yet.</div>
+
+                <AddRow @add="addMaterialRow" />
               </div>
             </div>
           </section>
@@ -952,7 +1009,6 @@ onMounted(async () => {
           <section class="meta-card" style="margin-top: 1.5rem;">
             <div class="table-actions">
               <h3 class="section-title no-margin">Equipment Details</h3>
-              <button class="btn btn-secondary btn-sm btn-add-row" @click="addEquipmentRow">+ Add Row</button>
             </div>
 
             <div class="grid-table-container">
@@ -984,7 +1040,9 @@ onMounted(async () => {
                 </template>
 
                 <!-- Empty State -->
-                <div v-else class="grid-empty-message">No equipment added. Click "+ Add Row" to start.</div>
+                <div v-else class="grid-empty-message">No equipment added yet.</div>
+
+                <AddRow @add="addEquipmentRow" />
               </div>
             </div>
           </section>
@@ -996,7 +1054,6 @@ onMounted(async () => {
           <section class="meta-card">
             <div class="table-actions">
               <h3 class="section-title no-margin">Methodology</h3>
-              <button class="btn btn-secondary btn-sm btn-add-row" @click="addMethodologyRow">+ Add Row</button>
             </div>
 
             <div class="grid-table-container">
@@ -1029,7 +1086,9 @@ onMounted(async () => {
                 </template>
 
                 <!-- Empty State -->
-                <div v-else class="grid-empty-message">No methodology steps. Click "+ Add Row" to start.</div>
+                <div v-else class="grid-empty-message">No methodology steps yet.</div>
+
+                <AddRow @add="addMethodologyRow" />
               </div>
             </div>
 
@@ -1051,76 +1110,6 @@ onMounted(async () => {
                 v-model="methodologyComments"
                 placeholder="Notes that apply across all methodology steps…"
               />
-            </div>
-          </section>
-
-          <!-- PROTOCOL STEPS (structured - copied into each experiment run) -->
-          <section class="meta-card" style="margin-top: 1.5rem;">
-            <div class="table-actions">
-              <h3 class="section-title no-margin">Protocol Steps</h3>
-              <button class="btn btn-secondary btn-sm btn-add-row" @click="addProtocolStepRow">+ Add Row</button>
-            </div>
-            <p class="field-hint" style="margin: 0 0 0.75rem;">
-              These rows become the execution checklist on every experiment run created from this template.
-            </p>
-
-            <div class="grid-table-container protocol-steps-scroll">
-              <div class="grid-table protocol-steps-grid">
-                <!-- Header Row -->
-                <div class="grid-header-row">
-                  <div class="grid-header-cell">#</div>
-                  <div class="grid-header-cell">Title</div>
-                  <div class="grid-header-cell">Description</div>
-                  <div class="grid-header-cell">Duration</div>
-                  <div class="grid-header-cell">Equipment</div>
-                  <div class="grid-header-cell">Operator Role</div>
-                  <div class="grid-header-cell">Checklist Items</div>
-                  <div class="grid-header-cell grid-header-action"></div>
-                </div>
-
-                <!-- Data Rows -->
-                <template v-if="protocolSteps.length">
-                  <div v-for="(row, idx) in protocolSteps" :key="idx" class="grid-data-row">
-                    <div class="grid-cell">
-                      <input v-model="row.step_order" type="number" min="0" class="grid-input" />
-                    </div>
-                    <div class="grid-cell">
-                      <input v-model="row.title" type="text" class="grid-input" placeholder="e.g. Prepare buffer" />
-                    </div>
-                    <div class="grid-cell">
-                      <textarea
-                        v-model="row.description"
-                        rows="1"
-                        class="grid-input grid-textarea"
-                        placeholder="What the operator does…"
-                      ></textarea>
-                    </div>
-                    <div class="grid-cell">
-                      <input v-model="row.duration" type="text" class="grid-input" placeholder="e.g. 30 min" />
-                    </div>
-                    <div class="grid-cell">
-                      <input v-model="row.equipment" type="text" class="grid-input" />
-                    </div>
-                    <div class="grid-cell">
-                      <input v-model="row.operator_role" type="text" class="grid-input" />
-                    </div>
-                    <div class="grid-cell">
-                      <textarea
-                        v-model="row.checklist_items"
-                        rows="1"
-                        class="grid-input grid-textarea"
-                        placeholder="One check per line…"
-                      ></textarea>
-                    </div>
-                    <div class="grid-cell grid-action-cell">
-                      <button class="grid-delete-btn" @click="removeRow(protocolSteps, idx)">×</button>
-                    </div>
-                  </div>
-                </template>
-
-                <!-- Empty State -->
-                <div v-else class="grid-empty-message">No protocol steps. Click "+ Add Row" to start.</div>
-              </div>
             </div>
           </section>
 
