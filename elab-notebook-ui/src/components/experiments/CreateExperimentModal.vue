@@ -135,16 +135,20 @@ watch(() => templates.value, (tmpl) => {
   console.log(`templates.value updated. Count: ${tmpl.length}. Details:`, tmpl)
 }, { deep: false })
 
+// The template is optional here because only one of the four Experiment
+// Categories can carry one, and the category is picked on the next screen. A
+// template chosen here pre-selects the form's own Template picker; picking a
+// level that takes no template drops it again.
 const handleProceed = () => {
-  if (!currentProject.value || !currentEmployeeFunction.value || !selectedTemplate.value) {
+  if (!currentProject.value || !currentEmployeeFunction.value) {
     return
   }
-  
+
   const params = {
     project: currentProject.value,
-    employee_function: currentEmployeeFunction.value,
-    template: selectedTemplate.value.name
+    employee_function: currentEmployeeFunction.value
   }
+  if (selectedTemplate.value) params.template = selectedTemplate.value.name
   // Only present on the team-originated path; the general New Experiment entry
   // point omits it and keeps its existing behaviour.
   if (userStore.createModalTeam) params.experiment_team = userStore.createModalTeam
@@ -222,7 +226,7 @@ watch(() => userStore.createModalOpen, (isOpen) => {
 
         <!-- 4. Template Selector (Searchable Dropdown) -->
         <div class="form-group relative">
-          <label class="form-label">Experiment Template *</label>
+          <label class="form-label">Experiment Template</label>
           <div class="template-search-wrapper">
             <input
               type="text"
@@ -295,7 +299,7 @@ watch(() => userStore.createModalOpen, (isOpen) => {
         <button class="btn btn-secondary" @click="handleCancel">Cancel</button>
         <button
           class="btn btn-primary"
-          :disabled="!currentProject || !currentEmployeeFunction || !selectedTemplate"
+          :disabled="!currentProject || !currentEmployeeFunction"
           @click="handleProceed"
         >
           OK

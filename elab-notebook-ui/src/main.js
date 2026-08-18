@@ -10,6 +10,9 @@ import './styles/list-page.css'
 // The add-row control shared by every editable child table (components/common/
 // AddRow.vue). Same reasoning: one declaration, bundled once.
 import './styles/add-row.css'
+// Caps how wide page content grows on a large monitor. Imported last of the
+// shared sheets so its ceiling wins over any page's own width rule.
+import './styles/page-width.css'
 import App from './App.vue'
 import router from './router'
 

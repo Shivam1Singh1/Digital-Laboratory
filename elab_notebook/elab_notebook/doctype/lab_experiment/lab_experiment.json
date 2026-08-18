@@ -8,8 +8,6 @@
  "engine": "InnoDB",
  "field_order": [
   "template_tab",
-  "employee_code",
-  "employee_name",
   "project",
   "project_code",
   "reviewer",
@@ -39,6 +37,10 @@
   "column_break_mijw",
   "sub_aim",
   "experiment",
+  "creator_section",
+  "employee_code",
+  "column_break_creator",
+  "employee_name",
   "hierarchy_section",
   "experiment_category",
   "column_break_hierarchy",
@@ -87,11 +89,14 @@
    "label": "Template"
   },
   {
+   "description": "Who created this run. Stamped from the signed-in user's Employee record at creation (LabExperiment.set_creator_identity) and fixed afterwards - never entered by hand. read_only here governs the desk form; validate_creator_identity_locked is what holds against a direct API write.",
    "fieldname": "employee_code",
    "fieldtype": "Link",
-   "label": "Employee Code",
+   "label": "Employee ID (Creator)",
    "options": "Employee",
+   "read_only": 1,
    "reqd": 1,
+   "no_copy": 1,
    "ignore_user_permissions": 1
   },
   {
@@ -99,7 +104,8 @@
    "fieldtype": "Data",
    "label": "Employee Name",
    "fetch_from": "employee_code.employee_name",
-   "read_only": 1
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "project",
@@ -131,10 +137,10 @@
    "fieldtype": "Link",
    "label": "Experiment Team",
    "options": "Experiment Team",
-   "read_only": 1,
+   "read_only_depends_on": "eval:!doc.__islocal",
    "reqd": 1,
    "no_copy": 1,
-   "description": "The run ID is generated from this team. Set from the team's Create Experiment button, or picked on the form when the run is started from the general New Experiment entry point."
+   "description": "The team this run belongs to, required at every Experiment Category. Picked explicitly on the create form - pre-selected when the project and Employee Function have only one team, but still shown and still changeable. Locked once saved: the run ID is generated from it (LabExperiment.set_series)."
   },
   {
    "fieldname": "experiment_start_date",
@@ -158,16 +164,20 @@
    "fetch_from": "employee_code.department"
   },
   {
+   "description": "Retired. Who may work on a run is decided by its Experiment Team, not by a per-employee roster copied onto the run - hidden rather than dropped only because the column and its child table still exist. Nothing writes it.",
    "fieldname": "participants",
    "fieldtype": "Table MultiSelect",
+   "hidden": 1,
    "label": "Participants",
    "options": "Lab Experiment Participant CT"
   },
   {
+   "description": "Only a Sub Sub Experiment runs from a template, and even there it is optional. Picking one clones its materials, equipment and methodology onto this run (api/template.py).",
    "fieldname": "template",
    "fieldtype": "Link",
    "label": "Template",
-   "options": "Experiment Template"
+   "options": "Experiment Template",
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
   },
   {
    "fieldname": "remark",
@@ -237,7 +247,8 @@
   {
    "fieldname": "title",
    "fieldtype": "Data",
-   "label": "Title"
+   "label": "Experiment Title",
+   "description": "The run's own title, entered by hand. Distinct from Aim: the aim is what the run sets out to show, the title is what it is called."
   },
   {
    "fieldname": "aim",
@@ -280,12 +291,12 @@
    "label": "Experiment Hierarchy"
   },
   {
-   "description": "Fixed at creation. Mandatory on new records, but deliberately not reqd: runs created before the hierarchy existed carry a blank category and must stay saveable. LabExperiment.validate_category enforces it on insert.",
+   "description": "Fixed at creation, and it decides which of the fields below apply. Mandatory on new records, but deliberately not reqd: runs created before the hierarchy existed carry a blank category and must stay saveable. LabExperiment.validate_category enforces it on insert.",
    "fieldname": "experiment_category",
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Experiment Category",
-   "options": "\nMaster Experiment\nSub Master Experiment\nSub Experiment\nSub Sub Experiment",
+   "options": "\nMaster Experiment\nExperiment\nSub Experiment\nSub Sub Experiment",
    "read_only_depends_on": "eval:!doc.__islocal && doc.experiment_category"
   },
   {
@@ -293,13 +304,15 @@
    "fieldtype": "Column Break"
   },
   {
-   "description": "Set only by attaching this run as a child from its parent. One parent per run.",
+   "description": "The run one level up that this one sits under. Required at every level except Master Experiment, which is the top of its tree and takes none. Set here at creation, or later by attaching this run from its parent's Experiment Tree - either way one parent per run, and LabExperiment.validate_parent_link holds both paths to the same rules.",
    "fieldname": "parent_experiment",
    "fieldtype": "Link",
    "label": "Parent Experiment",
    "no_copy": 1,
    "options": "Lab Experiment",
-   "read_only": 1,
+   "depends_on": "eval:doc.experiment_category && doc.experiment_category != 'Master Experiment'",
+   "mandatory_depends_on": "eval:doc.experiment_category && doc.experiment_category != 'Master Experiment'",
+   "read_only_depends_on": "eval:!doc.__islocal",
    "search_index": 1
   },
   {
@@ -315,14 +328,16 @@
   {
    "fieldname": "details_section",
    "fieldtype": "Section Break",
-   "label": "Details"
+   "label": "Details",
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
   },
   {
    "fieldname": "equipment_details",
    "fieldtype": "Table",
    "label": "Equipment Details",
    "options": "Lab Experiment Equipment CT",
-   "allow_bulk_edit": 1
+   "allow_bulk_edit": 1,
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
   },
   {
    "fieldname": "items_tab",
@@ -445,7 +460,8 @@
    "fieldname": "experiment_template",
    "fieldtype": "Link",
    "label": "Experiment Template",
-   "options": "Experiment Template"
+   "options": "Experiment Template",
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
   },
   {
    "fieldname": "experiment_ingredients",
@@ -469,13 +485,15 @@
    "fieldname": "material_required",
    "fieldtype": "Table",
    "label": "Material Required",
-   "options": "Material Required CT"
+   "options": "Material Required CT",
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
   },
   {
    "fieldname": "methodology",
    "fieldtype": "Table",
    "label": "Methodology",
-   "options": "Methodology CT"
+   "options": "Methodology CT",
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
   },
   {
    "fieldname": "status",
@@ -511,6 +529,15 @@
    "label": "Experiment Status",
    "options": "In Progress\nCompleted\nFailed",
    "default": "In Progress"
+  },
+  {
+   "fieldname": "creator_section",
+   "fieldtype": "Section Break",
+   "label": "Created By"
+  },
+  {
+   "fieldname": "column_break_creator",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,

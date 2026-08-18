@@ -7,6 +7,7 @@ import { formatAuditDate } from '../../utils/dateFormatter'
 import { readServerError } from '../../utils/serverError'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import AddRow from '../common/AddRow.vue'
+import LinkField from '../common/LinkField.vue'
 import './ExperimentForm.css'
 
 const route = useRoute()
@@ -21,6 +22,13 @@ const templateId = ref(route.query.template || '')
 // entry point is untouched.
 const experimentTeam = ref(route.query.experiment_team || '')
 const isTeamFlow = computed(() => Boolean(experimentTeam.value))
+
+// Present only when the run was started from an existing run's Create button
+// (ExperimentDetail.startChildRun): the level below that run, and that run as
+// this one's parent. Both seed the hierarchy fields below and neither is
+// locked - they pre-select the same pickers the general entry point offers.
+const seedCategory = ref(route.query.experiment_category || '')
+const seedParent = ref(route.query.parent_experiment || '')
 
 const loading = ref(true)
 const saving = ref(false)
@@ -43,6 +51,22 @@ const isFromTemplate = computed(() => !!experiment.value.experiment_template)
 const projectName = ref('')
 const employeeFunctionName = ref('')
 
+// Who the server will file this run under once it is saved. Never posted - see
+// the note on the experiment ref below.
+const scientistName = computed(
+  () => userStore.user.employee_name || userStore.user.full_name || '—'
+)
+
+// The signed-in account itself, shown beside the Employee it resolves to. Frappe
+// stores it on the record as `owner` at insert; it is displayed here so the
+// person filling the form can see which account the run will be filed under.
+const currentUserId = computed(() => userStore.user.name || '—')
+
+// The Employee behind that account - the id the run actually stores in
+// employee_code. Shown, never posted: the server stamps it from the session and
+// discards whatever the payload carried.
+const currentEmployeeId = computed(() => userStore.user.employee || '—')
+
 const experiment = ref({
   title: '',
   project: project.value,
@@ -52,15 +76,26 @@ const experiment = ref({
   aim: '',
   sub_aim: '',
   // The level this run sits at. Mandatory on new runs (LabExperiment.validate_category)
-  // and fixed once saved, so it is asked for here and nowhere else.
-  experiment_category: '',
+  // and fixed once saved, so it is asked for here and nowhere else. It also
+  // decides which of the fields below apply at all - see the hierarchy section.
+  experiment_category: seedCategory.value,
+  // The run one level up. Required at every level except the root, which takes
+  // none (api/hierarchy.assert_parent_presence).
+  parent_experiment: seedParent.value,
   rationale: '',
   remark: '',
-  experiment_start_date: new Date().toISOString().slice(0, 16),
+  // Filled from the site's clock on mount (loadServerNow), not from the browser's:
+  // the two are not the same machine, let alone the same timezone. Left blank
+  // until then rather than seeded with a value that would have to be corrected -
+  // and Lab Experiment.experiment_start_date defaults to Today server-side, so a
+  // run posted before the lookup lands is still stamped by the server, not by
+  // whatever the browser believed the date was.
+  experiment_start_date: '',
   experiment_end_date: '',
-  // employee_code is a Link to Employee - the User id is not a valid value here.
-  employee_code: userStore.user.employee || '',
-  employee_name: userStore.user.employee_name || userStore.user.full_name,
+  // employee_code / employee_name are deliberately absent: the server stamps the
+  // author from the session (LabExperiment.set_creator_identity) and discards
+  // whatever the payload carried, so sending a value here would only suggest the
+  // client had a say in it. The name is shown below from the user store.
   // Required: the naming rule derives the experiment id from its team. Seeded
   // from the URL on the team flow; picked below on the general entry point.
   experiment_team: experimentTeam.value,
@@ -90,21 +125,20 @@ const TEMPLATE_CHILD_FIELDS = [
   'methodology',
 ]
 
-const loadTemplate = async () => {
-  if (!templateId.value) {
-    loading.value = false
-    return
-  }
-  loading.value = true
+const applyTemplateClone = async (name) => {
+  if (!name) return
   try {
     // The server owns the template -> run mapping (api/template.py
     // _clone_template_children). Mapping the tables here as well is what let the
     // two clone paths drift apart, and it is how imported rows ended up
     // unflagged. Every cloned row comes back with from_template = 1 already set.
     const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_template_clone', {
-      params: { template_name: templateId.value }
+      params: { template_name: name }
     })
     const { header = {}, children = {} } = res.data.message || {}
+
+    experiment.value.template = name
+    experiment.value.experiment_template = name
 
     // `title` is the run's own name (Data) - it used to be a read-only Link that
     // could only hold a template id, which is why older runs are named after
@@ -121,9 +155,29 @@ const loadTemplate = async () => {
   } catch (err) {
     console.error('Failed to load template:', err)
     error.value = 'Failed to load details from selected template.'
-  } finally {
-    loading.value = false
   }
+}
+
+// Dropping the template has to drop what it cloned as well. Leaving the rows
+// behind would post material, equipment and methodology - each still flagged
+// from_template = 1, and so undeletable afterwards - onto a run whose level is
+// not supposed to carry any of it.
+const clearTemplateSelection = () => {
+  experiment.value.template = ''
+  experiment.value.experiment_template = ''
+  for (const field of TEMPLATE_CHILD_FIELDS) {
+    experiment.value[field] = []
+  }
+}
+
+const loadTemplate = async () => {
+  if (!templateId.value) {
+    loading.value = false
+    return
+  }
+  loading.value = true
+  await applyTemplateClone(templateId.value)
+  loading.value = false
 }
 
 // Item management actions
@@ -133,7 +187,7 @@ const addMaterial = () => {
     item_name: '',
     uom: '',
     qty: 1,
-    added_on: new Date().toISOString(),
+    added_on: labStamp(),
     added_by: userStore.user.full_name || userStore.user.name
   })
 }
@@ -150,7 +204,7 @@ const addEquipment = () => {
     equipment_name: '',
     equipment_id: '',
     remarks: '',
-    added_on: new Date().toISOString(),
+    added_on: labStamp(),
     added_by: userStore.user.full_name || userStore.user.name
   })
 }
@@ -166,7 +220,7 @@ const addMethod = () => {
   experiment.value.methodology.push({
     method: '',
     time_to_complete: 0,
-    added_on: new Date().toISOString(),
+    added_on: labStamp(),
     added_by: userStore.user.full_name || userStore.user.name
   })
 }
@@ -179,6 +233,97 @@ const removeMethod = (index) => {
 }
 
 const SAVE_FALLBACK = 'Error saving experiment. Please verify all required fields.'
+
+// Level two is literally "Experiment", so the article cannot be baked into the
+// message strings - "a Experiment" is what every one of them would say.
+// Mirrors _a() in api/hierarchy.py, which does the same for the server's errors.
+const withArticle = (category) =>
+  `${'AEIOU'.includes((category || '').charAt(0).toUpperCase()) ? 'an' : 'a'} ${category}`
+
+const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1)
+
+// "Project", "Project and Employee Function", "Project, Employee Function and
+// Experiment Team" - a list a person would read out loud.
+const listNames = (names) =>
+  names.length <= 1
+    ? names[0] || ''
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+
+// Every mandatory field on this form, in the order the pane asks for them, each
+// with the tab it lives on and the sentence to use when it is the only one
+// missing. One field missing gets the sentence that says what to do about it;
+// several get named together, because being sent back for one at a time is how a
+// form feels like it is hiding the rules.
+const missingRequiredFields = () => {
+  const fields = []
+
+  if (!project.value) {
+    fields.push({
+      label: 'Project',
+      tab: 'general',
+      message: 'Project is required — pick the project this run belongs to.',
+    })
+  }
+  if (!employeeFunction.value) {
+    fields.push({
+      label: 'Employee Function',
+      tab: 'general',
+      message: 'Employee Function is required — pick the function this run belongs to.',
+    })
+  }
+  if (!experiment.value.experiment_category) {
+    fields.push({
+      label: 'Experiment Category',
+      tab: 'general',
+      message: 'Experiment Category is required — pick the level this run sits at.',
+    })
+  }
+  // Named here rather than left to the server's rejection, but the server rule
+  // is the control: api/hierarchy.assert_parent_presence runs on every write,
+  // including a direct POST that never sees this form.
+  if (needsParent.value && !experiment.value.parent_experiment) {
+    const self = withArticle(experiment.value.experiment_category)
+    const above = withArticle(parentCategory.value)
+    fields.push({
+      label: 'Parent Experiment',
+      tab: 'general',
+      message: parentCandidates.value.length
+        ? `${capitalise(self)} must sit under ${above} — pick its Parent Experiment.`
+        : `${capitalise(self)} must sit under ${above}, and none exists for this project `
+          + 'and Employee Function yet. Create one first.',
+    })
+  }
+  // The run's ID is derived from its team, so this one is fatal rather than
+  // cosmetic - and when the pair simply has no team, saying "select one" would
+  // be pointing at an empty list.
+  if (!experiment.value.experiment_team) {
+    fields.push({
+      label: 'Experiment Team',
+      tab: 'general',
+      message: noTeamAvailable.value
+        ? `No team is set up for project ${project.value || '—'} under `
+          + `${employeeFunctionName.value || employeeFunction.value || 'this function'}. `
+          + 'Set one up in Team Setup before starting a run.'
+        : 'Experiment Team is required — the run ID is generated from it.',
+    })
+  }
+  if (!(experiment.value.aim || '').trim()) {
+    fields.push({ label: 'Aim / Hypothesis', tab: 'details', message: 'Aim / Hypothesis is required.' })
+  }
+  // A template may legitimately carry a blank Sub Aim while Lab Experiment
+  // requires one, so the form asks for it rather than inventing a placeholder.
+  if (!(experiment.value.sub_aim || '').trim()) {
+    fields.push({
+      label: 'Sub Aim',
+      tab: 'details',
+      message: isFromTemplate.value
+        ? 'Sub Aim is required, and this template does not provide one - enter it before saving.'
+        : 'Sub Aim is required.',
+    })
+  }
+
+  return fields
+}
 
 // Everything the server would reject with a bare "value missing", named here
 // instead - including which Material Required row is at fault. A template may
@@ -194,19 +339,24 @@ const validateExperiment = () => {
   )
   rowsToCheck.forEach((row, idx) => resolveMaterialSearch(row, idx))
 
-  if (!(experiment.value.aim || '').trim()) {
-    activeTab.value = 'general'
-    return 'Aim / Hypothesis is required.'
+  // Every empty mandatory field, gathered before anything is reported, so the
+  // message names all of them at once instead of sending the user round the form
+  // one rejection at a time. The order is the order the pane asks for them.
+  const missing = missingRequiredFields()
+  if (missing.length) {
+    activeTab.value = missing[0].tab
+    return missing.length === 1
+      ? missing[0].message
+      : `${listNames(missing.map((f) => f.label))} are required.`
   }
-  if (!experiment.value.experiment_category) {
-    activeTab.value = 'hierarchy'
-    return 'Experiment Category is required — pick the level this run sits at.'
-  }
-  if (!(experiment.value.sub_aim || '').trim()) {
+  // Both are plain dates, so a string compare is the date compare.
+  if (
+    experiment.value.experiment_end_date &&
+    experiment.value.experiment_start_date &&
+    experiment.value.experiment_end_date < experiment.value.experiment_start_date
+  ) {
     activeTab.value = 'general'
-    return isFromTemplate.value
-      ? 'Sub Aim is required, and this template does not provide one - enter it before saving.'
-      : 'Sub Aim is required.'
+    return 'End Date cannot be before the Start Date.'
   }
 
   for (let i = 0; i < rowsToCheck.length; i++) {
@@ -228,24 +378,9 @@ const validateExperiment = () => {
 }
 
 const saveExperiment = async () => {
-  // Both are Link/derived fields the server rejects with an opaque error, so name the
-  // real problem here rather than falling through to "verify all required fields".
-  if (!experiment.value.experiment_team) {
-    error.value = noTeamAvailable.value
-      ? `No team is set up for project ${project.value || '—'} under `
-        + `${employeeFunction.value || 'this function'}. Set one up in Team Setup before starting a run.`
-      : 'Select an Experiment Team - the run ID is generated from it.'
-    return
-  }
-  if (!experiment.value.employee_code) {
-    experiment.value.employee_code = userStore.user.employee || ''
-  }
-  if (!experiment.value.employee_code) {
-    error.value =
-      'Your user account is not linked to an Employee record, which is required to log a run.'
-    return
-  }
-
+  // The Experiment Team used to be checked here, ahead of everything else, which
+  // meant a form with three fields empty only ever reported that one.
+  // validateExperiment now gathers them all and names them together.
   const validationError = validateExperiment()
   if (validationError) {
     error.value = validationError
@@ -295,7 +430,69 @@ const saveExperiment = async () => {
   }
 }
 
+// The site's clock. `experiment_start_date` is a Date field on Lab Experiment,
+// so what is stored is a day - the form used to show a time next to it that was
+// both in the wrong timezone and discarded on save.
+const serverToday = ref('')
+const serverTimeZone = ref('')
+// How far this browser is from the site. Kept rather than the timestamp itself
+// so a row added twenty minutes into filling the form is stamped twenty minutes
+// later, still on the site's clock.
+const serverSkewMs = ref(0)
+
+const loadServerNow = async () => {
+  try {
+    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.user.get_server_now')
+    const stamp = res.data.message || {}
+    serverToday.value = stamp.today || ''
+    serverTimeZone.value = stamp.time_zone || ''
+    if (stamp.today) experiment.value.experiment_start_date = stamp.today
+    if (stamp.now) {
+      // Read as local so the difference is between wall clocks, not instants -
+      // which is what makes the getters below print the site's time.
+      serverSkewMs.value = new Date(stamp.now.replace(' ', 'T')).getTime() - Date.now()
+    }
+  } catch (err) {
+    console.error('Failed to read the server clock:', err)
+    // Left blank on purpose: the doctype's own `Today` default then fills it in
+    // server-side, which is the same clock this call was asking for.
+  }
+}
+
+// A native date field only opens its calendar from the small icon at its end,
+// which is easy to miss and easy to mis-aim at - the field reads as a text box
+// you are meant to type a date into. This opens the calendar from a click
+// anywhere in the control. showPicker() needs a real user gesture and is not in
+// every browser, so a failure here is not an error: the icon and typing both
+// still work.
+const openDatePicker = (event) => {
+  const input = event.currentTarget
+  if (!input || input.readOnly || input.disabled) return
+  try {
+    input.showPicker?.()
+  } catch {
+    /* Browser declined (unsupported, or not a trusted gesture) - leave the
+       field as a plain date input. */
+  }
+}
+
+// 'YYYY-MM-DD HH:mm:ss' on the site's clock - the shape Frappe stores, and the
+// one formatAuditDate reads back without shifting it. `new Date().toISOString()`
+// gave neither: UTC, and a trailing Z that moves the value again on display.
+const labStamp = () => {
+  const d = new Date(Date.now() + serverSkewMs.value)
+  const pad = (n) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  )
+}
+
 const loadProjectAndFunctionNames = async () => {
+  // Cleared first: both are picked on this form now, so a name left over from
+  // the previous pick would sit under the new one.
+  projectName.value = ''
+  employeeFunctionName.value = ''
   try {
     if (project.value) {
       const projRes = await axios.get(`/api/resource/Project/${project.value}`)
@@ -376,57 +573,137 @@ const selectEquipment = (eq, item) => {
   eq.equipment_name = item.item_name || item.name
 }
 
-const loadTeamFinancials = async () => {
-  if (!project.value || !employeeFunction.value) return
-  try {
-    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_team_financials', {
-      params: {
-        project: project.value,
-        employee_function: employeeFunction.value
-      }
-    })
-    const fin = res.data.message || {}
-    experiment.value.segment = fin.segment || ''
-    experiment.value.cost_center = fin.cost_center || ''
-  } catch (err) {
-    console.error('Failed to load team financials:', err)
+// Segment and Cost Centre are the Employee Function's, not the run's: the
+// function record carries the pair(s) its work is booked against
+// (get_segments_and_cost_centers reads them straight off it), and a team was
+// itself set up by picking from that same list. Reading them from the function
+// is what makes them resolvable before any team exists, and what keeps two users
+// on different functions from inheriting each other's cost centre - the run is
+// filed under whoever is signed in, and that is not always the same person.
+const segmentOptions = ref([])
+const costCenterOptions = ref([])
+const financialsLoaded = ref(false)
+
+const loadFinancials = async () => {
+  segmentOptions.value = []
+  costCenterOptions.value = []
+  financialsLoaded.value = false
+
+  if (!employeeFunction.value) {
+    experiment.value.segment = ''
+    experiment.value.cost_center = ''
+    financialsLoaded.value = true
+    return
   }
+
+  let teamFin = {}
+  try {
+    const [fnRes, teamRes] = await Promise.all([
+      axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_segments_and_cost_centers', {
+        params: { employee_function: employeeFunction.value },
+      }),
+      // The team's own pair, used only to choose between the function's options
+      // below - never as a source of its own.
+      project.value
+        ? axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_team_financials', {
+            params: { project: project.value, employee_function: employeeFunction.value },
+          })
+        : Promise.resolve({ data: {} }),
+    ])
+    segmentOptions.value = fnRes.data.message?.segments || []
+    costCenterOptions.value = fnRes.data.message?.cost_centers || []
+    teamFin = teamRes.data.message || {}
+  } catch (err) {
+    console.error('Failed to load segments and cost centres:', err)
+  } finally {
+    financialsLoaded.value = true
+  }
+
+  // The team's value when the function still offers it, the function's answer
+  // when it only has one, and otherwise nothing - a pick, not a guess.
+  const settle = (options, teamValue) => {
+    if (!options.length) return teamValue || ''
+    if (teamValue && options.includes(teamValue)) return teamValue
+    return options.length === 1 ? options[0] : ''
+  }
+
+  experiment.value.segment = settle(segmentOptions.value, teamFin.segment)
+  experiment.value.cost_center = settle(costCenterOptions.value, teamFin.cost_center)
 }
 
+const financialsHint = (options, kind) => {
+  if (!employeeFunction.value) return 'Set once an Employee Function is picked.'
+  if (!financialsLoaded.value) return 'Looking up this function’s bookings…'
+  if (!options.length) return `This Employee Function has no ${kind} mapped to it.`
+  return options.length === 1
+    ? `This function’s only ${kind}, filled in for you.`
+    : `The ${kind}s this Employee Function books against — pick the one this run belongs to.`
+}
+
+const segmentHint = computed(() => financialsHint(segmentOptions.value, 'Segment'))
+const costCenterHint = computed(() => financialsHint(costCenterOptions.value, 'Cost Centre'))
+
 // The run's ID is derived from its team (LabExperiment.set_series), so a run
-// cannot be saved without one. The team flow already settled it upstream - the
-// team's Create Experiment button passes it in the URL - so there the field is
-// only shown, never asked. The general New Experiment entry point has no team
-// in context and has to ask, because a project + function pair maps to many
-// teams by design (api/experiment_team.save_team always creates a new record
-// rather than reusing one).
+// cannot be saved without one - at every Experiment Category, the root included.
+// The picker is always shown and always editable, including on the team flow
+// where the team's Create Experiment button passes one in the URL: that value
+// pre-selects the field rather than replacing it, because the team a run is
+// filed under is now something the user confirms rather than something decided
+// off-screen. A project + function pair maps to many teams by design
+// (api/experiment_team.save_team always creates a new record rather than reusing
+// one), so there is a real choice to make here.
 const teamOptions = ref([])
 const teamsLoaded = ref(false)
 
-// Only the general entry point can dead-end: the team flow arrives with a team
-// already in hand.
+// "No team exists for this pair" is only true once there is a pair to check.
+// Project starts empty on the blank entry point, and an empty project is not a
+// project with nothing set up for it - reporting it as one put a red error and a
+// Team Setup link on a form the user had not filled in yet.
 const noTeamAvailable = computed(
-  () => !isTeamFlow.value && teamsLoaded.value && teamOptions.value.length === 0
+  () =>
+    Boolean(project.value) &&
+    teamsLoaded.value &&
+    teamOptions.value.length === 0 &&
+    !experiment.value.experiment_team
 )
 
 const teamHint = computed(() => {
-  if (isTeamFlow.value) return 'This run is being created for this team.'
+  if (!project.value) return 'Pick a Project above — its teams are listed here.'
   if (!teamsLoaded.value) return 'Looking up the teams for this project…'
   if (teamOptions.value.length === 0) {
-    return `No team is set up for project ${project.value || '—'} under `
-      + `${employeeFunctionName.value || employeeFunction.value || 'this function'} — set one up first.`
+    return noTeamAvailable.value
+      ? `No team is set up for project ${project.value || '—'} under `
+        + `${employeeFunctionName.value || employeeFunction.value || 'this function'} — set one up first.`
+      : 'This run is being created for this team.'
   }
-  if (teamOptions.value.length === 1) return "Set from this project's only team."
-  return `This project has ${teamOptions.value.length} teams under this function — choose which one this run belongs to.`
+  if (teamOptions.value.length === 1) {
+    return "Pre-selected from this project's only team under this function — change it if that is not the one."
+  }
+  return `This project has ${teamOptions.value.length} teams under this function — confirm which one this run belongs to.`
 })
 
 // Shown in the picker: team_name is the friendly label but is empty on teams
 // created before it existed, so the id carries the row on its own.
 const teamLabel = (t) => (t.team_name ? `${t.team_name} — ${t.name}` : t.name)
 
+// The selected team's name, read back out of the options the picker was built
+// from. Most teams predate the field, so "Not named" is the common answer and is
+// said plainly rather than left as an empty box.
+const teamNameDisplay = computed(() => {
+  if (!experiment.value.experiment_team) return '—'
+  const match = teamOptions.value.find((t) => t.name === experiment.value.experiment_team)
+  if (!match) return teamsLoaded.value ? '—' : 'Loading…'
+  return match.team_name || 'Not named'
+})
+
 const loadTeamsForProject = async () => {
-  // Nothing to choose when the team flow already named the team.
-  if (isTeamFlow.value || !project.value) {
+  // Loaded on the team flow too: the URL team pre-selects the picker, it does
+  // not stand in for it, so the alternatives still have to be on hand.
+  // Re-run whenever the project or Employee Function changes, so the previous
+  // pair's teams are cleared rather than left on offer.
+  teamOptions.value = []
+  teamsLoaded.value = false
+  if (!project.value) {
     teamsLoaded.value = true
     return
   }
@@ -448,8 +725,9 @@ const loadTeamsForProject = async () => {
       }
     })
     teamOptions.value = res.data.message || []
-    // A list of one is not a choice - settle it rather than making the user pick.
-    if (teamOptions.value.length === 1) {
+    // Pre-select the only candidate, but leave the field open: the user is meant
+    // to see which team the run lands on, not have it decided silently.
+    if (!experiment.value.experiment_team && teamOptions.value.length === 1) {
       experiment.value.experiment_team = teamOptions.value[0].name
     }
   } catch (err) {
@@ -458,6 +736,165 @@ const loadTeamsForProject = async () => {
     teamsLoaded.value = true
   }
 }
+
+// ---------------------------------------------------------------------------
+// Project and Employee Function
+// ---------------------------------------------------------------------------
+// Both used to be settled before this form opened - they arrived in the URL or
+// not at all, and a run started without them could never be saved because the
+// Experiment Team picker had nothing to resolve. They are fields of this form
+// now, filled here like any other. A value arriving in the URL (the team flow,
+// or a Master's Create Experiment button) still pre-fills them and still wins
+// over anything resolved below.
+
+// Projects the user may actually start a run for - a team must exist and the
+// user must be on it or head its function. Narrower than the function -> project
+// mapping on purpose: a project with no team is a dead end here.
+const authorizedProjects = ref([])
+const projectsLoaded = ref(false)
+
+const loadAuthorizedProjects = async () => {
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.experiment_team.get_authorized_projects_for_user'
+    )
+    authorizedProjects.value = res.data.message || []
+  } catch (err) {
+    console.error('Failed to load authorized projects:', err)
+    authorizedProjects.value = []
+  } finally {
+    projectsLoaded.value = true
+  }
+}
+
+const projectSearch = async (txt) => {
+  const term = (txt || '').toLowerCase()
+  if (!term) return authorizedProjects.value
+  return authorizedProjects.value.filter(
+    (p) =>
+      p.name.toLowerCase().includes(term) ||
+      String(p.project_name || '').toLowerCase().includes(term)
+  )
+}
+
+const projectHint = computed(() => {
+  if (!projectsLoaded.value) return 'Looking up the projects you can start a run for…'
+  if (!authorizedProjects.value.length) {
+    return 'No project is available to you: a run needs an Experiment Team you are on '
+      + '(or head). Set one up in Team Setup first.'
+  }
+  return 'Required. Only projects with a team you belong to, or head, are listed.'
+})
+
+// The signed-in user's own active Employee Functions, from the resolver the
+// Experiment Template form already uses (api/employee_function
+// .get_current_employee_function, which reads Employee.custom_function_code).
+// One resolver, one definition of "your function".
+const myFunctions = ref([])
+const functionsLoaded = ref(false)
+
+// Only consulted when the resolver comes back empty - see the hint below. These
+// are the functions the *project* offers the user, which is what the create
+// modal used to ask for, so an employee record with no function mapping is not
+// left unable to start a run.
+const projectFunctions = ref([])
+
+const functionPool = computed(() =>
+  myFunctions.value.length ? myFunctions.value : projectFunctions.value
+)
+
+const usingProjectFunctions = computed(
+  () => functionsLoaded.value && !myFunctions.value.length
+)
+
+const loadMyFunctions = async () => {
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.employee_function.get_current_employee_function'
+    )
+    myFunctions.value = (res.data.message || {}).functions || []
+  } catch (err) {
+    console.error('Failed to load employee functions:', err)
+    myFunctions.value = []
+  } finally {
+    functionsLoaded.value = true
+  }
+
+  // Pre-select only an unambiguous answer, and never over an explicit one: a
+  // function passed in the URL is what the flow that opened this form decided,
+  // and it stays. Pre-selected, not locked - the picker below stays open, the
+  // same rule the Experiment Team picker follows.
+  if (!employeeFunction.value && myFunctions.value.length === 1) {
+    employeeFunction.value = myFunctions.value[0].name
+  }
+}
+
+const loadProjectFunctions = async () => {
+  projectFunctions.value = []
+  if (!project.value || myFunctions.value.length) return
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.experiment_team.get_authorized_functions_for_project',
+      { params: { project: project.value } }
+    )
+    projectFunctions.value = (res.data.message || []).map((name) => ({ name, function_name: '' }))
+  } catch (err) {
+    console.error('Failed to load functions for project:', err)
+    projectFunctions.value = []
+  }
+}
+
+const employeeFunctionSearch = async (txt) => {
+  const term = (txt || '').toLowerCase()
+  const pool = functionPool.value
+  if (!term) return pool
+  return pool.filter(
+    (f) =>
+      f.name.toLowerCase().includes(term) ||
+      String(f.function_name || '').toLowerCase().includes(term)
+  )
+}
+
+const employeeFunctionHint = computed(() => {
+  if (!functionsLoaded.value) return 'Looking up your Employee Function…'
+  if (myFunctions.value.length === 1) {
+    return 'Your only active Employee Function, filled in for you — change it if this run belongs elsewhere.'
+  }
+  if (myFunctions.value.length) {
+    return `You have ${myFunctions.value.length} active Employee Functions — pick the one this run belongs to.`
+  }
+  if (!project.value) {
+    return 'No Employee Function is assigned to your employee record. Pick a project first, '
+      + "and this falls back to that project's functions."
+  }
+  return projectFunctions.value.length
+    ? 'No Employee Function is assigned to your employee record, so these are the functions '
+      + 'this project offers you. Ask HR to map your Employee record.'
+    : 'No Employee Function is assigned to your employee record, and this project offers none.'
+})
+
+// Everything scoped by the pair has to be resolved again when either half of it
+// changes: the teams the run can be filed under, the financials copied from that
+// team, the templates in scope, and the runs it can sit under or adopt. Whatever
+// was picked for the previous pair is dropped first rather than carried over -
+// a team, template or parent from another project is not a choice, it is a stale
+// value that would post silently.
+watch([project, employeeFunction], () => {
+  experiment.value.project = project.value
+  experiment.value.employee_function = employeeFunction.value
+  experiment.value.experiment_team = ''
+  experiment.value.segment = ''
+  experiment.value.cost_center = ''
+  clearTemplateSelection()
+
+  loadProjectAndFunctionNames()
+  loadFinancials()
+  loadTeamsForProject()
+  loadTemplateOptions()
+  loadProjectFunctions()
+  loadParentCandidates()
+  loadChildCandidates()
+})
 
 // ---------------------------------------------------------------------------
 // Category hierarchy
@@ -475,15 +912,60 @@ const selectedChildren = ref(new Set())
 const childFilter = ref('')
 const loadingChildren = ref(false)
 
+const parentCandidates = ref([])
+const loadingParents = ref(false)
+const parentsLoaded = ref(false)
+
 // Set once the run exists. Save is blocked afterwards so a failed link step
 // cannot be retried into a second run.
 const createdId = ref('')
 
-const childCategory = computed(
+const currentCategoryOption = computed(
   () =>
-    categoryOptions.value.find((o) => o.category === experiment.value.experiment_category)
-      ?.child_category || ''
+    categoryOptions.value.find((o) => o.category === experiment.value.experiment_category) || null
 )
+
+const childCategory = computed(() => currentCategoryOption.value?.child_category || '')
+
+// The level directly above the chosen one, read back out of the same shipped
+// ordering rather than retyped: the option whose child_category is this one.
+const parentCategory = computed(() => {
+  const current = currentCategoryOption.value
+  if (!current) return ''
+  return categoryOptions.value.find((o) => o.child_category === current.category)?.category || ''
+})
+
+// Which of the four levels this is, expressed as what the level *does* rather
+// than by name. Both fall out of the ordering get_category_options ships, so the
+// form never hard-codes "Master Experiment" or "Sub Sub Experiment" - renaming a
+// level server-side does not leave a stale string here.
+const needsParent = computed(() => Boolean(parentCategory.value))
+const usesTemplate = computed(() => Boolean(currentCategoryOption.value?.is_leaf))
+
+// Tabs that only exist for a run that can carry template-cloned content -
+// Protocol Steps among them, since experiment_protocol_steps is cloned from a
+// template like the other three and a level that takes no template can never
+// have any. Hidden rather than disabled at the other levels: an empty tab that
+// can never hold anything reads as a bug.
+const TEMPLATE_TABS = ['materials', 'equipment', 'methodology', 'procedure']
+
+// Four tabs at every level, plus the template-only ones at the leaf. Observation
+// is not a tab of its own any more - it is part of the run's write-up and sits
+// with Aim, Sub Aim and Rationale under Details.
+const visibleTabs = computed(() => [
+  { key: 'general', label: 'Template' },
+  { key: 'details', label: 'Details' },
+  ...(usesTemplate.value
+    ? [
+        { key: 'materials', label: 'Material Required' },
+        { key: 'equipment', label: 'Equipment Details' },
+        { key: 'methodology', label: 'Methodology' },
+        { key: 'procedure', label: 'Protocol Steps' },
+      ]
+    : []),
+  { key: 'hierarchy', label: 'Experiment Hierarchy' },
+  { key: 'report', label: 'Report' },
+])
 
 // Both scope values are required to resolve candidates, and a blank
 // employee_function is deliberately not matched against other blanks - see
@@ -495,7 +977,7 @@ const canPickChildren = computed(
 
 const childPickerHint = computed(() => {
   if (!experiment.value.experiment_category) {
-    return 'Pick an Experiment Category first.'
+    return 'Pick an Experiment Category on the Template tab first.'
   }
   if (!childCategory.value) {
     return `${experiment.value.experiment_category} is the lowest level — it has no children to link.`
@@ -559,17 +1041,150 @@ const loadChildCandidates = async () => {
   }
 }
 
-// Changing the level changes which runs are adoptable, so the pool is rebuilt
-// and any earlier selection dropped rather than carried across levels.
-watch(() => experiment.value.experiment_category, loadChildCandidates)
+const parentLabel = (row) => {
+  const sub = row.title || row.aim || ''
+  return sub ? `${row.name} — ${sub}` : row.name
+}
 
-onMounted(() => {
-  loadTemplate()
-  loadTeamFinancials()
+const parentPickerHint = computed(() => {
+  if (!parentCategory.value) return ''
+  // Names the half that is actually missing: the Employee Function fills itself
+  // in from the signed-in user, so "no Project and Employee Function" was
+  // reporting a blank field that was not blank.
+  if (!project.value || !employeeFunction.value) {
+    const missing = !project.value && !employeeFunction.value
+      ? 'Project or Employee Function'
+      : (!project.value ? 'Project' : 'Employee Function')
+    return `This run has no ${missing} yet, so no parent can be resolved — fill it in above.`
+  }
+  if (loadingParents.value || !parentsLoaded.value) return 'Looking up the level above…'
+  if (!parentCandidates.value.length) {
+    return `No ${parentCategory.value} exists for project ${project.value} under `
+      + `${employeeFunction.value} yet — create one first, then start this run under it.`
+  }
+  return `${parentCategory.value}s in project ${project.value} under ${employeeFunction.value}. `
+    + 'Required: this level always sits under one.'
+})
+
+const loadParentCandidates = async () => {
+  parentCandidates.value = []
+  parentsLoaded.value = false
+
+  if (!needsParent.value || !project.value || !employeeFunction.value) {
+    parentsLoaded.value = true
+    return
+  }
+
+  loadingParents.value = true
+  try {
+    const res = await axios.get(`/api/method/${HIERARCHY_API}.get_parent_candidates`, {
+      params: {
+        project: project.value,
+        employee_function: employeeFunction.value,
+        category: experiment.value.experiment_category,
+      },
+    })
+    parentCandidates.value = res.data.message || []
+    // A parent picked for the previous level is not a parent for this one.
+    if (!parentCandidates.value.some((c) => c.name === experiment.value.parent_experiment)) {
+      experiment.value.parent_experiment = ''
+    }
+  } catch (err) {
+    console.error('Failed to load parent experiments:', err)
+    parentCandidates.value = []
+  } finally {
+    loadingParents.value = false
+    parentsLoaded.value = true
+  }
+}
+
+// Templates for the leaf level only, scoped the same way the create modal scopes
+// them: a template with no project is shared, one with a project must match.
+const templateOptions = ref([])
+const templatesLoaded = ref(false)
+
+const loadTemplateOptions = async () => {
+  try {
+    const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_experiment_templates', {
+      params: { filters: JSON.stringify({ status: ['!=', 'Archived'] }) },
+    })
+    templateOptions.value = (res.data.message || []).filter((t) => {
+      if (employeeFunction.value && t.employee_function && t.employee_function !== employeeFunction.value) return false
+      if (t.project && t.project !== project.value) return false
+      return true
+    })
+  } catch (err) {
+    console.error('Failed to load templates:', err)
+    templateOptions.value = []
+  } finally {
+    templatesLoaded.value = true
+  }
+}
+
+const templateLabel = (t) => t.template_name || t.title || t.name
+
+// Re-cloning on every keystroke of a picker is not possible - the pick itself is
+// the event - but switching templates has to drop the previous one's rows first,
+// or the two sets would be merged into one run.
+const onTemplatePicked = async (name) => {
+  clearTemplateSelection()
+  if (name) await applyTemplateClone(name)
+}
+
+// Changing the level changes everything the form asks for: which runs are
+// adoptable, which run can be its parent, and whether it carries a template at
+// all. Rebuilding rather than carrying selections across levels is what keeps a
+// Master from being posted with a Sub Sub's material rows still attached.
+watch(() => experiment.value.experiment_category, () => {
+  loadChildCandidates()
+  loadParentCandidates()
+
+  // Guarded on the options being in hand: before they load, every level would
+  // look like "no template, no parent" and wipe a template arriving by URL.
+  if (!categoryOptions.value.length) return
+
+  if (!needsParent.value) experiment.value.parent_experiment = ''
+  if (!usesTemplate.value) clearTemplateSelection()
+  if (!usesTemplate.value && TEMPLATE_TABS.includes(activeTab.value)) activeTab.value = 'general'
+})
+
+onMounted(async () => {
+  loadServerNow()
+  loadFinancials()
   loadProjectAndFunctionNames()
   loadAvailableItems()
   loadTeamsForProject()
-  loadCategoryOptions()
+  loadTemplateOptions()
+  loadAuthorizedProjects()
+  // Resolves the signed-in user's function, and pre-selects it when there is
+  // exactly one. Awaited so the fallback below knows whether it is needed.
+  await loadMyFunctions()
+  loadProjectFunctions()
+  await loadCategoryOptions()
+
+  // A category that arrived in the URL was set before this component mounted,
+  // so the watcher above - which is what normally fills the parent and child
+  // pickers - never fires for it. Prime them here instead, once the ordering
+  // those pickers read is in hand. The parent seeded from the URL survives only
+  // if it is a real candidate: loadParentCandidates drops anything the server
+  // does not offer for this level and scope.
+  if (experiment.value.experiment_category) {
+    loadParentCandidates()
+    loadChildCandidates()
+  }
+
+  // A template in the URL belongs to the one level that can carry one, so it is
+  // dropped here rather than cloned first: a run started at a level with no
+  // Material Required, Equipment Details or Methodology tab would otherwise be
+  // posted with those rows attached, each flagged from_template = 1 and so
+  // undeletable afterwards. The watcher above does the same on a level *change*;
+  // it never fires for a level that arrived already set.
+  if (experiment.value.experiment_category && !usesTemplate.value) {
+    clearTemplateSelection()
+    loading.value = false
+    return
+  }
+  await loadTemplate()
 })
 </script>
 
@@ -586,7 +1201,17 @@ onMounted(() => {
           <span class="breadcrumb-current">New Run</span>
         </nav>
         <h1 class="page-title">Create Experiment Run</h1>
-        <p class="page-subtitle">Pre-filled from template: {{ templateId }}</p>
+        <p class="page-subtitle">
+          <template v-if="experiment.template">Pre-filled from template: {{ experiment.template }}</template>
+          <!-- Started from the run above: say which one, since the parent is the
+               whole reason this form arrived pre-filled. Falls through to the
+               line below if that parent turned out not to be a candidate. -->
+          <template v-else-if="seedCategory && experiment.parent_experiment">
+            {{ experiment.experiment_category }} under {{ experiment.parent_experiment }}
+          </template>
+          <template v-else-if="experiment.experiment_category">{{ experiment.experiment_category }} — entered by hand</template>
+          <template v-else>Pick an Experiment Category to start</template>
+        </p>
       </div>
 
       <div class="page-header-right">
@@ -600,10 +1225,13 @@ onMounted(() => {
         >
           Open {{ createdId }}
         </router-link>
+        <!-- Enabled even with fields still empty: a disabled Save cannot tell
+             anyone *why* it is disabled, and this form's whole answer to a
+             half-filled run is the message validateExperiment builds. -->
         <button
           v-else
           class="btn btn-primary"
-          :disabled="saving || loading || !experiment.experiment_team"
+          :disabled="saving || loading"
           @click="saveExperiment"
         >
           {{ saving ? 'Saving...' : 'Save Run' }}
@@ -624,55 +1252,18 @@ onMounted(() => {
 
     <div v-else class="form-layout card">
       <!-- Tabs Selector -->
+      <!-- Material Required, Equipment Details and Methodology only exist on the
+           leaf level, which is the only one that can be run from a template. See
+           visibleTabs. -->
       <div class="form-tabs-row">
         <button
+          v-for="tab in visibleTabs"
+          :key="tab.key"
           class="tab-btn"
-          :class="{ active: activeTab === 'general' }"
-          @click="activeTab = 'general'"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
         >
-          General/Template
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'materials' }"
-          @click="activeTab = 'materials'"
-        >
-          Material Required
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'equipment' }" 
-          @click="activeTab = 'equipment'"
-        >
-          Equipment Details
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'methodology' }" 
-          @click="activeTab = 'methodology'"
-        >
-          Methodology
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'procedure' }" 
-          @click="activeTab = 'procedure'"
-        >
-          Protocol Steps
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'observations' }"
-          @click="activeTab = 'observations'"
-        >
-          Observation
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'hierarchy' }"
-          @click="activeTab = 'hierarchy'"
-        >
-          Experiment Hierarchy
+          {{ tab.label }}
         </button>
       </div>
 
@@ -681,34 +1272,108 @@ onMounted(() => {
         <!-- 1. GENERAL TAB -->
         <div v-if="activeTab === 'general'" class="tab-pane">
           <div class="pane-grid">
+            <!-- The order of this pane is its dependency order. Project comes
+                 first because everything below is resolved from it: the teams to
+                 choose between, the runs this one can sit under, the templates in
+                 scope. A field that says "pick a Project first" now says it below
+                 the Project field, not above it. -->
             <div class="form-group-row two-columns">
               <div class="form-group">
-                <label class="form-label">Template</label>
-                <input
-                  type="text"
-                  :value="experiment.title || 'None'"
-                  class="form-control readonly"
-                  readonly
+                <label class="form-label">Project *</label>
+                <LinkField
+                  v-model="project"
+                  :search-fn="projectSearch"
+                  description-field="project_name"
+                  :empty-hint="projectsLoaded ? 'No matching project' : 'Loading…'"
+                  placeholder="Search your projects…"
                 />
+                <span
+                  class="field-hint"
+                  :class="{ 'field-hint-error': projectsLoaded && !authorizedProjects.length }"
+                >{{ projectHint }}</span>
               </div>
+              <!-- Second because it is the other half of the scope, and because
+                   it is usually already answered: it fills itself in from the
+                   signed-in user. -->
+              <div class="form-group">
+                <label class="form-label">Employee Function *</label>
+                <LinkField
+                  v-model="employeeFunction"
+                  :search-fn="employeeFunctionSearch"
+                  description-field="function_name"
+                  :empty-hint="functionsLoaded ? 'No matching function' : 'Loading…'"
+                  placeholder="Search your functions…"
+                />
+                <span
+                  class="field-hint"
+                  :class="{ 'field-hint-error': usingProjectFunctions && !functionPool.length }"
+                >{{ employeeFunctionHint }}</span>
+              </div>
+            </div>
+
+            <div class="form-group-row two-columns">
+              <!-- Third: the level decides what the rest of this form asks for -
+                   whether a parent is needed at all, whether a template applies,
+                   which tabs exist. Fixed once the run is saved. -->
+              <div class="form-group">
+                <label class="form-label">Experiment Category *</label>
+                <select v-model="experiment.experiment_category" class="form-control">
+                  <option value="">Select a level…</option>
+                  <option v-for="opt in categoryOptions" :key="opt.category" :value="opt.category">
+                    {{ opt.category }}
+                  </option>
+                </select>
+                <span class="field-hint">
+                  Fixed once this run is saved, and it decides what the rest of this
+                  form asks for.
+                </span>
+              </div>
+
+              <!-- Fourth, and only when the level takes one: a Master Experiment
+                   sits under nothing, and api/hierarchy.assert_parent_presence
+                   rejects a parent on it server-side. Its candidates come from
+                   the project and function above, which is why it follows them. -->
+              <div v-if="needsParent" class="form-group">
+                <label class="form-label">Link to Parent Experiment *</label>
+                <select
+                  v-model="experiment.parent_experiment"
+                  class="form-control"
+                  :disabled="!parentsLoaded || !parentCandidates.length"
+                >
+                  <option value="">
+                    {{ parentsLoaded ? `Select the ${parentCategory} this run sits under…` : 'Loading…' }}
+                  </option>
+                  <option v-for="p in parentCandidates" :key="p.name" :value="p.name">
+                    {{ parentLabel(p) }}
+                  </option>
+                </select>
+                <span
+                  class="field-hint"
+                  :class="{ 'field-hint-error': parentsLoaded && !parentCandidates.length }"
+                >{{ parentPickerHint }}</span>
+              </div>
+            </div>
+
+            <div class="form-group-row two-columns">
+              <!-- Fifth: the teams on offer are the ones under the project and
+                   function above. -->
               <div class="form-group">
                 <label class="form-label">Experiment Team *</label>
-                <!-- Locked when the team flow or a single candidate settles it;
-                     only a genuine choice opens the picker. -->
-                <input
-                  v-if="isTeamFlow || teamOptions.length === 1"
-                  type="text"
-                  :value="experiment.experiment_team"
-                  class="form-control readonly font-mono"
-                  readonly
-                />
+                <!-- Always a picker, at every level: the team is confirmed here,
+                     never settled off-screen. A single candidate (or the team
+                     flow's URL value) pre-selects it, it does not lock it. -->
                 <select
-                  v-else
                   v-model="experiment.experiment_team"
                   class="form-control"
-                  :disabled="!teamsLoaded || !teamOptions.length"
+                  :disabled="!teamsLoaded || (!teamOptions.length && !experiment.experiment_team)"
                 >
                   <option value="">{{ teamsLoaded ? 'Select a team…' : 'Loading…' }}</option>
+                  <option
+                    v-if="experiment.experiment_team && !teamOptions.some((t) => t.name === experiment.experiment_team)"
+                    :value="experiment.experiment_team"
+                  >
+                    {{ experiment.experiment_team }}
+                  </option>
                   <option v-for="t in teamOptions" :key="t.name" :value="t.name">
                     {{ teamLabel(t) }}
                   </option>
@@ -722,61 +1387,182 @@ onMounted(() => {
                   </router-link>
                 </div>
               </div>
+
+              <!-- Only the leaf level runs from a template, and even there it is
+                   optional. At every other level the field is absent altogether
+                   rather than showing a box that says it does not apply: those
+                   levels cannot carry cloned content at all, so there is nothing
+                   to tell the user about. -->
+              <div v-if="usesTemplate" class="form-group">
+                <label class="form-label">Template</label>
+                <select
+                  :value="experiment.template"
+                  class="form-control"
+                  :disabled="!templatesLoaded"
+                  @change="onTemplatePicked($event.target.value)"
+                >
+                  <option value="">
+                    {{ templatesLoaded ? 'No template — enter this run by hand' : 'Loading…' }}
+                  </option>
+                  <option v-for="t in templateOptions" :key="t.name" :value="t.name">
+                    {{ templateLabel(t) }}
+                  </option>
+                </select>
+                <span class="field-hint">
+                  Optional. Picking one copies its materials, equipment and methodology
+                  onto this run; leaving it blank starts an empty run.
+                </span>
+              </div>
             </div>
 
-            <!-- Project Details Row -->
+            <!-- Everything the three pickers above resolve to, read-only and
+                 grouped: nothing here is answered by the user, so nothing here
+                 sits between two fields that are. -->
             <div class="form-group-row three-columns">
-              <div class="form-group">
-                <label class="form-label">Project ID</label>
-                <input type="text" :value="experiment.project" class="form-control readonly" readonly />
-              </div>
               <div class="form-group">
                 <label class="form-label">Project Name</label>
                 <input type="text" :value="projectName || 'N/A'" class="form-control readonly" readonly />
               </div>
               <div class="form-group">
-                <label class="form-label">Employee Function</label>
-                <input type="text" :value="experiment.employee_function" class="form-control readonly" readonly />
-              </div>
-            </div>
-
-            <div class="form-group-row three-columns">
-              <div class="form-group">
                 <label class="form-label">Function Name</label>
                 <input type="text" :value="employeeFunctionName || 'N/A'" class="form-control readonly" readonly />
               </div>
+              <!-- The team's own name, beside the id picked above. Teams created
+                   before the field existed have none, and say so rather than
+                   showing blank. -->
               <div class="form-group">
-                <label class="form-label">Scientist (Lead)</label>
-                <input type="text" :value="experiment.employee_name" class="form-control readonly" readonly />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Start Date & Time</label>
-                <input type="datetime-local" :value="experiment.experiment_start_date" class="form-control readonly" readonly />
+                <label class="form-label">Team Name</label>
+                <input type="text" :value="teamNameDisplay" class="form-control readonly" readonly />
               </div>
             </div>
 
             <div class="form-group-row two-columns">
+              <!-- Display only. The stored value is stamped server-side from the
+                   session at insert, so this shows who that will resolve to. -->
               <div class="form-group">
-                <label class="form-label">Segment</label>
-                <input type="text" :value="experiment.segment || 'None'" class="form-control readonly" readonly />
+                <label class="form-label">Scientist (Lead)</label>
+                <input type="text" :value="scientistName" class="form-control readonly" readonly />
               </div>
+              <!-- The account the run is filed under. Frappe writes it to `owner`
+                   on insert and the Employee behind it to employee_code /
+                   employee_name (LabExperiment.set_creator_identity), so this is
+                   shown rather than posted - the client does not get a say in
+                   who authored a run. -->
               <div class="form-group">
-                <label class="form-label">Cost Centre</label>
-                <input type="text" :value="experiment.cost_center || 'None'" class="form-control readonly" readonly />
+                <label class="form-label">Created By</label>
+                <input type="text" :value="currentUserId" class="form-control readonly" readonly />
               </div>
             </div>
 
-            <!-- Template Details Section -->
-            <!-- Sub Aim is deliberately absent here: it is editable below, and a
-                 read-only copy would read as fixed by the template. -->
-            <div v-if="experiment.aim || experiment.rationale" class="template-details-section">
-              <div v-if="experiment.aim" class="form-group">
-                <label class="form-label">Aim / Hypothesis</label>
-                <textarea class="form-control readonly" :value="experiment.aim" readonly rows="2"></textarea>
+            <!-- A Date, not a datetime: the doctype stores the day the run
+                 started, so a clock face here was promising a precision that was
+                 thrown away on save. The start is the site's today; the end is
+                 the one of the two the user fills in, and stays open because a
+                 run rarely knows its last day on its first. -->
+            <div class="form-group-row two-columns">
+              <div class="form-group">
+                <label class="form-label">Start Date</label>
+                <input
+                  type="date"
+                  :value="experiment.experiment_start_date"
+                  class="form-control readonly"
+                  readonly
+                />
+                <span class="field-hint">
+                  Today on the lab's clock<template v-if="serverTimeZone"> ({{ serverTimeZone }})</template>.
+                </span>
               </div>
-              <div v-if="experiment.rationale" class="form-group">
-                <label class="form-label">Rationale</label>
-                <textarea class="form-control readonly" :value="experiment.rationale" readonly rows="2"></textarea>
+              <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input
+                  type="date"
+                  v-model="experiment.experiment_end_date"
+                  :min="experiment.experiment_start_date || undefined"
+                  class="form-control"
+                  @click="openDatePicker"
+                  @focus="openDatePicker"
+                />
+                <span class="field-hint">
+                  Optional — click the field to pick a date from the calendar. Leave it
+                  empty while the run is still going, and set it when the work is done.
+                </span>
+              </div>
+            </div>
+
+            <!-- Both come from the Employee Function above, which is where the
+                 organisation books this work. Filled in when the function leaves
+                 no choice, offered as a picker when it maps more than one -
+                 never typed by hand, and never carried over from another
+                 function when the signed-in user changes. -->
+            <div class="form-group-row two-columns">
+              <div class="form-group">
+                <label class="form-label">Segment</label>
+                <select
+                  v-model="experiment.segment"
+                  class="form-control"
+                  :disabled="!financialsLoaded || !segmentOptions.length"
+                >
+                  <option value="">
+                    {{ financialsLoaded ? (segmentOptions.length ? 'Select a segment…' : 'None') : 'Loading…' }}
+                  </option>
+                  <option v-for="s in segmentOptions" :key="s" :value="s">{{ s }}</option>
+                </select>
+                <span class="field-hint">{{ segmentHint }}</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Cost Centre</label>
+                <select
+                  v-model="experiment.cost_center"
+                  class="form-control"
+                  :disabled="!financialsLoaded || !costCenterOptions.length"
+                >
+                  <option value="">
+                    {{ financialsLoaded ? (costCenterOptions.length ? 'Select a cost centre…' : 'None') : 'Loading…' }}
+                  </option>
+                  <option v-for="c in costCenterOptions" :key="c" :value="c">{{ c }}</option>
+                </select>
+                <span class="field-hint">{{ costCenterHint }}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 2. DETAILS TAB -->
+        <!-- The run's write-up: what it sets out to do and what was seen. Split
+             out of Template so that tab carries the run's setup alone. -->
+        <div v-if="activeTab === 'details'" class="tab-pane">
+          <div class="pane-grid">
+            <!-- The run's own title. The field has always existed on Lab
+                 Experiment (`title`) but nothing ever asked for one, so every
+                 run carried an empty title and the record header had nothing to
+                 print. It is what the run is called; the Aim below is what it
+                 sets out to show. -->
+            <div class="form-group-row two-columns">
+              <div class="form-group">
+                <label class="form-label">Experiment Title</label>
+                <input
+                  type="text"
+                  v-model="experiment.title"
+                  class="form-control"
+                  placeholder="What this run is called…"
+                  :readonly="isFromTemplate"
+                  :class="{ readonly: isFromTemplate }"
+                />
+                <span class="field-hint">
+                  <template v-if="isFromTemplate">Taken from the selected template.</template>
+                  <template v-else>Shown as this run's heading once it is saved. Optional — the Aim stands in when it is blank.</template>
+                </span>
+              </div>
+              <!-- Who the run is filed under, as stored: the Employee id comes
+                   from the signed-in user's Employee record at insert
+                   (LabExperiment.set_creator_identity) and is fixed afterwards. -->
+              <div class="form-group">
+                <label class="form-label">Employee ID (Creator)</label>
+                <input type="text" :value="currentEmployeeId" class="form-control readonly" readonly />
+                <span class="field-hint">
+                  Stamped from your Employee record when the run is saved — {{ scientistName }}.
+                </span>
               </div>
             </div>
 
@@ -790,6 +1576,7 @@ onMounted(() => {
                 rows="3"
                 placeholder="Aim of the experiment..."
               ></textarea>
+              <span v-if="isFromTemplate" class="field-hint">Fixed by the selected template.</span>
             </div>
 
             <!-- Sub Aim stays editable even on a template run: it is mandatory on
@@ -815,6 +1602,11 @@ onMounted(() => {
                 rows="3"
                 placeholder="Hypothesis rationale..."
               ></textarea>
+            </div>
+
+            <div class="form-group stacked-field">
+              <label class="form-label">Observation</label>
+              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" />
             </div>
           </div>
         </div>
@@ -1055,35 +1847,33 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 6. OBSERVATION TAB -->
-        <div v-if="activeTab === 'observations'" class="tab-pane">
-          <section class="meta-card">
-            <h3 class="pane-subtitle">Observation Comments</h3>
-            <div class="form-group stacked-field">
-              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" />
-            </div>
-          </section>
-        </div>
-
-        <!-- 7. EXPERIMENT HIERARCHY TAB -->
-        <!-- Category comes first because it decides which level the picker below
-             offers - and it is fixed once this run is saved, so this is the only
-             chance to set it. -->
+        <!-- EXPERIMENT HIERARCHY TAB -->
+        <!-- What follows from the level picked on the first tab: the run this one
+             sits under, and the runs it adopts. The level itself is asked for
+             there rather than here, because it decides which tabs exist at all -
+             including whether this one has anything to offer. -->
         <div v-if="activeTab === 'hierarchy'" class="tab-pane">
           <section class="meta-card">
             <h3 class="pane-subtitle">Experiment Hierarchy</h3>
 
-            <div class="form-group stacked-field">
-              <label class="form-label">Experiment Category *</label>
-              <select v-model="experiment.experiment_category" class="form-control">
-                <option value="">Select a level…</option>
-                <option v-for="opt in categoryOptions" :key="opt.category" :value="opt.category">
-                  {{ opt.category }}
-                </option>
-              </select>
+            <div v-if="!experiment.experiment_category" class="hierarchy-empty">
+              Pick an Experiment Category on the Template tab first — it decides what
+              this run can sit under, and what it can adopt.
+            </div>
+
+            <!-- The run this one sits under is asked for on the Template tab,
+                 beside the level that decides whether it needs one at all. What
+                 is left here is the other direction: the runs this one adopts. -->
+            <div v-if="needsParent" class="form-group stacked-field">
+              <label class="form-label">Parent Experiment</label>
+              <input
+                type="text"
+                :value="experiment.parent_experiment || 'Not linked yet'"
+                class="form-control readonly"
+                readonly
+              />
               <span class="field-hint">
-                Fixed once this run is saved. There can be only one Master Experiment
-                per project and Employee Function.
+                Set on the Template tab — this run sits under {{ withArticle(parentCategory) }}.
               </span>
             </div>
 
@@ -1139,6 +1929,26 @@ onMounted(() => {
                 </template>
               </template>
             </div>
+          </section>
+        </div>
+
+        <!-- REPORT TAB -->
+        <!-- Present at every level, as on the saved run, but there is nothing to
+             roll up until the record exists: the report is this run plus its
+             descendants, and neither exists yet. Saying so beats an empty card. -->
+        <div v-if="activeTab === 'report'" class="tab-pane">
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Report</h3>
+            <p class="rep-pending">
+              The report rolls up this run and everything linked below it, so it is
+              built once the run has been saved.
+              <template v-if="createdId">
+                <br />
+                <router-link :to="`/experiments/${encodeURIComponent(createdId)}?tab=report`">
+                  Open the report for {{ createdId }}
+                </router-link>
+              </template>
+            </p>
           </section>
         </div>
       </div>

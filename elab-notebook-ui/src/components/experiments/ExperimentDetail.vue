@@ -6,6 +6,7 @@ import { useUserStore } from '../../stores/user'
 import LinkField from '../common/LinkField.vue'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import ExperimentTree from './ExperimentTree.vue'
+import ExperimentReport from './ExperimentReport.vue'
 import AddRow from '../common/AddRow.vue'
 import { readServerError } from '../../utils/serverError'
 import './ExperimentDetail.css'
@@ -20,21 +21,110 @@ const error = ref('')
 const successMessage = ref('')
 
 // Tab ids, in the order the row renders them. Also the allow-list for ?tab= -
-// an unknown value falls back to General rather than blanking the pane.
+// an unknown value falls back to Template rather than blanking the pane.
+// `tree` keeps its id though it now reads "Experiment Hierarchy": links out of
+// ExperimentTree carry ?tab=tree, and renaming the key would break every one.
 const TAB_KEYS = [
   'general',
+  'details',
   'materials',
   'equipment',
   'methodology',
   'procedure',
-  'observations',
-  'history',
-  'samples',
   'tree',
+  'report',
+  'samples',
+  'history',
 ]
 
 const activeTab = ref('general')
 const experiment = ref(null)
+
+// Only the leaf level carries template-cloned content, so its four tabs are the
+// only ones that appear conditionally. Mirrors visibleTabs in ExperimentForm -
+// the create and edit forms show the same set for the same record.
+const TEMPLATE_TABS = ['materials', 'equipment', 'methodology', 'procedure']
+
+const usesTemplate = computed(
+  () => experiment.value?.experiment_category === 'Sub Sub Experiment'
+)
+
+// The level ordering, shipped by api/hierarchy.get_category_options rather than
+// retyped here - the same source ExperimentForm reads it from. It is what tells
+// this component which record is the root and what its children are called,
+// without a level name being spelled out in JavaScript.
+const categoryOptions = ref([])
+
+const loadCategoryOptions = async () => {
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.hierarchy.get_category_options'
+    )
+    categoryOptions.value = res.data.message || []
+  } catch (err) {
+    console.error('Failed to load experiment categories:', err)
+    categoryOptions.value = []
+  }
+}
+
+// The root is the level no other level adopts, and the level below it is that
+// option's child_category - "Experiment", which is what the button below reads.
+const isRootExperiment = computed(() => {
+  const category = experiment.value?.experiment_category
+  if (!category || !categoryOptions.value.length) return false
+  return !categoryOptions.value.some((o) => o.child_category === category)
+})
+
+const childCategory = computed(
+  () =>
+    categoryOptions.value.find((o) => o.category === experiment.value?.experiment_category)
+      ?.child_category || ''
+)
+
+// Starting the level below is offered on the root alone for now: it is the one
+// level whose Template tab carries nothing, so the header has room for it.
+const canStartChildRun = computed(() => isRootExperiment.value && Boolean(childCategory.value))
+
+// The create form's own pre-fill mechanism - the URL query it already reads on
+// the team flow (see CreateExperimentModal.handleProceed). Nothing here is
+// locked: every value lands in an editable field, the team included.
+const startChildRun = () => {
+  if (!canStartChildRun.value) return
+  const query = {
+    experiment_category: childCategory.value,
+    // The reason this lives on the saved record and not on the create form:
+    // parent_experiment is a Link, so there is nothing to point at until the
+    // parent has a name.
+    parent_experiment: experiment.value.name,
+    project: experiment.value.project,
+    employee_function: experiment.value.employee_function,
+    experiment_team: experiment.value.experiment_team,
+  }
+  // A blank Link reaches the form as an empty string either way; leaving it out
+  // keeps the URL honest about what was actually carried over.
+  for (const key of Object.keys(query)) {
+    if (!query[key]) delete query[key]
+  }
+  router.push({ path: '/experiments/new', query })
+}
+
+// Samples and History have no create-time meaning and so exist only here.
+const visibleTabs = computed(() => [
+  { key: 'general', label: 'Template' },
+  { key: 'details', label: 'Details' },
+  ...(usesTemplate.value
+    ? [
+        { key: 'materials', label: 'Material Required' },
+        { key: 'equipment', label: 'Equipment Details' },
+        { key: 'methodology', label: 'Methodology' },
+        { key: 'procedure', label: 'Protocol Steps' },
+      ]
+    : []),
+  { key: 'tree', label: 'Experiment Hierarchy' },
+  { key: 'report', label: 'Report' },
+  { key: 'samples', label: 'Samples' },
+  { key: 'history', label: 'History/Audit Log' },
+])
 
 // The experiment's id is generated from its team, so the team is the natural
 // parent to jump to. The desk form is the target because /elab-notebook/:id in
@@ -44,6 +134,46 @@ const teamUrl = computed(() =>
     ? `/app/experiment-team/${encodeURIComponent(experiment.value.experiment_team)}`
     : ''
 )
+
+// The team's own name. It is not on the run - only the link is - so it is read
+// once per record and shown beside the id.
+const teamName = ref('')
+
+const loadTeamName = async () => {
+  teamName.value = ''
+  const team = experiment.value?.experiment_team
+  if (!team) return
+  try {
+    const res = await axios.get('/api/method/frappe.client.get_value', {
+      params: {
+        doctype: 'Experiment Team',
+        filters: JSON.stringify({ name: team }),
+        fieldname: JSON.stringify(['team_name']),
+      },
+    })
+    teamName.value = res.data.message?.team_name || ''
+  } catch (err) {
+    console.error('Failed to read the team name:', err)
+  }
+}
+
+// A native date field only opens its calendar from the small icon at its end.
+// Mirrors openDatePicker in ExperimentForm: a click anywhere in the control
+// opens it, and a browser that declines leaves a plain, still-typable date field.
+const openDatePicker = (event) => {
+  const input = event.currentTarget
+  if (!input || input.readOnly || input.disabled) return
+  try {
+    input.showPicker?.()
+  } catch {
+    /* Unsupported or not a trusted gesture. */
+  }
+}
+
+const teamLabel = computed(() => {
+  const team = experiment.value?.experiment_team || ''
+  return teamName.value ? `${teamName.value} — ${team}` : team
+})
 
 // Runs created before the naming key moved to Experiment Team still carry a
 // notebook, and it is still what their id was built from - so the link stays,
@@ -669,6 +799,15 @@ const applyTabFromRoute = () => {
   activeTab.value = TAB_KEYS.includes(wanted) ? wanted : 'general'
 }
 
+// A ?tab=materials link, or a tab left open while navigating between runs, can
+// land on a level that has no such tab. The pane would simply render nothing, so
+// fall back to Template rather than showing an empty card under a tab bar that
+// does not contain the selected tab. Runs on load too - the category is not
+// known until the record arrives.
+watch([usesTemplate, activeTab], ([leaf, tab]) => {
+  if (!leaf && TEMPLATE_TABS.includes(tab)) activeTab.value = 'general'
+})
+
 const loadEverything = async () => {
   // Sequenced rather than fired together: loadSamples reads experiment.value.name
   // and returns early without it, so launching them in parallel meant the samples
@@ -676,6 +815,7 @@ const loadEverything = async () => {
   // button, which is gated on "no sample exists yet", was deciding from a list
   // that had never loaded.
   await loadExperiment()
+  loadTeamName()
   loadHistory()
   loadSamples()
 }
@@ -707,6 +847,7 @@ watch(
 
 onMounted(() => {
   applyTabFromRoute()
+  loadCategoryOptions()
   loadEverything()
 })
 </script>
@@ -728,7 +869,10 @@ onMounted(() => {
           <span class="breadcrumb-separator">&gt;</span>
           <span class="breadcrumb-current">{{ route.params.id }}</span>
         </nav>
-        <h1 class="page-title">{{ experiment.title }}</h1>
+        <!-- Runs made before the title was asked for carry none, and an empty
+             h1 reads as a broken page - the Aim says what the run is about, and
+             the id is always there. -->
+        <h1 class="page-title">{{ experiment.title || experiment.aim || route.params.id }}</h1>
         <p class="page-subtitle">
           Status: 
           <span 
@@ -765,6 +909,18 @@ onMounted(() => {
             {{ act.action }}
           </button>
         </template>
+        <!-- Root level only, and only here rather than on the create form: the
+             run this starts names the record on screen as its parent, which
+             needs a saved name to point at. The label is the level below rather
+             than a fixed string, so it stays right if the levels are renamed. -->
+        <button
+          v-if="canStartChildRun"
+          class="btn btn-primary"
+          @click="startChildRun"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create {{ childCategory }}
+        </button>
         <button class="btn btn-secondary" @click="router.push('/experiments')">Back to List</button>
       </div>
 
@@ -845,70 +1001,17 @@ onMounted(() => {
          The `experiment` guard stays: the panes below dereference it directly,
          and one TypeError there takes down the whole app render. -->
     <div v-if="experiment && !isDraft" class="detail-layout card">
-      <!-- Tabs -->
+      <!-- Tabs. Material Required, Equipment Details, Methodology and Protocol
+           Steps appear only on a Sub Sub Experiment - see visibleTabs. -->
       <div class="form-tabs-row">
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'general' }" 
-          @click="activeTab = 'general'"
-        >
-          General/Template
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'materials' }" 
-          @click="activeTab = 'materials'"
-        >
-          Material Required
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'equipment' }" 
-          @click="activeTab = 'equipment'"
-        >
-          Equipment Details
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'methodology' }" 
-          @click="activeTab = 'methodology'"
-        >
-          Methodology
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'procedure' }" 
-          @click="activeTab = 'procedure'"
-        >
-          Protocol Steps
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'observations' }" 
-          @click="activeTab = 'observations'"
-        >
-          Observation
-        </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'history' }" 
-          @click="activeTab = 'history'"
-        >
-          History/Audit Log
-        </button>
         <button
+          v-for="tab in visibleTabs"
+          :key="tab.key"
           class="tab-btn"
-          :class="{ active: activeTab === 'samples' }"
-          @click="activeTab = 'samples'"
+          :class="{ active: activeTab === tab.key }"
+          @click="activeTab = tab.key"
         >
-          Samples
-        </button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'tree' }"
-          @click="activeTab = 'tree'"
-        >
-          Experiment Tree
+          {{ tab.label }}
         </button>
       </div>
 
@@ -928,7 +1031,10 @@ onMounted(() => {
                   class="form-control link-value"
                   :title="`Open ${experiment.experiment_team}`"
                 >
-                  <span class="link-value-text">{{ experiment.experiment_team }}</span>
+                  <!-- Name first, id second - the same label the create form's
+                       picker uses. Teams made before team_name existed have
+                       none, and then the id stands on its own. -->
+                  <span class="link-value-text">{{ teamLabel }}</span>
                   <svg class="link-value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                     <polyline points="15 3 21 3 21 9" />
@@ -998,6 +1104,71 @@ onMounted(() => {
               </div>
             </div>
 
+            <div class="form-group-row">
+              <!-- Editable here rather than only on the create form: a run almost
+                   never knows its last day on its first, so this is where the end
+                   date actually gets set. Saved by the Save button above. -->
+              <div class="form-group">
+                <label class="form-label">End Date</label>
+                <input
+                  type="date"
+                  v-model="experiment.experiment_end_date"
+                  :min="experiment.experiment_start_date || undefined"
+                  class="form-control"
+                  :disabled="isWorkflowLocked() && !isSystemManager"
+                  @click="openDatePicker"
+                  @focus="openDatePicker"
+                />
+                <span class="field-hint">Click the field to pick a date, then Save.</span>
+              </div>
+              <!-- The account this run is filed under, written by Frappe on
+                   insert and never by the client. -->
+              <div class="form-group">
+                <label class="form-label">Created By</label>
+                <input type="text" :value="experiment.owner || '—'" class="form-control readonly" readonly />
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- DETAILS TAB -->
+        <!-- The run's write-up, split out of Template so that tab carries the
+             run's setup alone. Observation lives here now rather than in a tab of
+             its own - it is the other half of what Aim asked. -->
+        <div v-if="activeTab === 'details'" class="tab-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ This experiment is locked. Only System Managers can edit observations in this state.
+          </div>
+          <div class="pane-grid">
+            <!-- The run's own title, editable here because it is the one part of
+                 the write-up that is a label rather than a finding - it is what
+                 the record header prints. Saved by the Save button above. -->
+            <div class="form-group-row">
+              <div class="form-group">
+                <label class="form-label">Experiment Title</label>
+                <input
+                  type="text"
+                  v-model="experiment.title"
+                  class="form-control"
+                  placeholder="What this run is called…"
+                  :disabled="isWorkflowLocked() && !isSystemManager"
+                />
+              </div>
+              <!-- Stamped from the creator's Employee record at insert and fixed
+                   afterwards (LabExperiment.validate_creator_identity_locked). -->
+              <div class="form-group">
+                <label class="form-label">Employee ID (Creator)</label>
+                <input
+                  type="text"
+                  :value="experiment.employee_code || '—'"
+                  class="form-control readonly"
+                  readonly
+                />
+                <span class="field-hint">{{ experiment.employee_name || '—' }}</span>
+              </div>
+            </div>
+
             <div class="form-group">
               <label class="form-label">Aim / Hypothesis</label>
               <input type="text" :value="experiment.aim" class="form-control readonly" readonly />
@@ -1012,10 +1183,17 @@ onMounted(() => {
               <label class="form-label">Rationale</label>
               <div class="readonly-textarea">{{ experiment.rationale || 'No rationale specified' }}</div>
             </div>
+
+            <section class="meta-card">
+              <h3 class="pane-subtitle">Observation Comments</h3>
+              <div class="form-group stacked-field">
+                <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" :readonly="isWorkflowLocked() && !isSystemManager" />
+              </div>
+            </section>
           </div>
         </div>
 
-        <!-- 2. MATERIALS TAB (EDITABLE with delete) -->
+        <!-- MATERIALS TAB (EDITABLE with delete) -->
         <div v-if="activeTab === 'materials'" class="tab-pane">
           <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit materials in this state.
@@ -1194,20 +1372,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 6. OBSERVATION TAB (EDITABLE) -->
-        <div v-if="activeTab === 'observations'" class="tab-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
-            ⚠️ This experiment is locked. Only System Managers can edit observations in this state.
-          </div>
-          <section class="meta-card">
-            <h3 class="pane-subtitle">Observation Comments</h3>
-            <div class="form-group stacked-field">
-              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" :readonly="isWorkflowLocked() && !isSystemManager" />
-            </div>
-          </section>
-        </div>
-
-        <!-- 7. HISTORY / AUDIT LOG TAB -->
+        <!-- HISTORY / AUDIT LOG TAB -->
         <div v-if="activeTab === 'history'" class="tab-pane">
           <h3 class="pane-subtitle">Change History Audit Log</h3>
           
@@ -1421,9 +1586,14 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 9. EXPERIMENT TREE TAB -->
+        <!-- EXPERIMENT HIERARCHY TAB -->
         <div v-if="activeTab === 'tree'" class="tab-pane">
           <ExperimentTree :experiment-id="String(route.params.id)" />
+        </div>
+
+        <!-- REPORT TAB -->
+        <div v-if="activeTab === 'report'" class="tab-pane">
+          <ExperimentReport :experiment-id="String(route.params.id)" />
         </div>
       </div>
     </div>

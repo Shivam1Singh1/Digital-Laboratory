@@ -47,6 +47,45 @@ const navigateToDetail = (id) => {
   router.push(`/experiments/${encodeURIComponent(id)}`)
 }
 
+// The name of the top level, read off the server's ordering
+// (api/hierarchy.get_category_options) rather than spelled out here - the same
+// source ExperimentForm and ExperimentDetail read it from.
+const rootCategory = ref('')
+
+const loadRootCategory = async () => {
+  try {
+    const res = await axios.get(
+      '/api/method/elab_notebook.elab_notebook.api.hierarchy.get_category_options'
+    )
+    const options = res.data.message || []
+    // The root is the level no other level adopts.
+    rootCategory.value =
+      options.find((o) => !options.some((p) => p.child_category === o.category))?.category || ''
+  } catch (err) {
+    console.error('Failed to load experiment categories:', err)
+    rootCategory.value = ''
+  }
+}
+
+// A run started from nothing, at the top of the tree. This is the only entry
+// point that starts a root: the team flow leaves the level to the form, and a
+// saved Master's own Create Experiment button starts the level *below* it and
+// carries that Master as the parent. Here there is no parent by definition -
+// api/hierarchy.assert_parent_presence rejects one on the root.
+//
+// It opens the create form directly. There is no setup dialog in front of it any
+// more: Project and Employee Function are fields on the form itself, the latter
+// resolved from the signed-in user, so there is nothing left for an intermediate
+// step to collect.
+const startNewExperiment = () => {
+  router.push({
+    path: '/experiments/new',
+    // If the ordering never arrived, the form asks for the level rather than
+    // opening at one guessed here.
+    query: rootCategory.value ? { experiment_category: rootCategory.value } : {},
+  })
+}
+
 // Watchers
 watch(() => userStore.currentProject, () => {
   currentPage.value = 1
@@ -77,16 +116,22 @@ const getExperimentStatusClass = (status) => {
 
 onMounted(() => {
   fetchExperiments()
+  loadRootCategory()
 })
 </script>
 
 <template>
   <div class="experiment-list-container">
     <!-- Header -->
+    <!-- The action is the page header's, not a second button in the filter bar:
+         Templates and Team Setup already put their create action there, and it
+         is the one spot that stays put whether the table or the empty state is
+         showing. -->
     <PageHeader
       :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Experiments' }]"
       title="Experiment Runs"
       subtitle="Track, execute, and sign off ongoing laboratory runs"
+      :action="{ label: 'New Experiment', onClick: startNewExperiment }"
     />
 
     <!-- Filters Row. No project scope here: the top bar's Active Project
@@ -203,7 +248,9 @@ onMounted(() => {
       </svg>
       <h3>No experiments found</h3>
       <p>No experiment runs match the selected project or status filters.</p>
-      <button class="btn btn-secondary mt-3" @click="userStore.openCreateExperimentModal()">
+      <!-- The same entry point as the header action: one page, one way to start
+           a run. -->
+      <button class="btn btn-secondary mt-3" @click="startNewExperiment">
         Create Your First Run
       </button>
     </div>

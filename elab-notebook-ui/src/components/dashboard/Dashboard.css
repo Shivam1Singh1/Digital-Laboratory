@@ -21,6 +21,18 @@
 /* Hero section — prominent greeting and stats */
 .dashboard-scrollable-content .page-header.dashboard-hero {
   padding: 0.9rem 1.5rem 0.85rem 1.5rem;
+  /* The hero stays full-bleed - the negative side margins below are what make its
+     bottom border run the whole way across as a band under the top bar - while
+     every other child of the page is capped at --page-max and centred
+     (styles/page-width.css). Left alone, the band's title would sit well to the
+     left of the cards under it on a wide monitor, so the same cap is re-applied
+     here as padding: the band spans the window, its contents line up with the
+     content below. max() keeps the original 1.5rem on any window narrower than
+     the cap, where the subtraction would go negative. */
+  padding-inline: max(
+    1.5rem,
+    calc((100% - var(--page-max)) / 2 + var(--dash-pad-x))
+  );
   margin-bottom: 0.5rem;
   margin-left: calc(-1 * var(--dash-pad-x));
   margin-right: calc(-1 * var(--dash-pad-x));

@@ -1,0 +1,52 @@
+/* =============================================================================
+ * Page content width
+ *
+ * Every page in this app is a scroll container that fills .main-workspace, and
+ * none of them had an upper width. On a laptop that is invisible - the window is
+ * the constraint. On a wide monitor it is the whole look of the app: a six
+ * column table stretched across 1700px puts each column in its own postcode,
+ * with the slack all landing in whichever column has no fixed width (Template
+ * Name on /templates, Aim on /experiments), so rows read as a scattering of
+ * text rather than a table.
+ *
+ * The cap is applied to the *children* of each page root, not to the roots
+ * themselves. The roots are the scrollers (`overflow-y: auto`), so capping them
+ * would pull the scrollbar off the window edge and float it in the middle of the
+ * screen. Capping the children instead leaves the scroller full-bleed and
+ * centres the content inside it, which is what every other app does.
+ *
+ * Below --page-max nothing here applies at all: the rule is a ceiling, so narrow
+ * windows keep the exact layout they had.
+ *
+ * One place to change it. Adding a page means adding its root to the list below;
+ * there is deliberately no shared class on the roots, because that would mean
+ * touching nine components to change a number that lives here.
+ * ========================================================================== */
+
+:root {
+  /* Wide enough for the six-column tables to breathe, narrow enough that a row
+     still scans as one line. */
+  --page-max: 1440px;
+}
+
+/* `:not(.modal-overlay)` is load-bearing: the overlays are `position: fixed`
+   with `left: 0; right: 0`, so a max-width would shrink the backdrop to a
+   centred strip instead of covering the window. */
+/* .dashboard-hero is exempt: it is a full-bleed band by design and re-applies the
+   cap as padding instead. That override lives beside the hero's other layout
+   rules in Dashboard.css, where a reader looking at the hero will find it. */
+.dashboard-scrollable-content > *:not(.modal-overlay):not(.dashboard-hero),
+.templates-list-container > *:not(.modal-overlay),
+.template-detail-container > *:not(.modal-overlay),
+.experiment-list-container > *:not(.modal-overlay),
+.experiment-detail-container > *:not(.modal-overlay),
+.experiment-form-container > *:not(.modal-overlay),
+.sample-list-container > *:not(.modal-overlay),
+.sample-detail-container > *:not(.modal-overlay),
+.team-setup-container > *:not(.modal-overlay) {
+  width: 100%;
+  max-width: var(--page-max);
+  /* Inline only - the children carry their own vertical rhythm and `margin: auto`
+     would flatten it. */
+  margin-inline: auto;
+}

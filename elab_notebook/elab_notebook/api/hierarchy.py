@@ -2,16 +2,25 @@
 
 Four fixed levels, top to bottom:
 
-    Master Experiment -> Sub Master Experiment -> Sub Experiment -> Sub Sub Experiment
+    Master Experiment -> Experiment -> Sub Experiment -> Sub Sub Experiment
 
 The relationship is stored in exactly one place: `parent_experiment`, a Link on
 the *child* pointing up. A parent's children are always derived
 (`parent_experiment = <parent>`), never mirrored into a child table, so the two
 ends cannot drift apart.
 
-Linking is driven from the parent: the parent's create form (and, later, its
-Experiment Tree tab) offers the experiments one level below that are free to be
-adopted, and attaching them writes `parent_experiment` on each child.
+Linking runs in both directions and both write the same field:
+
+* upward, at creation -- the child's create form picks its parent one level up
+  (`get_parent_candidates`), and every level below the root is *required* to
+  name one, so a run can never be orphaned into a tree it belongs to;
+* downward, later -- a parent's Experiment Tree tab adopts runs one level below
+  that are still free (`get_available_children`).
+
+A project + employee function holds as many Master Experiments as it has
+programmes: the root is not unique, so `get_parent_candidates` returns a list at
+every level, the root included. What a scope has is *some* Masters, not *the*
+Master.
 
 Every rule here is enforced server-side. The UI filtering is a convenience --
 `/api/resource/Lab Experiment` is reachable directly, so `LabExperiment`'s own
@@ -25,7 +34,7 @@ from frappe import _
 # Ordered top to bottom. Index in this tuple *is* the depth.
 CATEGORIES = (
 	"Master Experiment",
-	"Sub Master Experiment",
+	"Experiment",
 	"Sub Experiment",
 	"Sub Sub Experiment",
 )
@@ -67,6 +76,18 @@ _NODE_FIELDS = (
 	"employee_function",
 	"experiment_team",
 )
+
+
+def _a(category: str | None) -> str:
+	"""`category` with its indefinite article, so messages read as English.
+
+	Level two is literally "Experiment", so the article cannot be baked into the
+	format strings -- "a Experiment" is what every message about the second level
+	would otherwise say.
+	"""
+	category = category or ""
+	article = "an" if category[:1].upper() in "AEIOU" else "a"
+	return f"{article} {category}"
 
 
 def child_category_of(category: str | None) -> str | None:
@@ -168,6 +189,63 @@ def get_available_children(
 	)
 
 
+@frappe.whitelist()
+def get_parent_candidates(
+	project: str,
+	employee_function: str,
+	category: str,
+	txt: str | None = None,
+) -> list[dict]:
+	"""Experiments a run of `category` may name as its parent.
+
+	The upward counterpart of `get_available_children`, and deliberately *not*
+	its mirror image: the availability filter is absent. A parent holds many
+	children, so being someone's parent already never disqualifies a run from
+	being another's -- only `get_available_children` needs the exclusivity rule,
+	because that one is the *child* side of the link and a child takes one parent.
+
+	What is left is the two rules that do apply at both ends:
+
+	  1. category is exactly one level above `category`,
+	  2. same `project` *and* same `employee_function`.
+
+	Returns [] for the root, which takes no parent, and for a category we do not
+	know -- an empty pool, not an error, so the form renders "nothing to pick"
+	rather than a failure.
+
+	Read through `frappe.get_list`, so the Lab Experiment permission query in
+	elab_notebook.permissions applies -- a user is never offered a run they
+	cannot already see.
+	"""
+	parent_category = parent_category_of(category)
+	if not parent_category:
+		# Root level, or a category we do not know: there is nothing above.
+		return []
+
+	# Both scope values are required, and a blank employee_function is not
+	# matched against other blanks -- see the note in get_available_children.
+	if not project or not employee_function:
+		return []
+
+	or_filters = None
+	if txt:
+		pattern = f"%{txt}%"
+		or_filters = {"name": ("like", pattern), "title": ("like", pattern), "aim": ("like", pattern)}
+
+	return frappe.get_list(
+		"Lab Experiment",
+		filters={
+			"experiment_category": parent_category,
+			"project": project,
+			"employee_function": employee_function,
+		},
+		or_filters=or_filters,
+		fields=list(_NODE_FIELDS),
+		order_by="creation desc",
+		limit_page_length=200,
+	)
+
+
 # ---------------------------------------------------------------------------
 # Shared validation
 # ---------------------------------------------------------------------------
@@ -217,11 +295,11 @@ def assert_can_link(parent_row, child_row) -> None:
 
 	if child_row.get("experiment_category") != expected:
 		frappe.throw(
-			_("{0} is {1}. A {2} can only adopt a {3} -- levels cannot be skipped.").format(
+			_("{0} is {1}. {2} can only adopt {3} -- levels cannot be skipped.").format(
 				frappe.bold(child_name),
 				frappe.bold(child_row.get("experiment_category") or _("uncategorised")),
-				parent_row.get("experiment_category"),
-				expected,
+				_a(parent_row.get("experiment_category")).capitalize(),
+				_a(expected),
 			),
 			title=_("Wrong Level"),
 		)
@@ -283,6 +361,47 @@ def assert_can_link(parent_row, child_row) -> None:
 		frappe.throw(
 			_("{0} is Approved and can no longer be linked to a parent.").format(frappe.bold(child_name)),
 			title=_("Approved"),
+		)
+
+
+def assert_parent_presence(category: str | None, parent: str | None) -> None:
+	"""Whether a run of `category` must name a parent -- not whether it may.
+
+	The complement of `assert_can_link`, and split from it because the two ask
+	different questions of different inputs: this one judges the *presence* of a
+	link and needs only the child's own category, that one judges a link that
+	already exists and needs both ends. Keeping them apart is what lets
+	create-time run both (a parent is required *and* must be valid) while an
+	unlink runs neither.
+
+	  * root       -- refuses a parent; it is the top of its tree by definition.
+	  * every other level -- requires exactly one, so a run cannot be created
+	    floating outside the tree its category says it belongs to.
+
+	A blank category is not judged: runs predating the hierarchy carry one, and
+	`LabExperiment.validate_category` already blocks new runs from having one.
+	"""
+	category = (category or "").strip()
+	if not category or category not in CATEGORIES:
+		return
+
+	if category == ROOT_CATEGORY:
+		if parent:
+			frappe.throw(
+				_(
+					"{0} is the top of its tree and cannot have a Parent Experiment. "
+					"{1} was given as its parent -- clear it, or create this run as {2} instead."
+				).format(_a(ROOT_CATEGORY).capitalize(), frappe.bold(parent), _a(CATEGORIES[1])),
+				title=_("Master Takes No Parent"),
+			)
+		return
+
+	if not parent:
+		frappe.throw(
+			_("{0} must be created under {1} -- pick its Parent Experiment.").format(
+				_a(category).capitalize(), frappe.bold(_a(parent_category_of(category)))
+			),
+			title=_("Parent Experiment Required"),
 		)
 
 
@@ -440,6 +559,100 @@ def get_experiment_subtree(experiment: str) -> dict:
 		"child_category": child_category_of(root.get("experiment_category")),
 		"can_link": _can_link_more(root),
 	}
+
+
+# The scientific content the Report tab rolls up, deliberately separate from
+# _NODE_FIELDS: the tree tab ships one row per node and has no use for Text
+# Editor columns, so loading them there would make every tree render pay for a
+# view it does not have. Only the report asks for them.
+_REPORT_FIELDS = (
+	"name",
+	"title",
+	"aim",
+	"sub_aim",
+	"rationale",
+	"observation",
+	"observation_and_conclusion",
+	"results",
+	"procedure",
+	"precaution",
+	"sample_details",
+	"experiment_status",
+	"workflow_state",
+	"experiment_start_date",
+	"experiment_end_date",
+	"employee_code",
+	"employee_name",
+	"template",
+)
+
+
+@frappe.whitelist()
+def get_experiment_report(experiment: str) -> dict:
+	"""`experiment` and its descendants, each carrying its scientific content.
+
+	Shape and traversal come from `get_experiment_subtree` unchanged -- this call
+	does not walk the tree itself. What it adds is the second half of the answer:
+	the subtree ships identity fields only, and a report needs the aim, rationale,
+	observations and results hanging off each node.
+
+	Enrichment is one `frappe.get_list` over the whole node set rather than a read
+	per node, so a fifty-node tree costs two queries, not fifty-one. Going through
+	`get_list` a second time is not redundant: it means the report can only ever
+	widen fields on rows the permission query already allowed, never reintroduce a
+	row the subtree walk dropped. Anything the enrichment does not return keeps
+	its identity fields and renders with empty content, which is the honest
+	rendering of a row the user may see but whose body they may not.
+
+	Eager, in one round trip, matching the Experiment Hierarchy tab it sits beside
+	-- see `_descendants`, which recurses the full subtree with no page limit.
+	"""
+	tree = get_experiment_subtree(experiment)
+	root = tree.get("node")
+	if not root:
+		return {"node": None, "ancestors": [], "node_count": 0}
+
+	names = []
+	_collect_names(root, names)
+
+	content = {
+		row["name"]: row
+		for row in frappe.get_list(
+			"Lab Experiment",
+			filters={"name": ("in", names)},
+			fields=list(_REPORT_FIELDS),
+			limit_page_length=0,
+		)
+	}
+
+	_merge_content(root, content)
+
+	return {
+		"node": root,
+		"ancestors": tree.get("ancestors") or [],
+		"node_count": len(names),
+	}
+
+
+def _collect_names(node: dict, out: list[str]) -> None:
+	out.append(node["name"])
+	for child in node.get("children") or []:
+		_collect_names(child, out)
+
+
+def _merge_content(node: dict, content: dict) -> None:
+	"""Widen each node in place with its report fields, children included.
+
+	`children` is set last from what the node already holds, so a row missing
+	from `content` keeps its subtree instead of losing it to a bare update().
+	"""
+	row = content.get(node["name"])
+	if row:
+		children = node.get("children") or []
+		node.update(row)
+		node["children"] = children
+	for child in node.get("children") or []:
+		_merge_content(child, content)
 
 
 def _descendants(name: str, seen: set[str], depth: int) -> list[dict]:

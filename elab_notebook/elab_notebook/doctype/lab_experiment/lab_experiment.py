@@ -23,6 +23,7 @@ from elab_notebook.elab_notebook.api.hierarchy import (
 	CATEGORIES,
 	ROOT_CATEGORY,
 	assert_can_link,
+	assert_parent_presence,
 )
 from elab_notebook.experiment_access import is_authorized_for_project
 from elab_notebook.permissions import has_bypass
@@ -60,15 +61,17 @@ _IMPORTED_ROW_TABLES = (
 
 class LabExperiment(Document):
 	def before_insert(self):
+		self.set_creator_identity()
 		self.set_series()
 		self.validate_participant()
 
 	def validate(self):
+		self.validate_creator_identity_locked()
 		self.populate_from_template()
 		# Hierarchy runs ahead of the approval lock so a rejected link names the
 		# rule it broke, instead of the lock's generic "cannot be modified".
 		self.validate_category()
-		self.validate_master_singleton()
+		self.validate_master_scope()
 		self.validate_parent_link()
 		self.validate_imported_rows_kept()
 		self.validate_terminal_outcome()
@@ -134,6 +137,80 @@ class LabExperiment(Document):
 			next_letter, next_number = max_letter, max_number + 1
 
 		self.series = f"{self.experiment_team}-{next_letter}{next_number:04d}"
+
+	# ------------------------------------------------------------------
+	# Creator identity
+	# ------------------------------------------------------------------
+
+	def set_creator_identity(self):
+		"""Stamp who is logging this run, from the session -- never from input.
+
+		`employee_code` used to be filled in by the create form, which made the
+		run's author a value the client chose rather than a fact about the
+		session. Whatever arrives on the payload is discarded here, so a crafted
+		POST naming someone else's Employee is not a way to file a run under their
+		name.
+
+		`employee_name` is a fetch_from of employee_code and Frappe refreshes it on
+		save; it is set here too so the value is present on the insert itself
+		rather than appearing a moment later.
+
+		No Employee for the session user is a hard stop rather than a blank. The
+		field is `reqd`, so leaving it empty only trades this message for Frappe's
+		generic "value missing", and a run whose author cannot be identified is
+		not worth more than the error that explains why.
+		"""
+		employee = frappe.db.get_value(
+			"Employee", {"user_id": frappe.session.user, "status": "Active"}, ["name", "employee_name"]
+		) or frappe.db.get_value(
+			"Employee", {"user_id": frappe.session.user}, ["name", "employee_name"]
+		)
+
+		if not employee:
+			frappe.throw(
+				_(
+					"Your user account ({0}) is not linked to an Employee record, so this run "
+					"has no author to file it under. Ask HR to set the User ID on your Employee."
+				).format(frappe.bold(frappe.session.user)),
+				title=_("No Employee Record"),
+			)
+
+		self.employee_code, self.employee_name = employee
+
+	def validate_creator_identity_locked(self):
+		"""The author is fixed at creation, for everyone.
+
+		`read_only` on the field governs the desk form and nothing else -- a REST
+		PATCH writes a read_only field happily - so the rule that actually holds is
+		this one. New records are exempt: `set_creator_identity` has just written
+		both values, and there is no stored row to compare against yet.
+		"""
+		if self.is_new():
+			return
+
+		stored = frappe.db.get_value(
+			"Lab Experiment", self.name, ["employee_code", "employee_name"], as_dict=True
+		)
+		if not stored:
+			return
+
+		if (self.employee_code or None) != (stored.employee_code or None):
+			frappe.throw(
+				_(
+					"Employee Code records who created {0} and cannot be changed. "
+					"It is {1}; {2} was submitted."
+				).format(
+					frappe.bold(self.name),
+					frappe.bold(stored.employee_code or _("blank")),
+					frappe.bold(self.employee_code or _("blank")),
+				),
+				title=_("Creator Is Fixed"),
+			)
+
+		# Kept in step with the code rather than compared against the submission:
+		# employee_name is a fetch_from, so a stale or edited value on the payload
+		# is corrected instead of rejected - the code is what carries the identity.
+		self.employee_name = stored.employee_name
 
 	# ------------------------------------------------------------------
 	# Authorisation
@@ -260,16 +337,19 @@ class LabExperiment(Document):
 				title=_("Category Is Fixed"),
 			)
 
-	def validate_master_singleton(self):
-		"""At most one Master Experiment per project + employee function.
+	def validate_master_scope(self):
+		"""A Master Experiment must name the pair its tree is scoped by.
 
-		Scoped rather than global: every other rule in this app scopes by that
-		pair, and a global singleton would let whichever project created one
-		first block every other project and function permanently.
+		This used to enforce one Master per project + employee function as well.
+		That cap is gone: a project runs more than one programme at a time, and
+		each is a tree of its own, so the root is no longer unique - what a
+		project has is *some* Masters, not *the* Master.
 
-		Read with `frappe.db.get_value`, which bypasses permissions on purpose -
-		the constraint holds against runs the current user cannot see, otherwise
-		two users in different teams could each create a Master for the same pair.
+		The scope check stays, and is now the whole reason this method exists.
+		Both halves are what the level below resolves its parents by
+		(`api.hierarchy.get_parent_candidates` filters on project *and*
+		employee_function, and does not match blanks against blanks), so a Master
+		saved without them is a root no child could ever be linked to.
 		"""
 		if self.experiment_category != ROOT_CATEGORY:
 			return
@@ -277,46 +357,30 @@ class LabExperiment(Document):
 		if not self.project or not self.employee_function:
 			frappe.throw(
 				_(
-					"A {0} needs both a Project and an Employee Function - they are what "
-					"scope it to being the only one of its kind."
+					"A {0} needs both a Project and an Employee Function - they are how the "
+					"runs below it find it."
 				).format(ROOT_CATEGORY),
 				title=_("Missing Scope"),
 			)
 
-		existing = frappe.db.get_value(
-			"Lab Experiment",
-			{
-				"experiment_category": ROOT_CATEGORY,
-				"project": self.project,
-				"employee_function": self.employee_function,
-				"name": ("!=", self.name or ""),
-			},
-			"name",
-		)
-		if existing:
-			frappe.throw(
-				_(
-					"{0} is already the {1} for project {2} under {3}. There can only be one - "
-					"link this run under it as a {4} instead."
-				).format(
-					frappe.bold(existing),
-					ROOT_CATEGORY,
-					frappe.bold(self.project),
-					frappe.bold(self.employee_function),
-					CATEGORIES[1],
-				),
-				title=_("Master Experiment Exists"),
-			)
-
 	def validate_parent_link(self):
-		"""`parent_experiment` is written by linking from the parent, not here.
+		"""Every write that touches `parent_experiment`, held to the same rules.
 
-		Three transitions are possible and each is treated differently:
+		On create the link is named on the form: the category decides whether a
+		parent is required (`assert_parent_presence`) and the pair decides whether
+		the one named is legal (`assert_can_link`). Both rules live in
+		api.hierarchy and are the same ones `link_child_experiments` runs, so the
+		two directions of linking cannot enforce different trees.
 
-		* blank -> parent: the real link. Validated against the full rule set.
+		On update, three transitions are possible and each is treated differently:
+
+		* blank -> parent: a run that predates the hierarchy joining a tree, or a
+		  re-link after an unlink. Validated against the full rule set.
 		* parent -> blank: an unlink. Allowed; `unlink_child_experiment` carries
 		  the authorisation checks, and an Approved run is already frozen by
-		  `validate_post_approval_lock`.
+		  `validate_post_approval_lock`. Presence is deliberately not re-asserted:
+		  the unlink is the first half of a re-parent, and demanding the new parent
+		  in the same write is what would make re-parenting impossible.
 		* parent -> other parent: rejected. Re-parenting is unlink then link, two
 		  deliberate steps, so it can never be a side effect of a link call.
 		"""
@@ -326,17 +390,13 @@ class LabExperiment(Document):
 		previous = previous or None
 		current = self.parent_experiment or None
 
+		if self.is_new():
+			# Runs before the identity check below, so "a Master takes no parent"
+			# is reported as itself rather than as a wrong-level link failure.
+			assert_parent_presence(self.experiment_category, current)
+
 		if previous == current:
 			return
-
-		if self.is_new():
-			frappe.throw(
-				_(
-					"Parent Experiment cannot be set while creating a run. Create it first, "
-					"then attach it from its parent's Experiment Tree."
-				),
-				title=_("Not Set Here"),
-			)
 
 		if previous and current:
 			frappe.throw(

@@ -377,3 +377,49 @@ tr:last-child td {
   background-color: var(--bg-surface) !important;
   color: var(--text-primary) !important;
 }
+
+/* ---------------------------------------------------------------------------
+ * Native date fields
+ * ---------------------------------------------------------------------------
+ * `color-scheme` is what tells the browser which theme to paint its own date UI
+ * in - the calendar icon, the popup, the spin controls. Without it Chrome
+ * assumes a light page, and on these dark surfaces the icon all but disappears,
+ * which is why the field read as a plain text box with no way into a calendar.
+ * The light theme flips it back so the popup does not arrive dark on white.
+ */
+input[type="date"],
+input[type="datetime-local"] {
+  color-scheme: dark;
+}
+
+:root.light-theme input[type="date"],
+:root.light-theme input[type="datetime-local"] {
+  color-scheme: light;
+}
+
+/* Clicking anywhere in the field opens the calendar (see openDatePicker in the
+ * experiment form), so the whole control should look clickable rather than only
+ * the icon at its end. */
+input[type="date"]:not([readonly]):not(:disabled),
+input[type="datetime-local"]:not([readonly]):not(:disabled) {
+  cursor: pointer;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+  padding: 2px 0 2px 6px;
+  transition: opacity 0.15s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* A read-only date (the run's start day) keeps the muted look of every other
+   read-only field and offers no picker to open. */
+input[type="date"][readonly]::-webkit-calendar-picker-indicator {
+  display: none;
+}

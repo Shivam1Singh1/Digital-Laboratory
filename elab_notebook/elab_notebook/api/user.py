@@ -113,6 +113,24 @@ def get_employee_scope(user=None):
         "projects": resolved_projects
     }
 
+@frappe.whitelist()
+def get_server_now():
+    """The site's own clock, for forms that stamp a date on what they create.
+
+    The browser's clock is not the record's clock. This bench runs in UTC while
+    the site books work in Asia/Kolkata, so a run started at 15:22 was being
+    stamped 09:52 - the form was reading `new Date()` and posting it. Every other
+    timestamp a record carries (creation, modified, the workflow's own) is
+    written from here, so the ones the form fills in are read from here too.
+    """
+    now = frappe.utils.now_datetime()
+    return {
+        "now": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "today": now.strftime("%Y-%m-%d"),
+        "time_zone": frappe.db.get_single_value("System Settings", "time_zone"),
+    }
+
+
 @frappe.whitelist(allow_guest=True)
 def login_redirect():
     frappe.local.response.type = "redirect"

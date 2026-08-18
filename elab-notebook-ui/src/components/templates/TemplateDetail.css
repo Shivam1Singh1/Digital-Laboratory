@@ -384,7 +384,6 @@ select.form-control:focus {
   overflow: visible;
   margin-right: 2rem;
   margin-bottom: 3rem;
-  padding-right: 1rem;
   position: relative;
   z-index: 10;
 }
@@ -406,6 +405,8 @@ select.form-control:focus {
   width: 100%;
   border-bottom: 1px solid var(--border);
   background-color: var(--bg-elevated);
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
 }
 
 .material-required-grid .grid-header-row {
@@ -424,11 +425,13 @@ select.form-control:focus {
 }
 
 /* Methodology grid: 3fr 1fr 48px */
-.methodology-grid .grid-cell:nth-child(1) {
+.methodology-grid .grid-cell:nth-child(1),
+.methodology-grid .grid-header-cell:nth-child(1) {
   flex: 3;
 }
 
-.methodology-grid .grid-cell:nth-child(2) {
+.methodology-grid .grid-cell:nth-child(2),
+.methodology-grid .grid-header-cell:nth-child(2) {
   flex: 1;
 }
 
@@ -478,15 +481,18 @@ select.form-control:focus {
 }
 
 /* Equipment Details: 1:2:3 column ratio */
-.equipment-details-grid .grid-cell:nth-child(1) {
+.equipment-details-grid .grid-cell:nth-child(1),
+.equipment-details-grid .grid-header-cell:nth-child(1) {
   flex: 1;
 }
 
-.equipment-details-grid .grid-cell:nth-child(2) {
+.equipment-details-grid .grid-cell:nth-child(2),
+.equipment-details-grid .grid-header-cell:nth-child(2) {
   flex: 2;
 }
 
-.equipment-details-grid .grid-cell:nth-child(3) {
+.equipment-details-grid .grid-cell:nth-child(3),
+.equipment-details-grid .grid-header-cell:nth-child(3) {
   flex: 3;
 }
 
