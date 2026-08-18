@@ -57,9 +57,13 @@ _CHILD_OF = dict(zip(CATEGORIES, CATEGORIES[1:]))
 # LabExperiment depends on single-parenthood.
 ENFORCE_SINGLE_PARENT = True
 
-# A four-level tree cannot nest deeper than four, so anything past this is a
-# data corruption (or a hand-edited cycle) rather than a legitimate depth.
-_MAX_DEPTH = len(CATEGORIES) + 1
+# A runaway guard, no longer a statement about the model. It used to be
+# len(CATEGORIES) + 1, which was exact while a run could only adopt the category
+# directly below it - four levels, and nothing legitimate went deeper. Any
+# category may now parent any other, so a genuine tree can nest further and that
+# bound would silently truncate it. This is set well past any real programme;
+# reaching it means a cycle survived assert_can_link, not a deep hierarchy.
+_MAX_DEPTH = 20
 
 # Only the fields the tree UI actually renders, so a subtree of a large run does
 # not ship its Text Editor columns.
@@ -134,36 +138,39 @@ def get_available_children(
 	parent: str | None = None,
 	txt: str | None = None,
 ) -> list[dict]:
-	"""Experiments that `parent_category` may adopt under this project/function.
+	"""Experiments this run may adopt under its project/function.
+
+	The downward mirror of `get_parent_candidates`, and widened with it: any
+	categorised run in scope that is still unparented, at any level, rather than
+	only the one category below `parent_category`. The two have to agree - a pool
+	the tree offers but the create form's parent list would not is just a
+	rejection waiting to happen on save.
 
 	"Available" is three conditions, applied uniformly at every level including
-	the Master's own choice of Sub Masters -- there is no special case for the
-	root:
+	the Master's own choice of children -- there is no special case for the root:
 
-	  1. category is exactly one level below `parent_category`,
-	  2. same `project` *and* same `employee_function` as the parent,
-	  3. no parent yet.
+	  1. same `project` *and* same `employee_function` as the parent,
+	  2. no parent yet,
+	  3. has a category set.
 
 	Both scope values must be present. A blank `employee_function` is not
 	matched against other blanks: runs predating the hierarchy have no function
 	set, and blank-matching would let unrelated orphans be pulled into a tree.
 
+	Descendants of the parent are not excluded here: an unparented run cannot be
+	anyone's descendant, so condition 2 already rules a cycle out.
+
 	Read through `frappe.get_list`, so the Lab Experiment permission query in
 	elab_notebook.permissions applies -- a user is never offered a run they
 	cannot already see.
 	"""
-	child_category = child_category_of(parent_category)
-	if not child_category:
-		# Leaf level, or a category we do not know: nothing is adoptable.
-		return []
-
 	if not project or not employee_function:
 		return []
 
 	filters = {
-		"experiment_category": child_category,
 		"project": project,
 		"employee_function": employee_function,
+		"experiment_category": ("is", "set"),
 	}
 	if ENFORCE_SINGLE_PARENT:
 		# "is / not set" rather than an `in ('', None)` list: the latter compiles to
@@ -195,8 +202,15 @@ def get_parent_candidates(
 	employee_function: str,
 	category: str,
 	txt: str | None = None,
+	exclude: str | None = None,
 ) -> list[dict]:
 	"""Experiments a run of `category` may name as its parent.
+
+	Every categorised run in the same project and employee function, whatever its
+	level. The pool used to be the one category directly above `category`, which
+	made the dropdown read as broken on a programme that has, say, three Masters
+	and a single Experiment: a new Sub Experiment was offered exactly one parent
+	and no way to say it belongs to a Master instead.
 
 	The upward counterpart of `get_available_children`, and deliberately *not*
 	its mirror image: the availability filter is absent. A parent holds many
@@ -204,28 +218,36 @@ def get_parent_candidates(
 	being another's -- only `get_available_children` needs the exclusivity rule,
 	because that one is the *child* side of the link and a child takes one parent.
 
-	What is left is the two rules that do apply at both ends:
+	What remains:
 
-	  1. category is exactly one level above `category`,
-	  2. same `project` *and* same `employee_function`.
+	  1. same `project` *and* same `employee_function`,
+	  2. the parent has a category at all,
+	  3. Master Experiment takes no parent, so its pool is empty.
 
-	Returns [] for the root, which takes no parent, and for a category we do not
-	know -- an empty pool, not an error, so the form renders "nothing to pick"
-	rather than a failure.
+	`exclude` keeps a saved run from being offered itself. Cycles beyond that are
+	the server's business, not the dropdown's -- `assert_can_link` walks the
+	ancestor chain on save, and it has to, since a stale list cannot be trusted.
 
 	Read through `frappe.get_list`, so the Lab Experiment permission query in
 	elab_notebook.permissions applies -- a user is never offered a run they
 	cannot already see.
 	"""
-	parent_category = parent_category_of(category)
-	if not parent_category:
-		# Root level, or a category we do not know: there is nothing above.
+	if category == ROOT_CATEGORY:
+		# The top of the tree takes no parent - see assert_parent_presence.
 		return []
 
 	# Both scope values are required, and a blank employee_function is not
 	# matched against other blanks -- see the note in get_available_children.
 	if not project or not employee_function:
 		return []
+
+	filters = {
+		"project": project,
+		"employee_function": employee_function,
+		"experiment_category": ("is", "set"),
+	}
+	if exclude:
+		filters["name"] = ("!=", exclude)
 
 	or_filters = None
 	if txt:
@@ -234,14 +256,10 @@ def get_parent_candidates(
 
 	return frappe.get_list(
 		"Lab Experiment",
-		filters={
-			"experiment_category": parent_category,
-			"project": project,
-			"employee_function": employee_function,
-		},
+		filters=filters,
 		or_filters=or_filters,
 		fields=list(_NODE_FIELDS),
-		order_by="creation desc",
+		order_by="experiment_category asc, creation desc",
 		limit_page_length=200,
 	)
 
@@ -264,6 +282,31 @@ def _is_approved(row) -> bool:
 	return (row.get("workflow_state") == "Approved") or (row.get("status") == "Approved")
 
 
+def _would_cycle(parent_row, child_name: str) -> bool:
+	"""True if `child_name` already sits somewhere above `parent_row`.
+
+	Load-bearing since the levels stopped constraining who may adopt whom. A
+	four-level chain could not loop by construction - a Master was always above
+	an Experiment, and nothing could climb back - so the old level rule was the
+	cycle guard. With any category free to parent any other, the walk has to be
+	done explicitly: attaching a run under its own descendant would otherwise
+	build a ring that every tree read then has to survive.
+
+	Reads through frappe.db, not get_list: this is an integrity check, and an
+	ancestor the user cannot see still makes the link a cycle.
+	"""
+	seen = {parent_row["name"]}
+	current = parent_row.get("parent_experiment")
+
+	while current and current not in seen:
+		if current == child_name:
+			return True
+		seen.add(current)
+		current = frappe.db.get_value("Lab Experiment", current, "parent_experiment")
+
+	return False
+
+
 def assert_can_link(parent_row, child_row) -> None:
 	"""Every rule for attaching `child_row` under `parent_row`, or throw.
 
@@ -277,15 +320,15 @@ def assert_can_link(parent_row, child_row) -> None:
 	if child_name == parent_row["name"]:
 		frappe.throw(_("An experiment cannot be its own parent."), title=_("Invalid Link"))
 
-	expected = child_category_of(parent_row.get("experiment_category"))
-	if not expected:
-		if parent_row.get("experiment_category") == LEAF_CATEGORY:
-			frappe.throw(
-				_("{0} is a {1} and is the lowest level -- it cannot have children.").format(
-					frappe.bold(parent_row["name"]), LEAF_CATEGORY
-				),
-				title=_("Invalid Link"),
-			)
+	# No level rule: any category may adopt any other within one project and
+	# function, so a Sub Experiment can hang directly off a Master without an
+	# Experiment in between. Category is a label on a run now, not a constraint
+	# on who may hold it.
+	#
+	# The parent still needs one, because an uncategorised run is un-placeable -
+	# the tree draws a level per node, and a blank there reads as corrupt data
+	# rather than as a level.
+	if not parent_row.get("experiment_category"):
 		frappe.throw(
 			_("{0} has no Experiment Category set, so nothing can be linked under it.").format(
 				frappe.bold(parent_row["name"])
@@ -293,15 +336,13 @@ def assert_can_link(parent_row, child_row) -> None:
 			title=_("Invalid Link"),
 		)
 
-	if child_row.get("experiment_category") != expected:
+	# Took over from the level rule as the thing that keeps the tree a tree.
+	if _would_cycle(parent_row, child_name):
 		frappe.throw(
-			_("{0} is {1}. {2} can only adopt {3} -- levels cannot be skipped.").format(
-				frappe.bold(child_name),
-				frappe.bold(child_row.get("experiment_category") or _("uncategorised")),
-				_a(parent_row.get("experiment_category")).capitalize(),
-				_a(expected),
+			_("{0} already sits above {1}, so linking it below would form a loop.").format(
+				frappe.bold(child_name), frappe.bold(parent_row["name"])
 			),
-			title=_("Wrong Level"),
+			title=_("Circular Link"),
 		)
 
 	# Scope must match on both axes, and neither side may be blank -- see the
@@ -397,9 +438,11 @@ def assert_parent_presence(category: str | None, parent: str | None) -> None:
 		return
 
 	if not parent:
+		# Names no particular level: any categorised run in the same project and
+		# function can be the parent now, so promising one would be wrong.
 		frappe.throw(
-			_("{0} must be created under {1} -- pick its Parent Experiment.").format(
-				_a(category).capitalize(), frappe.bold(_a(parent_category_of(category)))
+			_("{0} must sit under an existing experiment -- pick its Parent Experiment.").format(
+				_a(category).capitalize()
 			),
 			title=_("Parent Experiment Required"),
 		)
@@ -801,8 +844,14 @@ def _ancestors(root) -> list[dict]:
 
 
 def _can_link_more(row) -> bool:
-	"""Whether the tab should offer an Attach Children control for this run."""
-	if not child_category_of(row.get("experiment_category")):
+	"""Whether the tab should offer an Attach Children control for this run.
+
+	No longer asks whether a level exists below this one: with the level rule
+	gone, a Sub Sub Experiment can hold children as readily as a Master. What is
+	left is scope, state and permission -- the same three assert_can_link checks
+	on the parent side.
+	"""
+	if not row.get("experiment_category"):
 		return False
 	if not row.get("project") or not row.get("employee_function"):
 		return False
