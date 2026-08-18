@@ -36,12 +36,65 @@ const experimentUrl = (name) => ({
   query: { tab: 'tree' },
 })
 
+/* Dot colour per level. The category strings are the server's -- hierarchy.py
+ * CATEGORIES is the source of truth for both the names and this top-to-bottom
+ * order. A value not in this list is an older or hand-set category and renders
+ * grey rather than borrowing the colour of a level it is not. */
+const CATEGORY_LEVELS = [
+  { category: 'Master Experiment', slug: 'master' },
+  { category: 'Experiment', slug: 'experiment' },
+  { category: 'Sub Experiment', slug: 'sub' },
+  { category: 'Sub Sub Experiment', slug: 'subsub' },
+]
+
+const dotClass = (category) =>
+  `tree-dot-${CATEGORY_LEVELS.find((l) => l.category === category)?.slug || 'other'}`
+
+/* Which branches are open, by node name. A Set of keys rather than an `expanded`
+ * flag written onto the nodes: `load()` replaces the tree wholesale on every
+ * link, unlink and route change, and per-node flags would be lost with it. */
+const expandedKeys = ref(new Set())
+
+// Only nodes that actually have children can be expanded, so only they are ever
+// in the set - Expand All must not leave keys behind for leaves.
+const collectExpandable = (n, out = []) => {
+  if ((n.child_count || 0) > 0) out.push(n.name)
+  ;(n.children || []).forEach((child) => collectExpandable(child, out))
+  return out
+}
+
+const expandableKeys = computed(() => (node.value ? collectExpandable(node.value) : []))
+
+const isExpanded = (name) => expandedKeys.value.has(name)
+
+// Reassigning is what Vue tracks; mutating the Set in place does not re-render.
+const toggleExpand = (name) => {
+  const next = new Set(expandedKeys.value)
+  next.has(name) ? next.delete(name) : next.add(name)
+  expandedKeys.value = next
+}
+
+const expandAll = () => {
+  expandedKeys.value = new Set(expandableKeys.value)
+}
+
+const collapseAll = () => {
+  expandedKeys.value = new Set()
+}
+
+const allExpanded = computed(
+  () => expandableKeys.value.length > 0 && expandableKeys.value.every(isExpanded)
+)
+
 /**
  * The subtree arrives nested, which is the honest shape for the relationship,
  * but it renders as a flat list of rows carrying their own connector geometry.
  * Flattening once here keeps the template a plain v-for: a self-recursive
  * component would need its own name resolution and gives nothing back at a
  * maximum depth of four.
+ *
+ * A collapsed node contributes its own row and stops - its descendants are held
+ * in `node`, not dropped, so reopening it costs no round trip.
  *
  * Each row carries what it needs to draw its own share of the trunk:
  *   `hasNext`          - a sibling follows, so this row's elbow is a tee, not a
@@ -54,6 +107,7 @@ const experimentUrl = (name) => ({
  */
 const flatten = (node, depth = 0, ancestorHasNext = [], hasNext = false, out = []) => {
   out.push({ node, depth, ancestorHasNext, hasNext })
+  if (!expandedKeys.value.has(node.name)) return out
   const kids = node.children || []
   kids.forEach((child, index) =>
     flatten(
@@ -69,7 +123,12 @@ const flatten = (node, depth = 0, ancestorHasNext = [], hasNext = false, out = [
 
 const rows = computed(() => (node.value ? flatten(node.value) : []))
 
-const descendantCount = computed(() => Math.max(rows.value.length - 1, 0))
+// Counted off the tree, not off `rows`: the summary states what is linked below
+// this run, which does not change when a branch is collapsed out of view.
+const countDescendants = (n) =>
+  (n.children || []).reduce((sum, child) => sum + 1 + countDescendants(child), 0)
+
+const descendantCount = computed(() => (node.value ? countDescendants(node.value) : 0))
 
 // Only the run being viewed can adopt from here, so Unlink is offered on its
 // direct children alone. A grandchild's own picker lives on its own page.
@@ -97,10 +156,15 @@ const load = async () => {
     ancestors.value = data.ancestors || []
     childCategory.value = data.child_category || ''
     canLink.value = Boolean(data.can_link)
+    // Open by default: the whole subtree is already in hand, and the tab drew it
+    // in full before it had controls. Collapsing is the deliberate act, not
+    // expanding. A fresh tree also drops stale keys from the run left behind.
+    expandAll()
   } catch (err) {
     console.error('Failed to load experiment tree:', err)
     error.value = readServerError(err, 'Could not load the experiment tree for this run.')
     node.value = null
+    expandedKeys.value = new Set()
   } finally {
     loading.value = false
   }
@@ -249,9 +313,27 @@ onMounted(load)
             {{ node.experiment_category || 'This run' }} is the lowest level — it has no children.
           </template>
         </p>
-        <button v-if="canLink && !picking" class="btn btn-secondary btn-sm" @click="openPicker">
-          + Attach {{ childCategory }}
-        </button>
+        <div class="tree-toolbar-actions">
+          <template v-if="expandableKeys.length">
+            <button
+              class="btn btn-secondary btn-sm"
+              :disabled="allExpanded"
+              @click="expandAll"
+            >
+              Expand all
+            </button>
+            <button
+              class="btn btn-secondary btn-sm"
+              :disabled="!expandedKeys.size"
+              @click="collapseAll"
+            >
+              Collapse all
+            </button>
+          </template>
+          <button v-if="canLink && !picking" class="btn btn-secondary btn-sm" @click="openPicker">
+            + Attach {{ childCategory }}
+          </button>
+        </div>
       </div>
 
       <!-- Picker for attaching children after the parent already exists. -->
@@ -331,16 +413,42 @@ onMounted(load)
             aria-hidden="true"
           ></span>
 
+          <!-- Sits outside .tree-node, like Unlink: the row is a link, and a
+               control inside it would navigate on the way to toggling. Leaves
+               get a spacer so every node at one depth starts at one x. -->
+          <button
+            v-if="row.node.child_count > 0"
+            class="tree-toggle"
+            :aria-expanded="isExpanded(row.node.name)"
+            :aria-label="`${isExpanded(row.node.name) ? 'Collapse' : 'Expand'} ${row.node.name}`"
+            @click.prevent.stop="toggleExpand(row.node.name)"
+          >
+            <span
+              class="tree-caret"
+              :class="{ 'tree-caret-open': isExpanded(row.node.name) }"
+              aria-hidden="true"
+            ></span>
+          </button>
+          <span v-else class="tree-toggle-spacer" aria-hidden="true"></span>
+
           <component
             :is="row.depth === 0 ? 'span' : 'router-link'"
             :to="row.depth === 0 ? undefined : experimentUrl(row.node.name)"
             class="tree-node"
             :class="{ 'tree-node-current': row.depth === 0 }"
           >
+            <span
+              class="tree-dot"
+              :class="dotClass(row.node.experiment_category)"
+              aria-hidden="true"
+            ></span>
             <span class="tree-cat-badge">{{ row.node.experiment_category || 'Uncategorised' }}</span>
             <span class="tree-row-text">
               <span class="tree-row-id font-mono">{{ row.node.name }}</span>
               <span class="tree-row-title">{{ row.node.title || row.node.aim || 'Untitled run' }}</span>
+            </span>
+            <span v-if="row.node.child_count > 0" class="tree-child-count">
+              {{ row.node.child_count }} child{{ row.node.child_count === 1 ? '' : 'ren' }}
             </span>
             <span class="tree-state" :class="stateClass(row.node.workflow_state)">
               {{ row.node.workflow_state || 'Draft' }}
@@ -359,6 +467,22 @@ onMounted(load)
           </button>
         </li>
       </ul>
+
+      <!-- Reads the dots above. Kept last so it explains a tree the eye has
+           already reached, and shows every level, not only the ones present in
+           this subtree - a Master with no Sub Sub yet should still say what the
+           purple it may later grow would mean. -->
+      <div class="tree-legend">
+        <span class="tree-legend-label">Legend</span>
+        <span v-for="level in CATEGORY_LEVELS" :key="level.slug" class="tree-legend-item">
+          <span class="tree-dot" :class="`tree-dot-${level.slug}`" aria-hidden="true"></span>
+          {{ level.category }}
+        </span>
+        <span class="tree-legend-item">
+          <span class="tree-dot tree-dot-other" aria-hidden="true"></span>
+          Other
+        </span>
+      </div>
     </template>
 
     <div v-else class="tree-alert tree-alert-error">
