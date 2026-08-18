@@ -276,14 +276,14 @@
   flex: 1 1 auto;
 }
 
-.search-wrapper {
+.global-search-wrapper {
   position: relative;
   width: 320px;
   min-width: 0;
   flex: 0 1 320px;
 }
 
-.search-box {
+.global-search-box {
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -296,7 +296,7 @@
   gap: 0.5rem;
 }
 
-.search-dropdown {
+.global-search-dropdown {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
@@ -311,12 +311,12 @@
   padding: 0.5rem 0;
 }
 
-.search-dropdown-group {
+.global-search-dropdown-group {
   display: flex;
   flex-direction: column;
 }
 
-.search-dropdown-header {
+.global-search-dropdown-header {
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--accent);
@@ -327,11 +327,11 @@
   border-top: 1px solid var(--border);
 }
 
-.search-dropdown-header:first-child {
+.global-search-dropdown-header:first-child {
   border-top: none;
 }
 
-.search-dropdown-item {
+.global-search-dropdown-item {
   padding: 0.5rem 0.75rem;
   font-size: 0.85rem;
   color: var(--text-primary);
@@ -342,20 +342,20 @@
   transition: background-color 0.15s ease;
 }
 
-.search-dropdown-item:hover {
+.global-search-dropdown-item:hover {
   background-color: var(--bg-elevated);
 }
 
-.search-dropdown-item-title {
+.global-search-dropdown-item-title {
   font-weight: 500;
 }
 
-.search-dropdown-item-name {
+.global-search-dropdown-item-name {
   font-size: 0.75rem;
   color: var(--text-muted);
 }
 
-.search-dropdown-status {
+.global-search-dropdown-status {
   padding: 0.75rem;
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -366,30 +366,30 @@
   gap: 0.5rem;
 }
 
-.search-spinner {
+.global-search-spinner {
   width: 14px;
   height: 14px;
   border: 2px solid var(--text-muted);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: search-spin 0.6s linear infinite;
+  animation: global-search-spin 0.6s linear infinite;
   display: inline-block;
 }
 
-@keyframes search-spin {
+@keyframes global-search-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.search-icon {
+.global-search-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
   color: var(--text-muted);
 }
 
-.search-input {
+.global-search-input {
   background: transparent;
   border: none;
   color: var(--text-primary);
@@ -404,7 +404,7 @@
   margin: 0;
 }
 
-.search-kbd {
+.global-search-kbd {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;

@@ -276,44 +276,44 @@ watch(() => userStore.user.name, async (newVal) => {
           </button>
 
           <!-- Search bar -->
-          <div ref="searchContainerRef" class="search-wrapper">
-            <div class="search-box">
-              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <div ref="searchContainerRef" class="global-search-wrapper">
+            <div class="global-search-box">
+              <svg class="global-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
                 ref="searchInputRef"
                 v-model="searchQuery"
                 type="text"
                 placeholder="Search experiments, resources..."
-                class="search-input"
+                class="global-search-input"
                 @input="onSearchInput"
                 @focus="searchDropdownVisible = true"
               />
-              <kbd class="search-kbd">⌘K</kbd>
+              <kbd class="global-search-kbd">⌘K</kbd>
             </div>
 
             <!-- Dropdown Results -->
-            <div v-if="searchDropdownVisible && searchQuery.trim()" class="search-dropdown">
-              <div v-if="searchTooShort" class="search-dropdown-status">
+            <div v-if="searchDropdownVisible && searchQuery.trim()" class="global-search-dropdown">
+              <div v-if="searchTooShort" class="global-search-dropdown-status">
                 Type at least {{ SEARCH_MIN_CHARS }} characters to search
               </div>
-              <div v-else-if="searchLoading" class="search-dropdown-status">
-                <span class="search-spinner"></span> Searching...
+              <div v-else-if="searchLoading" class="global-search-dropdown-status">
+                <span class="global-search-spinner"></span> Searching...
               </div>
               <template v-else-if="groupedResults.length">
-                <div v-for="group in groupedResults" :key="group.label" class="search-dropdown-group">
-                  <div class="search-dropdown-header">{{ group.label }}</div>
+                <div v-for="group in groupedResults" :key="group.label" class="global-search-dropdown-group">
+                  <div class="global-search-dropdown-header">{{ group.label }}</div>
                   <div
                     v-for="item in group.items"
                     :key="item.name"
-                    class="search-dropdown-item"
+                    class="global-search-dropdown-item"
                     @click="selectResult(item)"
                   >
-                    <span class="search-dropdown-item-title">{{ item.title || item.subtitle || item.name }}</span>
-                    <span class="search-dropdown-item-name">{{ item.name }}</span>
+                    <span class="global-search-dropdown-item-title">{{ item.title || item.subtitle || item.name }}</span>
+                    <span class="global-search-dropdown-item-name">{{ item.name }}</span>
                   </div>
                 </div>
               </template>
-              <div v-else class="search-dropdown-status">
+              <div v-else class="global-search-dropdown-status">
                 No results found
               </div>
             </div>
