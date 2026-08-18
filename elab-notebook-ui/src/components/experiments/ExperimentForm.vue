@@ -8,6 +8,8 @@ import { readServerError } from '../../utils/serverError'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import AddRow from '../common/AddRow.vue'
 import LinkField from '../common/LinkField.vue'
+import RawDataTab from './RawDataTab.vue'
+import { showsRawDataTab } from '../../utils/rawData'
 import './ExperimentForm.css'
 
 const route = useRoute()
@@ -110,7 +112,26 @@ const experiment = ref({
   material_required: [],
   equipment_details: [],
   methodology: [],
-  observation: ''
+  observation: '',
+
+  // Raw Data tab. Seeded here rather than left to appear on first keystroke:
+  // the payload is this object posted whole, and a key Vue never saw is a key
+  // the server never receives. Checks are 0/1 to match the doctype's Check.
+  sample_details: '',
+  sample_detailsgenerated: '',
+  sample_generated: 0,
+  sample_not_generated: 0,
+  trf_no: '',
+  batch_manufacturing_date: '',
+  handover_date: '',
+  project_code_sample: '',
+  batch_volume: '',
+  batch_no: '',
+  storage_condition: '',
+  nature_of_sample: '',
+  result_attachment: [],
+  quality_metrics: [],
+  sample: []
 })
 
 // Mirrors TEMPLATE_CHILD_MAP in elab_notebook/api/template.py. Rows in these
@@ -964,6 +985,11 @@ const visibleTabs = computed(() => [
       ]
     : []),
   { key: 'hierarchy', label: 'Experiment Hierarchy' },
+  // Hidden on a Master Experiment - see utils/rawData.js, which mirrors the
+  // doctype's own depends_on rather than restating the rule.
+  ...(showsRawDataTab(experiment.value.experiment_category)
+    ? [{ key: 'rawdata', label: 'Raw Data' }]
+    : []),
   { key: 'report', label: 'Report' },
 ])
 
@@ -1146,6 +1172,11 @@ watch(() => experiment.value.experiment_category, () => {
   if (!needsParent.value) experiment.value.parent_experiment = ''
   if (!usesTemplate.value) clearTemplateSelection()
   if (!usesTemplate.value && TEMPLATE_TABS.includes(activeTab.value)) activeTab.value = 'general'
+  // Same for Raw Data: a Master Experiment has no such tab, so the pane must
+  // not stay open underneath a tab row that no longer lists it.
+  if (activeTab.value === 'rawdata' && !showsRawDataTab(experiment.value.experiment_category)) {
+    activeTab.value = 'general'
+  }
 })
 
 onMounted(async () => {
@@ -1936,6 +1967,10 @@ onMounted(async () => {
         <!-- Present at every level, as on the saved run, but there is nothing to
              roll up until the record exists: the report is this run plus its
              descendants, and neither exists yet. Saying so beats an empty card. -->
+        <div v-if="activeTab === 'rawdata'" class="tab-pane">
+          <RawDataTab :experiment="experiment" />
+        </div>
+
         <div v-if="activeTab === 'report'" class="tab-pane">
           <section class="meta-card">
             <h3 class="pane-subtitle">Report</h3>

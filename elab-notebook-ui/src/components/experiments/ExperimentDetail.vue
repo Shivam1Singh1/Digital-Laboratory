@@ -7,6 +7,8 @@ import LinkField from '../common/LinkField.vue'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import ExperimentTree from './ExperimentTree.vue'
 import ExperimentReport from './ExperimentReport.vue'
+import RawDataTab from './RawDataTab.vue'
+import { showsRawDataTab } from '../../utils/rawData'
 import AddRow from '../common/AddRow.vue'
 import { readServerError } from '../../utils/serverError'
 import './ExperimentDetail.css'
@@ -32,6 +34,7 @@ const TAB_KEYS = [
   'methodology',
   'procedure',
   'tree',
+  'rawdata',
   'report',
   'samples',
   'history',
@@ -121,6 +124,11 @@ const visibleTabs = computed(() => [
       ]
     : []),
   { key: 'tree', label: 'Experiment Hierarchy' },
+  // Hidden on a Master Experiment - utils/rawData.js mirrors the doctype's own
+  // depends_on so this form and the create form hide the same thing.
+  ...(showsRawDataTab(experiment.value?.experiment_category)
+    ? [{ key: 'rawdata', label: 'Raw Data' }]
+    : []),
   { key: 'report', label: 'Report' },
   { key: 'samples', label: 'Samples' },
   { key: 'history', label: 'History/Audit Log' },
@@ -806,6 +814,13 @@ const applyTabFromRoute = () => {
 // known until the record arrives.
 watch([usesTemplate, activeTab], ([leaf, tab]) => {
   if (!leaf && TEMPLATE_TABS.includes(tab)) activeTab.value = 'general'
+})
+
+// A ?tab=rawdata link, or the tab left open while navigating between runs, can
+// land on a Master Experiment, which has no Raw Data tab. Same fallback: show
+// Template rather than a pane the tab row above no longer offers.
+watch([() => experiment.value?.experiment_category, activeTab], ([category, tab]) => {
+  if (tab === 'rawdata' && !showsRawDataTab(category)) activeTab.value = 'general'
 })
 
 const loadEverything = async () => {
@@ -1597,6 +1612,14 @@ onMounted(() => {
         </div>
 
         <!-- REPORT TAB -->
+        <!-- Editable while the run is; the same lock the Save button obeys. -->
+        <div v-if="activeTab === 'rawdata'" class="tab-pane">
+          <RawDataTab
+            :experiment="experiment"
+            :readonly="isWorkflowLocked() && !isSystemManager"
+          />
+        </div>
+
         <div v-if="activeTab === 'report'" class="tab-pane">
           <ExperimentReport :experiment-id="String(route.params.id)" />
         </div>
