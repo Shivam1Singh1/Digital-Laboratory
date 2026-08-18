@@ -416,7 +416,7 @@
    "label": "Observation and Conclusion"
   },
   {
-   "depends_on": "eval: [\"Sub Sub Experiment\", \"Sub Experiment\", \"Experiment\"].includes(doc.experiment_category)",
+   "depends_on": "eval:doc.experiment_category != \"Master Experiment\"",
    "fieldname": "attachments_tab",
    "fieldtype": "Tab Break",
    "label": "Raw Data",
