@@ -29,11 +29,11 @@ const successMessage = ref('')
 const TAB_KEYS = [
   'general',
   'details',
+  'rawdata',
   'materials',
   'equipment',
   'methodology',
   'procedure',
-  'rawdata',
   'tree',
   'report',
   'samples',
@@ -115,6 +115,13 @@ const startChildRun = () => {
 const visibleTabs = computed(() => [
   { key: 'general', label: 'Template' },
   { key: 'details', label: 'Details' },
+  // Third at every level that has it - above the template-only block, which
+  // only appears at the leaf and would otherwise push Raw Data to seventh.
+  // Hidden on a Master Experiment - utils/rawData.js mirrors the doctype's own
+  // depends_on so this form and the create form hide the same thing.
+  ...(showsRawDataTab(experiment.value?.experiment_category)
+    ? [{ key: 'rawdata', label: 'Raw Data' }]
+    : []),
   ...(usesTemplate.value
     ? [
         { key: 'materials', label: 'Material Required' },
@@ -122,11 +129,6 @@ const visibleTabs = computed(() => [
         { key: 'methodology', label: 'Methodology' },
         { key: 'procedure', label: 'Protocol Steps' },
       ]
-    : []),
-  // Hidden on a Master Experiment - utils/rawData.js mirrors the doctype's own
-  // depends_on so this form and the create form hide the same thing.
-  ...(showsRawDataTab(experiment.value?.experiment_category)
-    ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
   { key: 'tree', label: 'Experiment Hierarchy' },
   { key: 'report', label: 'Report' },
