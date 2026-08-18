@@ -575,25 +575,6 @@
   max-width: 620px;
 }
 
-/* Draft runs have no tab row, so the Experiment Tree gets its own card there
-   (see the ExperimentTree block in ExperimentDetail.vue). */
-.tree-draft-head {
-  margin-bottom: 1rem;
-}
-
-.tree-draft-title {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.tree-draft-hint {
-  margin: 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-}
-
 /* Sample comments. Below the samples table rather than a column in it - a
    textarea in a table cell is unusable at this width. */
 .sample-comments-wrapper {

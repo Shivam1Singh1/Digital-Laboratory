@@ -53,73 +53,6 @@
   color: var(--success);
 }
 
-/* Upward view ------------------------------------------------------------ */
-
-.tree-ancestry {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-color: var(--bg-primary);
-  font-size: 0.8rem;
-}
-
-.tree-ancestry-label {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-right: 0.25rem;
-}
-
-.tree-ancestry-none {
-  color: var(--text-muted);
-}
-
-.tree-crumb-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.tree-crumb {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.22rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  text-decoration: none;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-a.tree-crumb:hover {
-  border-color: var(--accent);
-  background-color: var(--bg-elevated);
-}
-
-.tree-crumb-current {
-  border-color: var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
-  font-weight: 600;
-}
-
-.tree-crumb-cat {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-.tree-crumb-sep {
-  color: var(--text-muted);
-}
-
 /* Toolbar ---------------------------------------------------------------- */
 
 .tree-toolbar {
@@ -437,11 +370,19 @@ a.tree-node:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* The run being viewed is the root of what is shown, so it reads as the anchor
-   rather than as one row among its descendants. */
+/* The run being viewed. It is no longer the top row - the tree starts at the
+   root, so the current run can sit at any depth - which makes the highlight the
+   only thing marking it. Border, fill and a heavier id together, because at
+   depth three a tinted background alone is easy to miss. */
 .tree-node-current {
   border-color: var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.tree-node-current .tree-row-id {
+  font-weight: 700;
+  color: var(--accent);
 }
 
 /* Level dot. Redundant with the category badge beside it on purpose: the badge

@@ -562,6 +562,70 @@ def get_experiment_subtree(experiment: str) -> dict:
 	}
 
 
+def _root_of(row) -> frappe._dict:
+	"""The highest ancestor of `row` this user may read, or `row` itself.
+
+	Stops at the first unreadable ancestor rather than throwing: a participant
+	who may see their own Sub Experiment but not the Master above it still gets
+	a tree, rooted at the highest point they are allowed to see. Walking past
+	that point would leak the existence of the runs above.
+	"""
+	current = row
+	seen = {row["name"]}
+
+	for _ in range(_MAX_DEPTH):
+		parent = current.get("parent_experiment")
+		# `parent in seen` is the cycle guard: a hand-edited loop would
+		# otherwise walk forever between the same two rows.
+		if not parent or parent in seen:
+			break
+		if not frappe.has_permission("Lab Experiment", "read", doc=parent):
+			break
+		parent_row = frappe.db.get_value("Lab Experiment", parent, list(_NODE_FIELDS), as_dict=True)
+		if not parent_row:
+			break
+		seen.add(parent)
+		current = parent_row
+
+	return current
+
+
+@frappe.whitelist()
+def get_experiment_root_tree(experiment: str) -> dict:
+	"""The whole tree `experiment` belongs to, rooted at its topmost ancestor.
+
+	`get_experiment_subtree` answers "what hangs below this run", which is the
+	right question for the Report tab but the wrong one for the hierarchy tab:
+	opening a Sub Sub Experiment there showed a single leaf and nothing of the
+	programme it belongs to. This walks up first, so every level renders from
+	one tree and a row above the current run is as clickable as a row below it.
+
+	Only the starting point changes. The subtree itself is still derived from
+	`parent_experiment` by the same call, so there is nothing stored or
+	duplicated here.
+
+	`child_category` and `can_link` describe the *current* run, not the root -
+	they drive the Attach control, which adopts children for the page you are
+	on, not for the top of the tree.
+	"""
+	if not frappe.has_permission("Lab Experiment", "read", doc=experiment):
+		frappe.throw(
+			_("You are not permitted to view {0}.").format(frappe.bold(experiment)),
+			frappe.PermissionError,
+			title=_("Not Authorized"),
+		)
+
+	row = frappe.db.get_value("Lab Experiment", experiment, list(_NODE_FIELDS), as_dict=True)
+	if not row:
+		frappe.throw(_("Experiment {0} not found.").format(frappe.bold(experiment)))
+
+	tree = get_experiment_subtree(_root_of(row)["name"])
+	tree["current"] = experiment
+	tree["child_category"] = child_category_of(row.get("experiment_category"))
+	tree["can_link"] = _can_link_more(row)
+	return tree
+
+
 # The scientific content the Report tab rolls up, deliberately separate from
 # _NODE_FIELDS: the tree tab ships one row per node and has no use for Text
 # Editor columns, so loading them there would make every tree render pay for a

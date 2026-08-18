@@ -14,10 +14,32 @@ const loading = ref(true)
 const error = ref('')
 const notice = ref('')
 
-const node = ref(null)
-const ancestors = ref([])
+// `root` is the top of the whole tree this run belongs to, not the run itself -
+// the server walks up `parent_experiment` before it walks down, so opening a Sub
+// Sub Experiment still renders its Master and everything under it. `currentName`
+// is the run whose page this is, and the only thing that distinguishes it from
+// any other row is the highlight.
+const root = ref(null)
+const currentName = ref('')
 const childCategory = ref('')
 const canLink = ref(false)
+
+const findNode = (n, name) => {
+  if (!n) return null
+  if (n.name === name) return n
+  for (const child of n.children || []) {
+    const hit = findNode(child, name)
+    if (hit) return hit
+  }
+  return null
+}
+
+// Everything that acts on "this run" - the Attach picker, Unlink, the summary
+// count - reads this, not `root`. Falling back to `root` keeps those controls
+// pointed at a real node if the current one is ever missing from the tree.
+const currentNode = computed(() => findNode(root.value, currentName.value) || root.value)
+
+const isCurrent = (name) => name === currentName.value
 
 // Attach-children picker
 const picking = ref(false)
@@ -63,7 +85,7 @@ const collectExpandable = (n, out = []) => {
   return out
 }
 
-const expandableKeys = computed(() => (node.value ? collectExpandable(node.value) : []))
+const expandableKeys = computed(() => (root.value ? collectExpandable(root.value) : []))
 
 const isExpanded = (name) => expandedKeys.value.has(name)
 
@@ -121,19 +143,22 @@ const flatten = (node, depth = 0, ancestorHasNext = [], hasNext = false, out = [
   return out
 }
 
-const rows = computed(() => (node.value ? flatten(node.value) : []))
+const rows = computed(() => (root.value ? flatten(root.value) : []))
 
-// Counted off the tree, not off `rows`: the summary states what is linked below
-// this run, which does not change when a branch is collapsed out of view.
+// Counted off the current run's own branch, not off `rows`: the summary states
+// what is linked below *this* run, which is not the whole tree now that the tree
+// starts at the root, and does not change when a branch is collapsed from view.
 const countDescendants = (n) =>
   (n.children || []).reduce((sum, child) => sum + 1 + countDescendants(child), 0)
 
-const descendantCount = computed(() => (node.value ? countDescendants(node.value) : 0))
+const descendantCount = computed(() =>
+  currentNode.value ? countDescendants(currentNode.value) : 0
+)
 
 // Only the run being viewed can adopt from here, so Unlink is offered on its
 // direct children alone. A grandchild's own picker lives on its own page.
 const directChildNames = computed(
-  () => new Set((node.value?.children || []).map((c) => c.name))
+  () => new Set((currentNode.value?.children || []).map((c) => c.name))
 )
 
 const filteredCandidates = computed(() => {
@@ -148,12 +173,12 @@ const load = async () => {
   loading.value = true
   error.value = ''
   try {
-    const res = await axios.get(`/api/method/${API}.get_experiment_subtree`, {
+    const res = await axios.get(`/api/method/${API}.get_experiment_root_tree`, {
       params: { experiment: props.experimentId },
     })
     const data = res.data.message || {}
-    node.value = data.node || null
-    ancestors.value = data.ancestors || []
+    root.value = data.node || null
+    currentName.value = data.current || props.experimentId
     childCategory.value = data.child_category || ''
     canLink.value = Boolean(data.can_link)
     // Open by default: the whole subtree is already in hand, and the tab drew it
@@ -163,7 +188,7 @@ const load = async () => {
   } catch (err) {
     console.error('Failed to load experiment tree:', err)
     error.value = readServerError(err, 'Could not load the experiment tree for this run.')
-    node.value = null
+    root.value = null
     expandedKeys.value = new Set()
   } finally {
     loading.value = false
@@ -171,16 +196,17 @@ const load = async () => {
 }
 
 const loadCandidates = async () => {
-  if (!node.value) return
+  const run = currentNode.value
+  if (!run) return
   loadingCandidates.value = true
   error.value = ''
   try {
     const res = await axios.get(`/api/method/${API}.get_available_children`, {
       params: {
-        project: node.value.project || '',
-        employee_function: node.value.employee_function || '',
-        parent_category: node.value.experiment_category || '',
-        parent: node.value.name,
+        project: run.project || '',
+        employee_function: run.employee_function || '',
+        parent_category: run.experiment_category || '',
+        parent: run.name,
       },
     })
     candidates.value = res.data.message || []
@@ -219,7 +245,7 @@ const linkSelected = async () => {
   error.value = ''
   try {
     const res = await axios.post(`/api/method/${API}.link_child_experiments`, {
-      parent: node.value.name,
+      parent: currentNode.value.name,
       children: Array.from(selected.value),
     })
     const linked = res.data.message?.linked || []
@@ -244,7 +270,7 @@ const unlink = async (child) => {
   error.value = ''
   try {
     await axios.post(`/api/method/${API}.unlink_child_experiment`, {
-      parent: node.value.name,
+      parent: currentNode.value.name,
       child: child.name,
     })
     notice.value = `Unlinked ${child.name}.`
@@ -275,32 +301,13 @@ onMounted(load)
   <div class="experiment-tree">
     <div v-if="loading" class="tree-status">Loading the experiment tree…</div>
 
-    <template v-else-if="node">
+    <template v-else-if="root">
       <div v-if="error" class="tree-alert tree-alert-error">{{ error }}</div>
       <div v-if="notice" class="tree-alert tree-alert-ok">{{ notice }}</div>
 
-      <!-- Upward view. The tree below only ever descends, so the parent chain is
-           the other half of the relationship and has to be reachable from here. -->
-      <div class="tree-ancestry">
-        <span class="tree-ancestry-label">Parent chain</span>
-        <template v-if="ancestors.length">
-          <span v-for="a in ancestors" :key="a.name" class="tree-crumb-wrap">
-            <router-link :to="experimentUrl(a.name)" class="tree-crumb">
-              <span class="tree-crumb-cat">{{ a.experiment_category || 'Uncategorised' }}</span>
-              <span class="font-mono">{{ a.name }}</span>
-            </router-link>
-            <span class="tree-crumb-sep" aria-hidden="true">›</span>
-          </span>
-          <span class="tree-crumb tree-crumb-current">
-            <span class="tree-crumb-cat">{{ node.experiment_category || 'Uncategorised' }}</span>
-            <span class="font-mono">{{ node.name }}</span>
-          </span>
-        </template>
-        <span v-else class="tree-ancestry-none">
-          This run has no parent — it is the top of its own tree.
-        </span>
-      </div>
-
+      <!-- No separate parent-chain breadcrumb: the tree starts at the root, so
+           the ancestors of the current run are rows in it like any other, and
+           clicking upward is the same gesture as clicking downward. -->
       <div class="tree-toolbar">
         <p class="tree-summary">
           <template v-if="descendantCount">
@@ -310,7 +317,7 @@ onMounted(load)
             Nothing is linked below this run yet.
           </template>
           <template v-else>
-            {{ node.experiment_category || 'This run' }} is the lowest level — it has no children.
+            {{ currentNode?.experiment_category || 'This run' }} is the lowest level — it has no children.
           </template>
         </p>
         <div class="tree-toolbar-actions">
@@ -343,8 +350,8 @@ onMounted(load)
           <span class="tree-selected-pill">{{ selected.size }} selected</span>
         </div>
         <p class="tree-hint">
-          Runs one level below, in project {{ node.project }} under
-          {{ node.employee_function }}, that are not already linked to a parent.
+          Runs one level below, in project {{ currentNode?.project }} under
+          {{ currentNode?.employee_function }}, that are not already linked to a parent.
         </p>
         <input
           v-model="candidateFilter"
@@ -431,11 +438,14 @@ onMounted(load)
           </button>
           <span v-else class="tree-toggle-spacer" aria-hidden="true"></span>
 
+          <!-- Every row is a link except the one you are already on, in both
+               directions: an ancestor above the current run navigates exactly
+               like a descendant below it. -->
           <component
-            :is="row.depth === 0 ? 'span' : 'router-link'"
-            :to="row.depth === 0 ? undefined : experimentUrl(row.node.name)"
+            :is="isCurrent(row.node.name) ? 'span' : 'router-link'"
+            :to="isCurrent(row.node.name) ? undefined : experimentUrl(row.node.name)"
             class="tree-node"
-            :class="{ 'tree-node-current': row.depth === 0 }"
+            :class="{ 'tree-node-current': isCurrent(row.node.name) }"
           >
             <span
               class="tree-dot"
@@ -453,7 +463,7 @@ onMounted(load)
             <span class="tree-state" :class="stateClass(row.node.workflow_state)">
               {{ row.node.workflow_state || 'Draft' }}
             </span>
-            <span v-if="row.depth === 0" class="tree-you-are-here">Viewing</span>
+            <span v-if="isCurrent(row.node.name)" class="tree-you-are-here">Viewing</span>
           </component>
 
           <button
