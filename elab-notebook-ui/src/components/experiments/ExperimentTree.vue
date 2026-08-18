@@ -58,6 +58,26 @@ const experimentUrl = (name) => ({
   query: { tab: 'tree' },
 })
 
+/**
+ * Create form, seeded to land one level below the run being viewed.
+ *
+ * Only seeds - it grants nothing. The form re-fetches the legal parents for the
+ * seeded category and clears `parent_experiment` if this run is not among them,
+ * so a stale or hand-edited URL cannot attach a child where the server would
+ * refuse it. Project and Employee Function come along because they are the scope
+ * a parent and child must share; the team is left for the author to pick, since
+ * a child run does not necessarily belong to the parent's.
+ */
+const newChildUrl = computed(() => ({
+  path: '/experiments/new',
+  query: {
+    experiment_category: childCategory.value,
+    parent_experiment: currentNode.value?.name || '',
+    project: currentNode.value?.project || '',
+    employee_function: currentNode.value?.employee_function || '',
+  },
+}))
+
 /* Dot colour per level. The category strings are the server's -- hierarchy.py
  * CATEGORIES is the source of truth for both the names and this top-to-bottom
  * order. A value not in this list is an older or hand-set category and renders
@@ -337,6 +357,19 @@ onMounted(load)
               Collapse all
             </button>
           </template>
+          <!-- Two ways down a level, both gated on the same `canLink`: adopt a
+               run that already exists, or start one that does not. The second is
+               a plain link into the create form - it seeds the parent and scope
+               and nothing else, so every rule still runs where it already lives
+               (get_parent_candidates drops the seed if this run may not adopt,
+               and LabExperiment.validate() re-checks on save). -->
+          <router-link
+            v-if="canLink && !picking"
+            :to="newChildUrl"
+            class="btn btn-secondary btn-sm"
+          >
+            + New {{ childCategory }}
+          </router-link>
           <button v-if="canLink && !picking" class="btn btn-secondary btn-sm" @click="openPicker">
             + Attach {{ childCategory }}
           </button>
