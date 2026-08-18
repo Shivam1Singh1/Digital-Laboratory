@@ -59,18 +59,14 @@ const experimentUrl = (name) => ({
 })
 
 /**
- * Create form, seeded to land under the run being viewed.
+ * Create form, seeded to land one level below the run being viewed.
  *
- * The category is a *suggestion* - the level directly below this run, which is
- * the common case - not a rule; any category may sit under any other now, and
- * the form leaves the picker open. A leaf sends none and the author chooses.
- *
- * Only seeds - it grants nothing. The form re-fetches the legal parents and
- * clears `parent_experiment` if this run is not among them, so a stale or
- * hand-edited URL cannot attach a child where the server would refuse it.
- * Project and Employee Function come along because they are the scope a parent
- * and child must share; the team is left for the author to pick, since a child
- * run does not necessarily belong to the parent's.
+ * Only seeds - it grants nothing. The form re-fetches the legal parents for the
+ * seeded category and clears `parent_experiment` if this run is not among them,
+ * so a stale or hand-edited URL cannot attach a child where the server would
+ * refuse it. Project and Employee Function come along because they are the scope
+ * a parent and child must share; the team is left for the author to pick, since
+ * a child run does not necessarily belong to the parent's.
  */
 const newChildUrl = computed(() => ({
   path: '/experiments/new',
@@ -337,11 +333,11 @@ onMounted(load)
           <template v-if="descendantCount">
             {{ descendantCount }} experiment{{ descendantCount === 1 ? '' : 's' }} linked below this run.
           </template>
-          <template v-else-if="canLink">
+          <template v-else-if="childCategory">
             Nothing is linked below this run yet.
           </template>
           <template v-else>
-            Nothing is linked below this run.
+            {{ currentNode?.experiment_category || 'This run' }} is the lowest level — it has no children.
           </template>
         </p>
         <div class="tree-toolbar-actions">
@@ -372,10 +368,10 @@ onMounted(load)
             :to="newChildUrl"
             class="btn btn-secondary btn-sm"
           >
-            + New Child Run
+            + New {{ childCategory }}
           </router-link>
           <button v-if="canLink && !picking" class="btn btn-secondary btn-sm" @click="openPicker">
-            + Attach Runs
+            + Attach {{ childCategory }}
           </button>
         </div>
       </div>
@@ -383,11 +379,11 @@ onMounted(load)
       <!-- Picker for attaching children after the parent already exists. -->
       <div v-if="picking" class="tree-picker">
         <div class="tree-picker-head">
-          <h4 class="tree-picker-title">Runs available to link</h4>
+          <h4 class="tree-picker-title">Available {{ childCategory }}s</h4>
           <span class="tree-selected-pill">{{ selected.size }} selected</span>
         </div>
         <p class="tree-hint">
-          Runs in project {{ currentNode?.project }} under
+          Runs one level below, in project {{ currentNode?.project }} under
           {{ currentNode?.employee_function }}, that are not already linked to a parent.
         </p>
         <input
@@ -398,7 +394,7 @@ onMounted(load)
         />
         <div v-if="loadingCandidates" class="tree-status">Looking for available experiments…</div>
         <div v-else-if="!candidates.length" class="tree-empty">
-          No unlinked run exists for this project and Employee Function.
+          No unlinked {{ childCategory }} exists for this project and Employee Function.
         </div>
         <div v-else-if="!filteredCandidates.length" class="tree-empty">
           No available experiment matches “{{ candidateFilter }}”.
