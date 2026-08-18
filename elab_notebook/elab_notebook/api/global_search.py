@@ -5,10 +5,28 @@
 # is whitelisted, so the UI's guard is a convenience, not the rule.
 MIN_QUERY_LENGTH = 3
 
+# `subtitle_field` is what the dropdown falls back to when a record's title is
+# blank - several Lab Experiments carry an aim but no title. Experiment Team has
+# no such field, so it has none and the UI falls through to the record id.
 SEARCH_DOCTYPES = [
-	{"doctype": "Experiment Template", "title_field": "title", "route_prefix": "/templates"},
-	{"doctype": "Lab Experiment", "title_field": "title", "route_prefix": "/experiments"},
-	{"doctype": "Experiment Team", "title_field": "team_name", "route_prefix": "/elab-notebook"},
+	{
+		"doctype": "Experiment Template",
+		"title_field": "title",
+		"subtitle_field": "aim",
+		"route_prefix": "/templates",
+	},
+	{
+		"doctype": "Lab Experiment",
+		"title_field": "title",
+		"subtitle_field": "aim",
+		"route_prefix": "/experiments",
+	},
+	{
+		"doctype": "Experiment Team",
+		"title_field": "team_name",
+		"subtitle_field": None,
+		"route_prefix": "/elab-notebook",
+	},
 ]
 
 
@@ -37,6 +55,7 @@ def get_global_search_results(query):
 	for cfg in SEARCH_DOCTYPES:
 		doctype = cfg["doctype"]
 		title_field = cfg["title_field"]
+		subtitle_field = cfg.get("subtitle_field")
 		route_prefix = cfg["route_prefix"]
 
 		if not frappe.has_permission(doctype, "read"):
@@ -52,7 +71,7 @@ def get_global_search_results(query):
 					["name", "like", pattern],
 					[title_field, "like", pattern]
 				],
-				fields=["name", title_field],
+				fields=["name", title_field] + ([subtitle_field] if subtitle_field else []),
 				limit_page_length=8
 			)
 
@@ -61,6 +80,7 @@ def get_global_search_results(query):
 					"doctype": doctype,
 					"name": item.get("name"),
 					"title": item.get(title_field),
+					"subtitle": item.get(subtitle_field) if subtitle_field else None,
 					"route": f"{route_prefix}/{item.get('name')}"
 				})
 		except frappe.PermissionError:

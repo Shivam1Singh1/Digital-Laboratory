@@ -308,7 +308,7 @@ watch(() => userStore.user.name, async (newVal) => {
                     class="search-dropdown-item"
                     @click="selectResult(item)"
                   >
-                    <span class="search-dropdown-item-title">{{ item.title || 'Untitled' }}</span>
+                    <span class="search-dropdown-item-title">{{ item.title || item.subtitle || item.name }}</span>
                     <span class="search-dropdown-item-name">{{ item.name }}</span>
                   </div>
                 </div>
