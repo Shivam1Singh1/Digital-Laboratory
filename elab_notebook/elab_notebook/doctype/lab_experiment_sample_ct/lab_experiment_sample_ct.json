@@ -6,16 +6,31 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "sample_id",
   "sample",
   "sample_name",
   "batch_no",
   "warehouse",
+  "sample_vol",
   "column_break_txnz",
+  "sample_detailsstage",
+  "remarks",
   "item",
   "qty",
-  "uom"
+  "uom",
+  "attach",
+  "transfered_to",
+  "sampling_date",
+  "date_of_analysis",
+  "results"
  ],
  "fields": [
+  {
+   "fieldname": "sample_id",
+   "fieldtype": "Data",
+   "label": "Sample ID",
+   "in_list_view": 1
+  },
   {
    "fieldname": "sample",
    "fieldtype": "Data",
@@ -36,18 +51,36 @@
   },
   {
    "fieldname": "warehouse",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "label": "Warehouse",
+   "options": "Warehouse",
    "in_list_view": 1
+  },
+  {
+   "description": "(μl) X Vials (Nos).",
+   "fieldname": "sample_vol",
+   "fieldtype": "Data",
+   "label": "Sample Vol"
   },
   {
    "fieldname": "column_break_txnz",
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "item",
+   "fieldname": "sample_detailsstage",
    "fieldtype": "Data",
+   "label": "Sample Details/Stage"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
    "label": "Item",
+   "options": "Item",
    "in_list_view": 1
   },
   {
@@ -57,9 +90,37 @@
    "in_list_view": 1
   },
   {
+   "fetch_from": "item.stock_uom",
    "fieldname": "uom",
    "fieldtype": "Data",
-   "label": "UOM"
+   "label": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "attach",
+   "fieldtype": "Attach",
+   "label": "Attach"
+  },
+  {
+   "fieldname": "transfered_to",
+   "fieldtype": "Link",
+   "label": "Transfered To",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "sampling_date",
+   "fieldtype": "Date",
+   "label": "Sampling Date"
+  },
+  {
+   "fieldname": "date_of_analysis",
+   "fieldtype": "Date",
+   "label": "Date of Analysis"
+  },
+  {
+   "fieldname": "results",
+   "fieldtype": "Data",
+   "label": "Results"
   }
  ],
  "index_web_pages_for_search": 1,

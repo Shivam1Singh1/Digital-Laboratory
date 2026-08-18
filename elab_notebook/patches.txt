@@ -1,6 +1,10 @@
 [pre_model_sync]
 # Patches added in this section will be executed before doctypes are migrated
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
+# Must land before the Lab Experiment sync: its Raw Data tab carries a Link and a
+# Table field aimed at these two, and a doctype sync rejects options naming a
+# doctype that is not there yet.
+elab_notebook.patches.v1_0.add_raw_data_doctypes
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated

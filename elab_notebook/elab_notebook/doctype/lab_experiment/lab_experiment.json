@@ -63,6 +63,22 @@
   "attachments_tab",
   "result_attachment",
   "sample_details",
+  "sample_detailsgenerated",
+  "sample_generated",
+  "sample_not_generated",
+  "section_break_kogm",
+  "trf_no",
+  "batch_manufacturing_date",
+  "handover_date",
+  "project_code_sample",
+  "column_break_ldfs",
+  "batch_volume",
+  "batch_no",
+  "storage_condition",
+  "nature_of_sample",
+  "section_break_aqhn",
+  "quality_metrics",
+  "section_break_vwvz",
   "sample",
   "custom_required_",
   "order_required_by",
@@ -78,8 +94,6 @@
   "methodology",
   "status",
   "workflow_state",
-  "sample_generated",
-  "sample_not_generated",
   "experiment_status"
  ],
  "fields": [
@@ -402,9 +416,11 @@
    "label": "Observation and Conclusion"
   },
   {
+   "depends_on": "eval: [\"Sub Sub Experiment\", \"Sub Experiment\", \"Experiment\"].includes(doc.experiment_category)",
    "fieldname": "attachments_tab",
    "fieldtype": "Tab Break",
-   "label": "Raw Data"
+   "label": "Raw Data",
+   "mandatory_depends_on": "eval:doc.sample_generated"
   },
   {
    "fieldname": "result_attachment",
@@ -416,6 +432,88 @@
    "fieldname": "sample_details",
    "fieldtype": "Long Text",
    "label": "Sample details"
+  },
+  {
+   "fieldname": "sample_detailsgenerated",
+   "fieldtype": "Text Editor",
+   "label": "Sample details(generated)"
+  },
+  {
+   "default": "0",
+   "fieldname": "sample_generated",
+   "fieldtype": "Check",
+   "label": "Sample Generated"
+  },
+  {
+   "default": "0",
+   "fieldname": "sample_not_generated",
+   "fieldtype": "Check",
+   "label": "Sample Not Generated"
+  },
+  {
+   "fieldname": "section_break_kogm",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "trf_no",
+   "fieldtype": "Data",
+   "label": "TRF No."
+  },
+  {
+   "fieldname": "batch_manufacturing_date",
+   "fieldtype": "Date",
+   "label": "Batch Manufacturing Date"
+  },
+  {
+   "fieldname": "handover_date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "project_code_sample",
+   "fieldtype": "Data",
+   "label": "Project Code (sample)"
+  },
+  {
+   "fieldname": "column_break_ldfs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "batch_volume",
+   "fieldtype": "Data",
+   "label": "Batch Volume"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch No."
+  },
+  {
+   "fieldname": "storage_condition",
+   "fieldtype": "Data",
+   "label": "Storage Condition"
+  },
+  {
+   "depends_on": "eval: [\"Sub Experiment\", \"Experiment\"].includes(doc.experiment_category)",
+   "fieldname": "nature_of_sample",
+   "fieldtype": "Link",
+   "label": "Nature of Sample",
+   "options": "Nature of sample"
+  },
+  {
+   "fieldname": "section_break_aqhn",
+   "fieldtype": "Section Break"
+  },
+  {
+   "depends_on": "eval:doc.nature_of_sample",
+   "fieldname": "quality_metrics",
+   "fieldtype": "Table",
+   "label": "Quality Metrics",
+   "options": "Quality Metrics"
+  },
+  {
+   "fieldname": "section_break_vwvz",
+   "fieldtype": "Section Break"
   },
   {
    "fieldname": "sample",
@@ -510,18 +608,6 @@
    "no_copy": 1,
    "in_list_view": 1,
    "in_standard_filter": 1
-  },
-  {
-   "fieldname": "sample_generated",
-   "fieldtype": "Check",
-   "label": "Sample Generated",
-   "default": "0"
-  },
-  {
-   "fieldname": "sample_not_generated",
-   "fieldtype": "Check",
-   "label": "Sample Not Generated",
-   "default": "0"
   },
   {
    "fieldname": "experiment_status",

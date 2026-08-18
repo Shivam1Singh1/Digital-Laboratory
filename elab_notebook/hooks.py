@@ -82,7 +82,7 @@ app_license = "mit"
 # Installation
 # ------------
 
-# before_install = "elab_notebook.install.before_install"
+before_install = "elab_notebook.install.before_install"
 # after_install = "elab_notebook.install.after_install"
 
 # Uninstallation
