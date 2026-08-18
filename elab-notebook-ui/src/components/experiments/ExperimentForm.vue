@@ -984,12 +984,12 @@ const visibleTabs = computed(() => [
         { key: 'procedure', label: 'Protocol Steps' },
       ]
     : []),
-  { key: 'hierarchy', label: 'Experiment Hierarchy' },
   // Hidden on a Master Experiment - see utils/rawData.js, which mirrors the
   // doctype's own depends_on rather than restating the rule.
   ...(showsRawDataTab(experiment.value.experiment_category)
     ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
+  { key: 'hierarchy', label: 'Experiment Hierarchy' },
   { key: 'report', label: 'Report' },
 ])
 

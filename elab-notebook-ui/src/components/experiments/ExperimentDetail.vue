@@ -33,8 +33,8 @@ const TAB_KEYS = [
   'equipment',
   'methodology',
   'procedure',
-  'tree',
   'rawdata',
+  'tree',
   'report',
   'samples',
   'history',
@@ -123,12 +123,12 @@ const visibleTabs = computed(() => [
         { key: 'procedure', label: 'Protocol Steps' },
       ]
     : []),
-  { key: 'tree', label: 'Experiment Hierarchy' },
   // Hidden on a Master Experiment - utils/rawData.js mirrors the doctype's own
   // depends_on so this form and the create form hide the same thing.
   ...(showsRawDataTab(experiment.value?.experiment_category)
     ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
+  { key: 'tree', label: 'Experiment Hierarchy' },
   { key: 'report', label: 'Report' },
   { key: 'samples', label: 'Samples' },
   { key: 'history', label: 'History/Audit Log' },
