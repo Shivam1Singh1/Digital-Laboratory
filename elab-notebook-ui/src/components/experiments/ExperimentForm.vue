@@ -283,7 +283,7 @@ const missingRequiredFields = () => {
   // including a direct POST that never sees this form.
   if (needsParent.value && !experiment.value.parent_experiment) {
     const self = withArticle(experiment.value.experiment_category)
-    const above = 'an existing experiment'
+    const above = withArticle(parentCategory.value)
     fields.push({
       label: 'Parent Experiment',
       tab: 'general',
@@ -925,10 +925,10 @@ const currentCategoryOption = computed(
     categoryOptions.value.find((o) => o.category === experiment.value.experiment_category) || null
 )
 
+const childCategory = computed(() => currentCategoryOption.value?.child_category || '')
+
 // The level directly above the chosen one, read back out of the same shipped
 // ordering rather than retyped: the option whose child_category is this one.
-// Advisory only now that any category may parent any other - it labels the
-// common case in help text, it does not restrict the picker.
 const parentCategory = computed(() => {
   const current = currentCategoryOption.value
   if (!current) return ''
@@ -972,12 +972,15 @@ const visibleTabs = computed(() => [
 // get_available_children. Runs predating the hierarchy have no function set, and
 // blank-matching would pull unrelated orphans into a tree.
 const canPickChildren = computed(
-  () => Boolean(experiment.value.experiment_category && project.value && employeeFunction.value)
+  () => Boolean(childCategory.value && project.value && employeeFunction.value)
 )
 
 const childPickerHint = computed(() => {
   if (!experiment.value.experiment_category) {
     return 'Pick an Experiment Category on the Template tab first.'
+  }
+  if (!childCategory.value) {
+    return `${experiment.value.experiment_category} is the lowest level — it has no children to link.`
   }
   if (!employeeFunction.value) {
     return 'This run has no Employee Function, so no child experiments can be resolved. '
@@ -986,7 +989,7 @@ const childPickerHint = computed(() => {
   if (!project.value) {
     return 'This run has no Project, so no child experiments can be resolved.'
   }
-  return `Unlinked runs in project ${project.value} under ${employeeFunction.value}. `
+  return `Unlinked ${childCategory.value}s in project ${project.value} under ${employeeFunction.value}. `
     + 'Attaching is optional — you can also link them later from the Experiment Tree tab.'
 })
 
@@ -1054,13 +1057,13 @@ const parentPickerHint = computed(() => {
       : (!project.value ? 'Project' : 'Employee Function')
     return `This run has no ${missing} yet, so no parent can be resolved — fill it in above.`
   }
-  if (loadingParents.value || !parentsLoaded.value) return 'Looking up the runs above…'
+  if (loadingParents.value || !parentsLoaded.value) return 'Looking up the level above…'
   if (!parentCandidates.value.length) {
-    return `No experiment exists for project ${project.value} under `
+    return `No ${parentCategory.value} exists for project ${project.value} under `
       + `${employeeFunction.value} yet — create one first, then start this run under it.`
   }
-  return `Any experiment in project ${project.value} under ${employeeFunction.value}. `
-    + 'Required: every level below Master sits under one.'
+  return `${parentCategory.value}s in project ${project.value} under ${employeeFunction.value}. `
+    + 'Required: this level always sits under one.'
 })
 
 const loadParentCandidates = async () => {
@@ -1338,7 +1341,7 @@ onMounted(async () => {
                   :disabled="!parentsLoaded || !parentCandidates.length"
                 >
                   <option value="">
-                    {{ parentsLoaded ? 'Select the experiment this run sits under…' : 'Loading…' }}
+                    {{ parentsLoaded ? `Select the ${parentCategory} this run sits under…` : 'Loading…' }}
                   </option>
                   <option v-for="p in parentCandidates" :key="p.name" :value="p.name">
                     {{ parentLabel(p) }}
@@ -1870,13 +1873,13 @@ onMounted(async () => {
                 readonly
               />
               <span class="field-hint">
-                Set on the Template tab — this run sits under the experiment named here.
+                Set on the Template tab — this run sits under {{ withArticle(parentCategory) }}.
               </span>
             </div>
 
             <div v-if="experiment.experiment_category" class="form-group stacked-field">
               <label class="form-label">
-                Link Child Experiments
+                Link {{ childCategory ? `${childCategory}s` : 'Child Experiments' }}
               </label>
               <span class="field-hint">{{ childPickerHint }}</span>
 
@@ -1885,8 +1888,8 @@ onMounted(async () => {
                   Looking for available experiments…
                 </div>
                 <div v-else-if="!childCandidates.length" class="hierarchy-empty">
-                  No unlinked run exists for this project and Employee Function
-                  yet. Create them first, then link them from this run's
+                  No unlinked {{ childCategory }} exists for this project and Employee
+                  Function yet. Create them first, then link them from this run's
                   Experiment Tree tab.
                 </div>
                 <template v-else>
