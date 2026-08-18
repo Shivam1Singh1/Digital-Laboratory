@@ -62,9 +62,9 @@ def get_global_search_results(query):
 			continue
 
 		try:
-			# Use frappe.get_list to respect the existing permission query conditions.
-			# We query for both "name" and the title_field using OR filters with "like %query%".
-			# limit_page_length is set to 8.
+			# frappe.get_list, not frappe.db, so each doctype's permission query
+			# conditions narrow the rows to what this user may read. The
+			# has_permission call above is only the coarse role gate.
 			items = frappe.get_list(
 				doctype,
 				or_filters=[
@@ -83,10 +83,12 @@ def get_global_search_results(query):
 					"subtitle": item.get(subtitle_field) if subtitle_field else None,
 					"route": f"{route_prefix}/{item.get('name')}"
 				})
+		# One doctype being unreadable is a normal outcome of the permission
+		# rules, not a failure of the search: skip it and keep the other groups.
+		# Nothing broader is caught here - a real error (a renamed field, a bad
+		# filter) has to surface instead of writing an Error Log row per
+		# keystroke and returning a silently short list.
 		except frappe.PermissionError:
-			continue
-		except Exception as e:
-			frappe.log_error(f"Error in get_global_search_results for {doctype}: {str(e)}")
 			continue
 
 	return results
