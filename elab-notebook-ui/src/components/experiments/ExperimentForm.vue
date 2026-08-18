@@ -976,6 +976,14 @@ const TEMPLATE_TABS = ['materials', 'equipment', 'methodology', 'procedure']
 const visibleTabs = computed(() => [
   { key: 'general', label: 'Template' },
   { key: 'details', label: 'Details' },
+  // Third at every level that has it, which is why it sits above the
+  // template-only block rather than after it: at the leaf those four tabs
+  // appear and would otherwise push Raw Data down to seventh.
+  // Hidden on a Master Experiment - see utils/rawData.js, which mirrors the
+  // doctype's own depends_on rather than restating the rule.
+  ...(showsRawDataTab(experiment.value.experiment_category)
+    ? [{ key: 'rawdata', label: 'Raw Data' }]
+    : []),
   ...(usesTemplate.value
     ? [
         { key: 'materials', label: 'Material Required' },
@@ -983,11 +991,6 @@ const visibleTabs = computed(() => [
         { key: 'methodology', label: 'Methodology' },
         { key: 'procedure', label: 'Protocol Steps' },
       ]
-    : []),
-  // Hidden on a Master Experiment - see utils/rawData.js, which mirrors the
-  // doctype's own depends_on rather than restating the rule.
-  ...(showsRawDataTab(experiment.value.experiment_category)
-    ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
   { key: 'hierarchy', label: 'Experiment Hierarchy' },
   { key: 'report', label: 'Report' },
