@@ -1,5 +1,10 @@
 ﻿import frappe
 
+# Below this, a `%term%` scan matches most of the table and the dropdown is
+# noise rather than an answer. Enforced here as well as in the UI: the endpoint
+# is whitelisted, so the UI's guard is a convenience, not the rule.
+MIN_QUERY_LENGTH = 3
+
 SEARCH_DOCTYPES = [
 	{"doctype": "Experiment Template", "title_field": "title", "route_prefix": "/templates"},
 	{"doctype": "Lab Experiment", "title_field": "title", "route_prefix": "/experiments"},
@@ -22,7 +27,8 @@ def _escape_like(term):
 
 @frappe.whitelist()
 def get_global_search_results(query):
-	if not query:
+	query = (query or "").strip()
+	if len(query) < MIN_QUERY_LENGTH:
 		return []
 
 	pattern = f"%{_escape_like(query)}%"

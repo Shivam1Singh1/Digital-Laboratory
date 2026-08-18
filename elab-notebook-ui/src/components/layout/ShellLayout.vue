@@ -22,9 +22,19 @@ const searchContainerRef = ref(null)
 
 let searchDebounceTimer = null
 
+// Mirrors MIN_QUERY_LENGTH in api/global_search.py. One or two characters match
+// most of every table, so the request is spent to render noise; the backend
+// enforces the same floor for callers that are not this input.
+const SEARCH_MIN_CHARS = 3
+
+const searchTooShort = computed(() => {
+  const query = searchQuery.value.trim()
+  return query.length > 0 && query.length < SEARCH_MIN_CHARS
+})
+
 const performSearch = async () => {
   const query = searchQuery.value.trim()
-  if (!query) {
+  if (query.length < SEARCH_MIN_CHARS) {
     searchResults.value = []
     return
   }
@@ -283,7 +293,10 @@ watch(() => userStore.user.name, async (newVal) => {
 
             <!-- Dropdown Results -->
             <div v-if="searchDropdownVisible && searchQuery.trim()" class="search-dropdown">
-              <div v-if="searchLoading" class="search-dropdown-status">
+              <div v-if="searchTooShort" class="search-dropdown-status">
+                Type at least {{ SEARCH_MIN_CHARS }} characters to search
+              </div>
+              <div v-else-if="searchLoading" class="search-dropdown-status">
                 <span class="search-spinner"></span> Searching...
               </div>
               <template v-else-if="groupedResults.length">
