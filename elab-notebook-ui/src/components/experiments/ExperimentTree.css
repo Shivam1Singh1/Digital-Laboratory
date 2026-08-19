@@ -13,6 +13,19 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+
+  /* One colour per level of hierarchy.py CATEGORIES, in that order. Three map
+     onto tokens that already carry the right hue; only blue has no token, so it
+     is the one literal here and the one thing the light theme restates. */
+  --tree-dot-master: var(--warning);
+  --tree-dot-experiment: #60a5fa;
+  --tree-dot-sub: var(--success);
+  --tree-dot-subsub: var(--accent-2);
+  --tree-dot-other: var(--text-muted);
+}
+
+:root.light-theme .experiment-tree {
+  --tree-dot-experiment: #2563eb; /* darkened for contrast on white surfaces */
 }
 
 .tree-status {
@@ -40,73 +53,6 @@
   color: var(--success);
 }
 
-/* Upward view ------------------------------------------------------------ */
-
-.tree-ancestry {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background-color: var(--bg-primary);
-  font-size: 0.8rem;
-}
-
-.tree-ancestry-label {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  margin-right: 0.25rem;
-}
-
-.tree-ancestry-none {
-  color: var(--text-muted);
-}
-
-.tree-crumb-wrap {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.tree-crumb {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.22rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  color: var(--text-primary);
-  text-decoration: none;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-a.tree-crumb:hover {
-  border-color: var(--accent);
-  background-color: var(--bg-elevated);
-}
-
-.tree-crumb-current {
-  border-color: var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
-  font-weight: 600;
-}
-
-.tree-crumb-cat {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-.tree-crumb-sep {
-  color: var(--text-muted);
-}
-
 /* Toolbar ---------------------------------------------------------------- */
 
 .tree-toolbar {
@@ -121,6 +67,13 @@ a.tree-crumb:hover {
   margin: 0;
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.tree-toolbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 /* Attach picker ---------------------------------------------------------- */
@@ -276,6 +229,7 @@ a.tree-crumb:hover {
 .tree-rows {
   --tree-indent: 1.5rem;
   --tree-rail: 0.75rem; /* line's x-offset inside its column: half of the indent */
+  --tree-toggle-w: 1.3rem; /* control and its leaf-row spacer share this width */
   --tree-line: color-mix(in srgb, var(--accent) 38%, var(--border));
   list-style: none;
   margin: 0;
@@ -335,6 +289,59 @@ a.tree-crumb:hover {
   border-left: 1px solid var(--tree-line);
 }
 
+/* Expand/collapse ---------------------------------------------------------
+ *
+ * Only rows with children get the control; the rest get a spacer of the same
+ * width, so every node at one depth still starts at the same x. Both sit
+ * between the trunk and the node, outside the row's link.
+ */
+
+.tree-toggle,
+.tree-toggle-spacer {
+  flex: 0 0 var(--tree-toggle-w);
+}
+
+.tree-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  height: 1.3rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tree-toggle:hover {
+  color: var(--accent);
+  background-color: var(--bg-elevated);
+}
+
+.tree-toggle:focus-visible {
+  outline: none;
+  color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* A border triangle rather than a glyph: it inherits the button's colour and
+   rotates about its own centre, which a text caret does not do predictably. */
+.tree-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid currentColor;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.15s ease;
+}
+
+.tree-caret-open {
+  transform: rotate(90deg);
+}
+
 /* The clickable node. A router-link on descendants, a plain span on the run
    being viewed - there is nowhere to navigate to from yourself. */
 .tree-node {
@@ -363,11 +370,59 @@ a.tree-node:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* The run being viewed is the root of what is shown, so it reads as the anchor
-   rather than as one row among its descendants. */
+/* The run being viewed. It is no longer the top row - the tree starts at the
+   root, so the current run can sit at any depth - which makes the highlight the
+   only thing marking it. Border, fill and a heavier id together, because at
+   depth three a tinted background alone is easy to miss. */
 .tree-node-current {
   border-color: var(--accent);
-  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.tree-node-current .tree-row-id {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Level dot. Redundant with the category badge beside it on purpose: the badge
+   is what you read, the dot is what you scan a deep tree by. Decorative, so it
+   is aria-hidden in the template and the badge carries the meaning. */
+.tree-dot {
+  flex: 0 0 auto;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background-color: var(--tree-dot-other);
+}
+
+.tree-dot-master {
+  background-color: var(--tree-dot-master);
+}
+
+.tree-dot-experiment {
+  background-color: var(--tree-dot-experiment);
+}
+
+.tree-dot-sub {
+  background-color: var(--tree-dot-sub);
+}
+
+.tree-dot-subsub {
+  background-color: var(--tree-dot-subsub);
+}
+
+.tree-dot-other {
+  background-color: var(--tree-dot-other);
+}
+
+/* What a collapsed branch is hiding, so the row is worth reopening. */
+.tree-child-count {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 .tree-cat-badge {
@@ -485,6 +540,39 @@ a.tree-node:focus-visible {
   color: var(--danger);
 }
 
+/* Legend ------------------------------------------------------------------
+ *
+ * Last element of the tab, reading the dots above it. Every level is listed
+ * whether or not this particular subtree contains one, so the key is the same
+ * key on every run.
+ */
+
+.tree-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-primary);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.tree-legend-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  font-size: 0.65rem;
+}
+
+.tree-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 /* Deep rows would otherwise push the id column off a narrow viewport. The rows
    must not wrap - wrapping puts the node under its own guide columns and the
    trunk stops lining up - so the indent tightens and .tree-rows scrolls
@@ -494,6 +582,7 @@ a.tree-node:focus-visible {
   .tree-rows {
     --tree-indent: 0.9rem;
     --tree-rail: 0.45rem;
+    --tree-toggle-w: 1.1rem;
   }
 
   .tree-node {

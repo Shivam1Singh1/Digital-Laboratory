@@ -176,7 +176,7 @@ onMounted(() => {
               <th>Run ID</th>
               <th>Title / Aim</th>
               <th>Project</th>
-              <th>Lead Scientist</th>
+              <th>Experiment Type</th>
               <th>Status</th>
               <th>Start Date</th>
             </tr>
@@ -194,7 +194,11 @@ onMounted(() => {
                 <div class="exp-aim-cell" v-if="exp.aim">{{ exp.aim }}</div>
               </td>
               <td>{{ exp.project }}</td>
-              <td>{{ exp.employee_name }}</td>
+              <!-- Older runs predate the four-level categories, so an em dash
+                   rather than a blank cell: the level is unset, not missing. -->
+              <td :class="{ 'text-muted': !exp.experiment_category }">
+                {{ exp.experiment_category || '—' }}
+              </td>
               <td>
                 <span 
                   class="status-pill"

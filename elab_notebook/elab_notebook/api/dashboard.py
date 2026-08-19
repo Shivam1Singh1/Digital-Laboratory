@@ -482,7 +482,7 @@ def get_experiments_list(project=None, workflow_state=None):
         
     experiments = frappe.get_all(
         "Lab Experiment",
-        fields=["name", "title", "aim", "project", "employee_name", "workflow_state", "experiment_status", "experiment_start_date", "creation"],
+        fields=["name", "title", "aim", "project", "experiment_category", "workflow_state", "experiment_status", "experiment_start_date", "creation"],
         filters=filters,
         order_by="creation desc"
     )

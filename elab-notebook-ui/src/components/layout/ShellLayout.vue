@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import axios from 'axios'
@@ -12,6 +12,107 @@ const router = useRouter()
 const dropdownOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const avatarFailed = ref(false)
+
+const searchQuery = ref('')
+const searchResults = ref([])
+const searchLoading = ref(false)
+const searchDropdownVisible = ref(false)
+const searchInputRef = ref(null)
+const searchContainerRef = ref(null)
+
+let searchDebounceTimer = null
+
+// Mirrors MIN_QUERY_LENGTH in api/global_search.py. One or two characters match
+// most of every table, so the request is spent to render noise; the backend
+// enforces the same floor for callers that are not this input.
+const SEARCH_MIN_CHARS = 3
+
+const searchTooShort = computed(() => {
+  const query = searchQuery.value.trim()
+  return query.length > 0 && query.length < SEARCH_MIN_CHARS
+})
+
+const performSearch = async () => {
+  const query = searchQuery.value.trim()
+  if (query.length < SEARCH_MIN_CHARS) {
+    searchResults.value = []
+    return
+  }
+
+  searchLoading.value = true
+  try {
+    const response = await axios.get('/api/method/elab_notebook.elab_notebook.api.global_search.get_global_search_results', {
+      params: { query }
+    })
+    searchResults.value = response.data.message || []
+  } catch (err) {
+    console.error('Global search failed:', err)
+    searchResults.value = []
+  } finally {
+    searchLoading.value = false
+  }
+}
+
+const onSearchInput = () => {
+  searchDropdownVisible.value = true
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+  }
+  searchDebounceTimer = setTimeout(() => {
+    performSearch()
+  }, 250)
+}
+
+const groupedResults = computed(() => {
+  const groups = {
+    'Experiment Template': { label: 'Templates', items: [] },
+    'Lab Experiment': { label: 'Experiments', items: [] },
+    'Experiment Team': { label: 'Teams', items: [] }
+  }
+
+  searchResults.value.forEach(item => {
+    const group = groups[item.doctype]
+    if (group) {
+      group.items.push(item)
+    }
+  })
+
+  return Object.values(groups).filter(g => g.items.length > 0)
+})
+
+const selectResult = (result) => {
+  router.push(result.route)
+  searchDropdownVisible.value = false
+  searchQuery.value = ''
+  if (searchInputRef.value) {
+    searchInputRef.value.blur()
+  }
+}
+
+const closeSearchDropdown = () => {
+  searchDropdownVisible.value = false
+}
+
+const handleGlobalKeydown = (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    if (searchInputRef.value) {
+      searchInputRef.value.focus()
+      searchDropdownVisible.value = true
+    }
+  } else if (e.key === 'Escape') {
+    closeSearchDropdown()
+    if (searchInputRef.value) {
+      searchInputRef.value.blur()
+    }
+  }
+}
+
+const handleClickOutside = (e) => {
+  if (searchContainerRef.value && !searchContainerRef.value.contains(e.target)) {
+    closeSearchDropdown()
+  }
+}
 
 // Fall back to initials when there is no image, or when the image URL fails to load
 const showAvatarImage = computed(() => !!userStore.user.user_image && !avatarFailed.value)
@@ -45,6 +146,13 @@ const logout = async () => {
 
 onMounted(async () => {
   await userStore.fetchEmployeeScope()
+  window.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('click', handleClickOutside)
 })
 
 // A new image URL deserves a fresh attempt before falling back to initials again
@@ -168,10 +276,47 @@ watch(() => userStore.user.name, async (newVal) => {
           </button>
 
           <!-- Search bar -->
-          <div class="search-box">
-            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input type="text" placeholder="Search experiments, resources..." class="search-input" />
-            <kbd class="search-kbd">⌘K</kbd>
+          <div ref="searchContainerRef" class="global-search-wrapper">
+            <div class="global-search-box">
+              <svg class="global-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                placeholder="Search experiments, resources..."
+                class="global-search-input"
+                @input="onSearchInput"
+                @focus="searchDropdownVisible = true"
+              />
+              <kbd class="global-search-kbd">⌘K</kbd>
+            </div>
+
+            <!-- Dropdown Results -->
+            <div v-if="searchDropdownVisible && searchQuery.trim()" class="global-search-dropdown">
+              <div v-if="searchTooShort" class="global-search-dropdown-status">
+                Type at least {{ SEARCH_MIN_CHARS }} characters to search
+              </div>
+              <div v-else-if="searchLoading" class="global-search-dropdown-status">
+                <span class="global-search-spinner"></span> Searching...
+              </div>
+              <template v-else-if="groupedResults.length">
+                <div v-for="group in groupedResults" :key="group.label" class="global-search-dropdown-group">
+                  <div class="global-search-dropdown-header">{{ group.label }}</div>
+                  <div
+                    v-for="item in group.items"
+                    :key="item.name"
+                    class="global-search-dropdown-item"
+                    @click="selectResult(item)"
+                  >
+                    <span class="global-search-dropdown-item-title">{{ item.title || item.subtitle || item.name }}</span>
+                    <span class="global-search-dropdown-item-name">{{ item.name }}</span>
+                  </div>
+                </div>
+              </template>
+              <div v-else class="global-search-dropdown-status">
+                No results found
+              </div>
+            </div>
           </div>
         </div>
 

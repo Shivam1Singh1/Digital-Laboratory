@@ -929,7 +929,7 @@ onMounted(() => {
            separate bar repeated that and cost a whole card of vertical space. -->
       <div class="run-actions-row">
         <p class="run-actions-hint">
-          <template v-if="isDraft">Start the run to open every tab for editing.</template>
+          <template v-if="isDraft">Every tab is readable now — start the run to edit them. The hierarchy stays editable until this run is Approved.</template>
           <template v-else-if="isRunning">Edit any tab and Save as often as you like — come back over as many days as the work takes.</template>
           <template v-else-if="isWorkflowLocked()">This run is {{ experiment.workflow_state }} and is no longer editable.</template>
           <template v-else>Awaiting approval. The run stays editable until a System Manager approves it.</template>
@@ -997,10 +997,15 @@ onMounted(() => {
          run had nothing on screen to edit and the only ways out both ended the
          run. Lab work spans days, so the run stays open and editable and only an
          explicit action closes it. -->
-    <!-- Tabs render from Running onwards and are no longer the run bar's v-else.
+    <!-- Tabs render in every state, Draft included. Draft used to swap the whole
+         row out for a standalone Experiment Tree card, which left a freshly
+         created run with no way to reach its own Template, Details or Report.
+         The panes are views bound to `experiment`; what Draft gates is editing,
+         and that is the Save button's business, not the tab row's.
+
          The `experiment` guard stays: the panes below dereference it directly,
          and one TypeError there takes down the whole app render. -->
-    <div v-if="experiment && !isDraft" class="detail-layout card">
+    <div v-if="experiment" class="detail-layout card">
       <!-- Tabs. Material Required, Equipment Details, Methodology and Protocol
            Steps appear only on a Sub Sub Experiment - see visibleTabs. -->
       <div class="form-tabs-row">
@@ -1596,21 +1601,6 @@ onMounted(() => {
           <ExperimentReport :experiment-id="String(route.params.id)" />
         </div>
       </div>
-    </div>
-
-    <!-- The tab row above only renders from Saved onwards, but a run lands here
-         in Draft the moment it is created - which is exactly when its author
-         wants to see the children they just attached. So Draft gets the tree on
-         its own, from the same component. -->
-    <div v-if="experiment && isDraft" class="detail-layout card">
-      <div class="tree-draft-head">
-        <h3 class="tree-draft-title">Experiment Tree</h3>
-        <p class="tree-draft-hint">
-          Start the run to open the rest of the tabs. The hierarchy stays editable
-          until this run is Approved.
-        </p>
-      </div>
-      <ExperimentTree :experiment-id="String(route.params.id)" />
     </div>
 
     <!-- 8. Register Sample Modal Dialog -->

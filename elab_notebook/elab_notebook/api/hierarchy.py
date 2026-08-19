@@ -550,7 +550,8 @@ def get_experiment_subtree(experiment: str) -> dict:
 		frappe.throw(_("Experiment {0} not found.").format(frappe.bold(experiment)))
 
 	node = dict(root)
-	node["children"] = _descendants(experiment, {experiment}, 1)
+	node["children"] = _descendants(experiment)
+	node["child_count"] = len(node["children"])
 	node["is_root_of_view"] = True
 
 	return {
@@ -559,6 +560,70 @@ def get_experiment_subtree(experiment: str) -> dict:
 		"child_category": child_category_of(root.get("experiment_category")),
 		"can_link": _can_link_more(root),
 	}
+
+
+def _root_of(row) -> frappe._dict:
+	"""The highest ancestor of `row` this user may read, or `row` itself.
+
+	Stops at the first unreadable ancestor rather than throwing: a participant
+	who may see their own Sub Experiment but not the Master above it still gets
+	a tree, rooted at the highest point they are allowed to see. Walking past
+	that point would leak the existence of the runs above.
+	"""
+	current = row
+	seen = {row["name"]}
+
+	for _ in range(_MAX_DEPTH):
+		parent = current.get("parent_experiment")
+		# `parent in seen` is the cycle guard: a hand-edited loop would
+		# otherwise walk forever between the same two rows.
+		if not parent or parent in seen:
+			break
+		if not frappe.has_permission("Lab Experiment", "read", doc=parent):
+			break
+		parent_row = frappe.db.get_value("Lab Experiment", parent, list(_NODE_FIELDS), as_dict=True)
+		if not parent_row:
+			break
+		seen.add(parent)
+		current = parent_row
+
+	return current
+
+
+@frappe.whitelist()
+def get_experiment_root_tree(experiment: str) -> dict:
+	"""The whole tree `experiment` belongs to, rooted at its topmost ancestor.
+
+	`get_experiment_subtree` answers "what hangs below this run", which is the
+	right question for the Report tab but the wrong one for the hierarchy tab:
+	opening a Sub Sub Experiment there showed a single leaf and nothing of the
+	programme it belongs to. This walks up first, so every level renders from
+	one tree and a row above the current run is as clickable as a row below it.
+
+	Only the starting point changes. The subtree itself is still derived from
+	`parent_experiment` by the same call, so there is nothing stored or
+	duplicated here.
+
+	`child_category` and `can_link` describe the *current* run, not the root -
+	they drive the Attach control, which adopts children for the page you are
+	on, not for the top of the tree.
+	"""
+	if not frappe.has_permission("Lab Experiment", "read", doc=experiment):
+		frappe.throw(
+			_("You are not permitted to view {0}.").format(frappe.bold(experiment)),
+			frappe.PermissionError,
+			title=_("Not Authorized"),
+		)
+
+	row = frappe.db.get_value("Lab Experiment", experiment, list(_NODE_FIELDS), as_dict=True)
+	if not row:
+		frappe.throw(_("Experiment {0} not found.").format(frappe.bold(experiment)))
+
+	tree = get_experiment_subtree(_root_of(row)["name"])
+	tree["current"] = experiment
+	tree["child_category"] = child_category_of(row.get("experiment_category"))
+	tree["can_link"] = _can_link_more(row)
+	return tree
 
 
 # The scientific content the Report tab rolls up, deliberately separate from
@@ -605,7 +670,7 @@ def get_experiment_report(experiment: str) -> dict:
 	rendering of a row the user may see but whose body they may not.
 
 	Eager, in one round trip, matching the Experiment Hierarchy tab it sits beside
-	-- see `_descendants`, which recurses the full subtree with no page limit.
+	-- see `_descendants`, which collects the full subtree with no page limit.
 	"""
 	tree = get_experiment_subtree(experiment)
 	root = tree.get("node")
@@ -655,29 +720,65 @@ def _merge_content(node: dict, content: dict) -> None:
 		_merge_content(child, content)
 
 
-def _descendants(name: str, seen: set[str], depth: int) -> list[dict]:
-	if depth > _MAX_DEPTH:
-		# Cycle or corrupt depth. Stop rather than recurse forever; the four-level
-		# rule means legitimate data never reaches here.
-		return []
+def _descendants(root_name: str) -> list[dict]:
+	"""Every readable node under `root_name`, nested, one query per level.
 
-	rows = frappe.get_list(
-		"Lab Experiment",
-		filters={"parent_experiment": name},
-		fields=list(_NODE_FIELDS),
-		order_by="creation asc",
-		limit_page_length=0,
-	)
+	Levels are fetched breadth-first in whole batches -- `parent_experiment in
+	(<the entire level>)` -- so a subtree costs at most `_MAX_DEPTH` queries no
+	matter how wide it grows. Walking node by node was N+1: a Master with twenty
+	children spent twenty-one round trips to draw one tab.
 
-	children = []
-	for row in rows:
-		if row["name"] in seen:
-			continue
-		seen.add(row["name"])
-		child = dict(row)
-		child["children"] = _descendants(row["name"], seen, depth + 1)
-		children.append(child)
-	return children
+	It stays on `frappe.get_list` rather than dropping to a recursive CTE
+	because the traversal has to be permission-filtered at every level (see
+	`get_experiment_subtree`). Raw SQL would have to restate the Lab Experiment
+	permission query to keep that true, and the two copies would drift.
+
+	Each node is stamped with `child_count` here, while the level below it is
+	already in hand -- the tab needs it to decide whether a row gets an
+	expand/collapse control, and counting it in the UI would mean shipping
+	collapsed branches only to measure them.
+	"""
+	index: dict[str, dict] = {}
+	by_parent: dict[str, list[dict]] = {}
+	seen = {root_name}
+	frontier = [root_name]
+	depth = 1
+
+	while frontier and depth <= _MAX_DEPTH:
+		rows = frappe.get_list(
+			"Lab Experiment",
+			filters={"parent_experiment": ["in", frontier]},
+			fields=list(_NODE_FIELDS),
+			order_by="creation asc",
+			limit_page_length=0,
+		)
+
+		frontier = []
+		for row in rows:
+			# A cycle, or a row already placed higher up: hanging it twice would
+			# duplicate a whole branch and the walk would never terminate.
+			if row["name"] in seen:
+				continue
+			seen.add(row["name"])
+
+			node = dict(row)
+			node["children"] = []
+			node["child_count"] = 0
+			index[row["name"]] = node
+			by_parent.setdefault(row["parent_experiment"], []).append(node)
+			frontier.append(row["name"])
+
+		depth += 1
+
+	# `creation asc` survives the regrouping: rows arrive ordered and are
+	# appended in that order, so siblings keep it once hung off their parent.
+	for parent_name, children in by_parent.items():
+		parent = index.get(parent_name)
+		if parent is not None:
+			parent["children"] = children
+			parent["child_count"] = len(children)
+
+	return by_parent.get(root_name, [])
 
 
 def _ancestors(root) -> list[dict]:
