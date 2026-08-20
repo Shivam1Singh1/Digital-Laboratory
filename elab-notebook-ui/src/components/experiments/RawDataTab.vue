@@ -15,7 +15,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import RichTextEditor from '../common/RichTextEditor.vue'
-import { showsNatureOfSample, showsQualityMetrics } from '../../utils/rawData'
+import { showsNatureOfSample, showsQualityMetrics, showsSubMetrics } from '../../utils/rawData'
 import './RawDataTab.css'
 
 const props = defineProps({
@@ -25,6 +25,8 @@ const props = defineProps({
 
 const showNature = computed(() => showsNatureOfSample(props.experiment.experiment_category))
 const showMetrics = computed(() => showsQualityMetrics(props.experiment.nature_of_sample))
+// Scoped to the level, not to nature_of_sample - see utils/rawData.js.
+const showSubMetrics = computed(() => showsSubMetrics(props.experiment.experiment_category))
 
 // Link targets. Small, closed lists, so they load once and render as selects
 // rather than as another search widget.
@@ -56,8 +58,32 @@ const loadOptions = async (doctype, target, extra = {}) => {
   }
 }
 
+// Nature of sample is autonamed `hash`, so its `name` is a random string like
+// i1c34r8rf5 and the doctype sets no title_field. Loading only `name` - which is
+// what every other list here needs - put that hash in front of the user as the
+// option label. The readable value lives in the `nature_of_sample` field, so
+// this one list carries both: the id is still what gets stored.
+const loadNatureOptions = async () => {
+  try {
+    const res = await axios.get('/api/method/frappe.client.get_list', {
+      params: {
+        doctype: 'Nature of sample',
+        fields: JSON.stringify(['name', 'nature_of_sample']),
+        limit_page_length: 0,
+      },
+    })
+    natureOptions.value = (res.data.message || []).map((r) => ({
+      value: r.name,
+      label: r.nature_of_sample || r.name,
+    }))
+  } catch (err) {
+    console.error('Failed to load Nature of sample options:', err)
+    natureOptions.value = []
+  }
+}
+
 onMounted(() => {
-  loadOptions('Nature of sample', natureOptions)
+  loadNatureOptions()
   loadOptions('Parameter', parameterOptions)
   loadOptions('Item', itemOptions, { limit_page_length: 500 })
   loadOptions('Warehouse', warehouseOptions, { limit_page_length: 500 })
@@ -140,11 +166,13 @@ const onSampleItem = async (row) => {
     </div>
 
     <!-- Sample details --------------------------------------------------- -->
-    <div class="form-group">
-      <label class="form-label">Sample details</label>
-      <textarea v-model="experiment.sample_details" class="form-control" rows="3" :readonly="readonly"></textarea>
-    </div>
+    <!-- The plain `sample_details` box that used to sit above this one is gone:
+         two fields called Sample details, one plain and one rich, asked the same
+         question twice and neither said which to use. This is the one kept.
 
+         Only the input is removed. The doctype still carries sample_details and
+         so does the payload, so the one run that has a value in it keeps it and
+         it stays visible in the desk form - nothing was dropped. -->
     <div class="form-group">
       <label class="form-label">Sample details(generated)</label>
       <RichTextEditor v-model="experiment.sample_detailsgenerated" placeholder="Generated sample details…" :readonly="readonly" />
@@ -207,7 +235,7 @@ const onSampleItem = async (row) => {
           <label class="form-label">Nature of Sample</label>
           <select v-model="experiment.nature_of_sample" class="form-control" :disabled="readonly">
             <option value="">Select…</option>
-            <option v-for="n in natureOptions" :key="n" :value="n">{{ n }}</option>
+            <option v-for="n in natureOptions" :key="n.value" :value="n.value">{{ n.label }}</option>
           </select>
         </div>
       </div>
@@ -249,6 +277,50 @@ const onSampleItem = async (row) => {
             </tr>
             <tr v-if="!rows('quality_metrics').length">
               <td :colspan="readonly ? 4 : 5" class="rd-empty">No metrics recorded yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- sub_metrics: a second Parameter/Value/Unit grid, Sub Experiment only.
+         Sits right after Quality Metrics and does not replace or duplicate it -
+         both grids can carry rows on the same run. -->
+    <div v-if="showSubMetrics" class="rd-block">
+      <div class="rd-block-head">
+        <h3 class="rd-block-title">Sub Experiment Metrics</h3>
+        <button v-if="!readonly" class="btn btn-secondary btn-sm" @click="addRow('sub_metrics', BLANK_METRIC)">
+          + Add Row
+        </button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th class="rd-num">No.</th>
+              <th>Parameter</th>
+              <th>Value</th>
+              <th>Unit</th>
+              <th v-if="!readonly" class="actions-col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, i) in rows('sub_metrics')" :key="i">
+              <td class="rd-num">{{ i + 1 }}</td>
+              <td>
+                <select v-model="row.quality_metrics" class="form-control table-input" :disabled="readonly">
+                  <option value="">Select…</option>
+                  <option v-for="p in parameterOptions" :key="p" :value="p">{{ p }}</option>
+                </select>
+              </td>
+              <td><input v-model="row.value" type="text" class="form-control table-input" :readonly="readonly" /></td>
+              <td><input v-model="row.unit" type="text" class="form-control table-input" :readonly="readonly" /></td>
+              <td v-if="!readonly" class="actions-col">
+                <button class="rd-remove" title="Remove row" @click="removeRow('sub_metrics', i)">×</button>
+              </td>
+            </tr>
+            <tr v-if="!rows('sub_metrics').length">
+              <td :colspan="readonly ? 4 : 5" class="rd-empty">No Data</td>
             </tr>
           </tbody>
         </table>

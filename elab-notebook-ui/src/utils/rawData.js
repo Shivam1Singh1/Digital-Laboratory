@@ -30,3 +30,11 @@ export const showsNatureOfSample = (category) =>
 // as "Experiment and Sub Experiment" would still leave the grid showing on a
 // run whose nature_of_sample was cleared.
 export const showsQualityMetrics = (natureOfSample) => Boolean(natureOfSample)
+
+// sub_metrics -> eval:doc.experiment_category == "Sub Experiment"
+//
+// The one Raw Data grid that is scoped to a single level. Written as an equality
+// on the category rather than keyed off nature_of_sample like quality_metrics
+// above: this grid is meant for Sub Experiment and no other level, whether or
+// not a nature of sample has been chosen.
+export const showsSubMetrics = (category) => category === 'Sub Experiment'

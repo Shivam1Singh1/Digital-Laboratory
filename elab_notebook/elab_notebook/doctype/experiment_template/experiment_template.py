@@ -1,12 +1,57 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import cint
+from frappe.utils import cint, now_datetime
 
 
 def is_valid_suffix(suffix):
 	"""One uppercase letter followed by four digits, e.g. `A0001`."""
 	return len(suffix) == 5 and suffix[0].isupper() and suffix[1:].isdigit()
+
+
+def sync_parameter_master(rows) -> list[str]:
+	"""Make sure every parameter named on a template exists in the Parameter master.
+
+	`Quality Metrics.quality_metrics` is a Link to Parameter, so the Quality
+	Metrics grid on a run can only offer what that master holds. The names
+	themselves are authored on Experiment Template, one per `template_parameters`
+	row, which left the master to be typed up a second time by hand - and until
+	someone did, the grid's dropdown was empty.
+
+	Additive only. An existing Parameter is left exactly as it is: the master is
+	shared across every template, so overwriting one template's row onto it would
+	let one template quietly rewrite another's. Nothing is ever deleted here
+	either - removing a row from a template does not un-name a parameter that
+	runs may already be pointing at.
+
+	Returns the names created, so the caller can say what it did.
+
+	Shared with the backfill patch (patches/v1_0/sync_parameter_master.py) rather
+	than written twice, so "what counts as a parameter" has one definition.
+	"""
+	created = []
+	seen = set()
+
+	for row in rows or []:
+		name = (row.get("parameter_name") or "").strip()
+		# A blank row is a row the user has not filled in yet, not a parameter.
+		if not name or name.casefold() in seen:
+			continue
+		seen.add(name.casefold())
+
+		if frappe.db.exists("Parameter", name):
+			continue
+
+		# ignore_permissions: this is derived data, written as a consequence of a
+		# template the user was already allowed to save. Requiring create rights
+		# on Parameter as well would make the master go stale for exactly the
+		# people authoring the templates.
+		frappe.get_doc({"doctype": "Parameter", "parameter": name}).insert(
+			ignore_permissions=True
+		)
+		created.append(name)
+
+	return created
 
 
 class ExperimentTemplate(Document):
@@ -70,12 +115,116 @@ class ExperimentTemplate(Document):
 
 		return f"{letter}{number + 1:04d}"
 
+	def before_insert(self):
+		self.set_creator_identity()
+
+	def on_update(self):
+		"""Grow the Parameter master to match what this template names.
+
+		on_update rather than validate: the master should only gain a name once
+		the template carrying it has actually saved. A validate-time write would
+		leave Parameter records behind for a save that then failed.
+
+		Never allowed to take the template down with it. A template is the user's
+		work; the master is a convenience derived from it, and a failure to
+		extend the second must not reject the first.
+		"""
+		try:
+			sync_parameter_master(self.get("template_parameters"))
+		except Exception:
+			frappe.log_error(
+				title="Parameter master sync failed",
+				message=f"Experiment Template {self.name}\n{frappe.get_traceback()}",
+			)
+
 	def validate(self):
+		self.validate_creator_identity_locked()
 		self.validate_approval_locks()
 		self.set_project_id()
 		self.set_department_from_project()
 		self.validate_employee_function_project()
 		self.set_total_duration()
+
+	def set_creator_identity(self):
+		"""Stamp who is writing this template, from the session -- never from input.
+
+		Mirrors LabExperiment.set_creator_identity: whatever `employee_code`
+		arrives on the payload is discarded, so a crafted POST naming someone
+		else's Employee is not a way to file a template under their name.
+
+		`employee_name` is a fetch_from of employee_code and Frappe refreshes it on
+		save; it is set here too so the value is present on the insert itself
+		rather than appearing a moment later.
+
+		One deliberate difference from Lab Experiment: no Employee record is a
+		blank here, not a hard stop. A run is always filed by an employee, so
+		LabExperiment can throw; a template is not, and Administrator has no
+		Employee record at all -- throwing would make templates uncreatable by an
+		admin. The field is not `reqd` for the same reason. `owner` still records
+		who did it in every case, which is also the field Frappe's Only-If-Creator
+		rules read; this pair is the human-readable identity, not the permission
+		key.
+		"""
+		employee = frappe.db.get_value(
+			"Employee", {"user_id": frappe.session.user, "status": "Active"}, ["name", "employee_name"]
+		) or frappe.db.get_value(
+			"Employee", {"user_id": frappe.session.user}, ["name", "employee_name"]
+		)
+
+		# The session user and the server clock, stored outright. Frappe already
+		# keeps both as `owner` and `creation`, so this pair is a deliberate
+		# duplicate: it is what the form and the SPA read, and it stays put even
+		# if a record is ever re-owned. Both are read_only in the form and locked
+		# below, so nothing but this line ever writes them.
+		self.created_by = frappe.session.user
+		self.created_on = now_datetime()
+
+		if not employee:
+			self.employee_code, self.employee_name = None, None
+			return
+
+		self.employee_code, self.employee_name = employee
+
+	def validate_creator_identity_locked(self):
+		"""The author is fixed at creation, for everyone.
+
+		`read_only` on the field governs the desk form and nothing else -- a REST
+		PATCH writes a read_only field happily -- so the rule that actually holds
+		is this one. New records are exempt: set_creator_identity has just written
+		both values, and there is no stored row to compare against yet.
+
+		Records that predate this field carry a blank employee_code. Those are
+		allowed to be filled in once, so a backfill can land, but never rewritten.
+		"""
+		if self.is_new():
+			return
+
+		stored = frappe.db.get_value(
+			"Experiment Template",
+			self.name,
+			["employee_code", "employee_name", "created_by", "created_on"],
+			as_dict=True,
+		)
+		if not stored:
+			return
+
+		# Each field is checked on its own so a record that predates one of them
+		# can still be backfilled, while the ones already stamped stay frozen.
+		for fieldname, label in (
+			("employee_code", "Employee ID (Creator)"),
+			("created_by", "Created By"),
+			("created_on", "Created On"),
+		):
+			was = stored.get(fieldname)
+			if not was:
+				continue
+			if (self.get(fieldname) or None) != was:
+				frappe.throw(
+					_("{0} records who created {1} and cannot be changed.").format(
+						_(label), frappe.bold(self.name)
+					),
+					title=_("Creator Is Fixed"),
+				)
 
 	def validate_approval_locks(self):
 		from elab_notebook.permissions import has_bypass

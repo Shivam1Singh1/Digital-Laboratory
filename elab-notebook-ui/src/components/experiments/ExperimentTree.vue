@@ -341,28 +341,53 @@ onMounted(load)
           </template>
         </p>
         <div class="tree-toolbar-actions">
+          <!-- View controls, not create actions, so they stay set off from the
+               buttons that make rows. Icon plus its name: icon-only left the two
+               unreadable until hovered, and a tooltip is not a label. Both stay
+               on screen in every state - the tree is usually part open, where
+               either one is a real move, and a single toggle would have to guess
+               which. The spent one greys out but stays hoverable on
+               `aria-disabled` rather than `disabled`; both handlers are
+               idempotent, so the greyed click is a no-op anyway. -->
           <template v-if="expandableKeys.length">
-            <button
-              class="btn btn-secondary btn-sm"
-              :disabled="allExpanded"
-              @click="expandAll"
-            >
-              Expand all
-            </button>
-            <button
-              class="btn btn-secondary btn-sm"
-              :disabled="!expandedKeys.size"
-              @click="collapseAll"
-            >
-              Collapse all
-            </button>
+            <div class="tree-view-actions" role="group" aria-label="Tree view">
+              <button
+                class="tree-view-btn"
+                title="Expand every branch"
+                :aria-disabled="allExpanded"
+                @click="expandAll"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <polyline points="7 6 12 11 17 6" />
+                  <polyline points="7 13 12 18 17 13" />
+                </svg>
+                <span>Expand all</span>
+              </button>
+              <button
+                class="tree-view-btn"
+                title="Collapse every branch"
+                :aria-disabled="!expandedKeys.size"
+                @click="collapseAll"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <polyline points="7 11 12 6 17 11" />
+                  <polyline points="7 18 12 13 17 18" />
+                </svg>
+                <span>Collapse all</span>
+              </button>
+            </div>
+            <span class="tree-toolbar-divider" aria-hidden="true"></span>
           </template>
-          <!-- Two ways down a level, both gated on the same `canLink`: adopt a
-               run that already exists, or start one that does not. The second is
-               a plain link into the create form - it seeds the parent and scope
-               and nothing else, so every rule still runs where it already lives
-               (get_parent_candidates drops the seed if this run may not adopt,
-               and LabExperiment.validate() re-checks on save). -->
+          <!-- One way down a level now: start a run that does not exist yet.
+               This is a plain link into the create form - it seeds the parent and
+               scope and nothing else, so every rule still runs where it already
+               lives (get_parent_candidates drops the seed if this run may not
+               adopt, and LabExperiment.validate() re-checks on save).
+
+               The "+ Attach" button that stood beside it is gone. Adopting an
+               already-existing run is no longer offered from this toolbar; the
+               picker below it is now unreachable rather than deleted, so putting
+               it back is one line here. -->
           <router-link
             v-if="canLink && !picking"
             :to="newChildUrl"
@@ -370,9 +395,6 @@ onMounted(load)
           >
             + New {{ childCategory }}
           </router-link>
-          <button v-if="canLink && !picking" class="btn btn-secondary btn-sm" @click="openPicker">
-            + Attach {{ childCategory }}
-          </button>
         </div>
       </div>
 

@@ -7,6 +7,7 @@ import MinutesInput from '../common/MinutesInput.vue'
 import AddRow from '../common/AddRow.vue'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import { formatMinutes } from '../../utils/duration'
+import { formatAuditDate } from '../../utils/dateFormatter'
 import { extractFrappeError } from '../../utils/frappeError'
 import './TemplateDetail.css'
 
@@ -71,6 +72,26 @@ const allowedRoles = ref('')
 const project = ref('')
 const projectId = ref('')
 const remark = ref('')
+
+// Read-only creator identity. Never posted back on save: the server discards a
+// submitted employee_code anyway, and validate_creator_identity_locked refuses a
+// change once one is stored.
+const createdBy = ref('')
+const creatorName = ref('')
+const createdOn = ref('')
+
+// Templates made before these fields existed carry a blank created_by. Those say
+// so plainly rather than rendering an empty box - the record is not broken, it
+// simply predates the stamp. The name is shown with the user id behind it when
+// both are known, since the id alone reads as an email and not as a person.
+const creatorDisplay = computed(() => {
+  if (!createdBy.value) return 'Not recorded — created before this was tracked'
+  return creatorName.value ? `${creatorName.value} (${createdBy.value})` : createdBy.value
+})
+
+const createdOnDisplay = computed(() =>
+  createdOn.value ? formatAuditDate(createdOn.value) : '—'
+)
 
 // --- Section 3: Objective
 const activeTab = ref('ownership')
@@ -230,6 +251,15 @@ const applyDoc = (data) => {
   project.value = data.project || ''
   projectId.value = data.project_id || data.project || ''
   remark.value = data.remark || ''
+
+  // Stamped by ExperimentTemplate.set_creator_identity at insert and fixed after,
+  // so these are displayed and never edited. Read from the stored created_by /
+  // created_on rather than Frappe's `owner` / `creation`: those are what the
+  // doctype now records deliberately, and they are the fields the desk form
+  // shows too. employee_name is kept only as the friendly label for created_by.
+  createdBy.value = data.created_by || ''
+  creatorName.value = data.employee_name || ''
+  createdOn.value = data.created_on || ''
 
   aim.value = data.aim || ''
   subAim.value = data.sub_aim || ''
@@ -873,6 +903,33 @@ onMounted(async () => {
               <div class="form-group span-2">
                 <label class="form-label">Remark</label>
                 <textarea v-model="remark" rows="3" class="form-control"></textarea>
+              </div>
+
+              <!-- Same place the desk form puts them: after Remark, before the
+                   Aim section. Read-only in both, and fixed after creation. -->
+              <div class="form-group">
+                <label class="form-label">Created By</label>
+                <input
+                  type="text"
+                  :value="creatorDisplay"
+                  class="form-control readonly"
+                  readonly
+                />
+                <span class="field-hint">
+                  Filled in automatically when the template was created — whoever was
+                  signed in at that moment. The name is from their Employee record.
+                  Locked afterwards, for everyone.
+                </span>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Created On</label>
+                <input
+                  type="text"
+                  :value="createdOnDisplay"
+                  class="form-control readonly"
+                  readonly
+                />
               </div>
             </div>
           </section>

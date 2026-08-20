@@ -358,7 +358,29 @@ def get_segments_and_cost_centers(employee_function=None):
 
 
 @frappe.whitelist()
-def get_team_financials(project: str, employee_function: str):
+def get_team_financials(project: str, employee_function: str, team: str | None = None):
+	"""The Segment and Cost Center a run is booked against, read off its team.
+
+	A project and Employee Function pair maps to many teams by design - save_team
+	always creates a new record rather than reusing one - so the pair alone does
+	not identify whose pair to return, and answering from whichever team was set
+	up first books the run against a team it is not filed under. `team` is the one
+	the run actually names; it is still matched against the pair so this cannot be
+	used to read a team from some other project.
+
+	The pair lookup stays as the fallback for callers that have not picked a team
+	yet, where any team of the pair is a better starting point than nothing.
+	"""
+	if team:
+		team_info = frappe.db.get_value(
+			"Experiment Team",
+			{"name": team, "project": project, "employee_function": employee_function},
+			["segment", "cost_center"],
+			as_dict=True
+		)
+		if team_info:
+			return team_info
+
 	team_info = frappe.db.get_value(
 		"Experiment Team",
 		{"project": project, "employee_function": employee_function},
@@ -370,11 +392,27 @@ def get_team_financials(project: str, employee_function: str):
 
 @frappe.whitelist()
 def get_authorized_projects_for_user(user: str | None = None):
-	"""Projects the user may actually create Experiments for.
+	"""Projects the user is authorised to create Experiments for.
 
-	Narrower than the Employee Function → Project mapping: a team must exist for
-	the project, and the user must either be listed on it or head the function
-	that owns it.
+	Authorisation, not readiness. These are two different questions and this
+	answers only the first: whether a project is set up far enough to start a run
+	is for the caller to work out, and a project here may well have no Experiment
+	Team on it yet.
+
+	The two routes in are not symmetric:
+
+	- A participant is authorised *by* their team membership, so their projects
+	  are derived from the Experiment Teams they are actually listed on. No team,
+	  no route in - there is nothing else making them authorised.
+	- A head owns the Employee Function → Project mapping itself, so they get
+	  every project mapped to a function they head, whether or not a team exists
+	  on it. Deriving a head's projects from existing teams made the first team on
+	  a project impossible to reach from here: the project stayed invisible until
+	  somebody had already done the thing the head was trying to do.
+
+	Callers that need a *saveable* run must handle a project with no team -
+	Experiment Team is mandatory on Lab Experiment. ExperimentForm offers to
+	create one inline rather than filtering the project back out.
 	"""
 	user = user or frappe.session.user
 
@@ -393,16 +431,10 @@ def get_authorized_projects_for_user(user: str | None = None):
 		else []
 	)
 
-	# Heads are implicitly authorised for their own functions' teams.
-	functions = get_headed_employee_functions(user)
-	if functions:
-		project_names.update(
-			frappe.get_all(
-				"Experiment Team",
-				filters={"employee_function": ("in", functions)},
-				pluck="project",
-			)
-		)
+	# Heads get the whole mapping for their functions, not just the projects that
+	# already carry a team.
+	for function in get_headed_employee_functions(user):
+		project_names.update(get_projects_for_employee_function(function))
 
 	if not project_names:
 		return []

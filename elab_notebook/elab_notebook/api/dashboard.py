@@ -413,7 +413,19 @@ def get_entity_stats(doctype, status_field, project=None):
                     "data": [],
                     "statuses": []
                 }
-                
+    else:
+        # The count below is raw SQL, so the permission_query_conditions hooks that
+        # scope the matching list view never run against it. Project alone does not
+        # isolate a function: two Employee Functions routinely share a project, so
+        # without this a function head's card counts another function's templates and
+        # experiments - rows that same user cannot open. Applied the way db_query
+        # applies them, so the card and the list view answer with the same rows.
+        hooks = frappe.get_hooks("permission_query_conditions", {})
+        for method in hooks.get(doctype, []) + hooks.get("*", []):
+            condition = frappe.call(frappe.get_attr(method), frappe.session.user, doctype=doctype)
+            if condition:
+                where_clauses.append(f"({condition})")
+
     where_str = ""
     if where_clauses:
         where_str = "WHERE " + " AND ".join(where_clauses)
@@ -467,7 +479,7 @@ def get_entity_stats(doctype, status_field, project=None):
     }
 
 @frappe.whitelist()
-def get_experiments_list(project=None, workflow_state=None):
+def get_experiments_list(project=None, workflow_state=None, experiment_category=None):
     from elab_notebook.elab_notebook.api.dashboard import get_dashboard_projects
     allowed_projects = get_dashboard_projects(project)
     
@@ -479,7 +491,13 @@ def get_experiments_list(project=None, workflow_state=None):
         
     if workflow_state:
         filters["workflow_state"] = workflow_state
-        
+
+    # Same shape as workflow_state above: a blank value is "every level", which is
+    # what the list's first, empty option sends. Runs created before the hierarchy
+    # existed carry a blank category and are only hidden once a level is picked.
+    if experiment_category:
+        filters["experiment_category"] = experiment_category
+
     experiments = frappe.get_all(
         "Lab Experiment",
         fields=["name", "title", "aim", "project", "experiment_category", "workflow_state", "experiment_status", "experiment_start_date", "creation"],
@@ -516,32 +534,50 @@ def get_template_experiment_counts():
 
 @frappe.whitelist()
 def get_team_experiment_counts():
-    """Get experiment counts per team (including zero-count rows)."""
+    """Experiment and Sample counts per team, including zero-count rows."""
     # Fetch teams user can see
     teams = frappe.get_list("Experiment Team", fields=["name", "team_name", "project", "employee_function"])
 
-    # Query experiment counts by team (grouped by the team itself, not by project+function)
-    counts = frappe.get_list(
+    # Grouped by the team the run is actually filed under. This used to group by
+    # project + employee_function, which is not a team: save_team creates a new
+    # record every time, so one project+function pair holds many teams and each
+    # of them was handed the pair's whole total. Two teams under one function
+    # both reported every run in the pair.
+    exp_rows = frappe.get_list(
         "Lab Experiment",
-        fields=["project", "employee_function", "count(name) as count"],
-        group_by="project, employee_function"
+        fields=["name", "experiment_team"],
+        limit_page_length=0,
     )
+    exp_by_team = {}
+    team_of_run = {}
+    for row in exp_rows:
+        if not row.experiment_team:
+            continue
+        team_of_run[row.name] = row.experiment_team
+        exp_by_team[row.experiment_team] = exp_by_team.get(row.experiment_team, 0) + 1
 
-    counts_dict = {}
-    for row in counts:
-        if row.project and row.employee_function:
-            key = (row.project, row.employee_function)
-            counts_dict[key] = row.count
+    # Samples hang off a run, not off a team, so they are counted through the run.
+    # Read with get_list rather than a join so the Sample permission query still
+    # applies - a count is still a disclosure.
+    samples_by_team = {}
+    sample_rows = frappe.get_list(
+        "Sample",
+        fields=["experiment", "count(name) as count"],
+        group_by="experiment",
+    )
+    for row in sample_rows:
+        team = team_of_run.get(row.experiment)
+        if team:
+            samples_by_team[team] = samples_by_team.get(team, 0) + row.count
 
-    result = []
-    for team in teams:
-        key = (team.project, team.employee_function)
-        count = counts_dict.get(key, 0)
-        result.append({
+    return [
+        {
             "team": team.name,
             "team_name": team.team_name,
             "project": team.project,
             "employee_function": team.employee_function,
-            "count": count
-        })
-    return result
+            "count": exp_by_team.get(team.name, 0),
+            "sample_count": samples_by_team.get(team.name, 0),
+        }
+        for team in teams
+    ]

@@ -18,6 +18,12 @@
   "project",
   "project_id",
   "remark",
+  "creator_section",
+  "employee_code",
+  "column_break_creator",
+  "employee_name",
+  "created_by",
+  "created_on",
   "section_break_aim",
   "aim",
   "sub_aim",
@@ -43,7 +49,6 @@
   "version",
   "status",
   "objective_hypothesis",
-  "created_by",
   "department",
   "template_ingredients",
   "template_parameters",
@@ -121,6 +126,51 @@
    "fieldname": "remark",
    "fieldtype": "Small Text",
    "label": "Remark"
+  },
+  {
+   "fieldname": "creator_section",
+   "fieldtype": "Section Break",
+   "label": "Created By"
+  },
+  {
+   "description": "Who created this template. Stamped from the signed-in user's Employee record at creation (ExperimentTemplate.set_creator_identity) and fixed afterwards - never entered by hand. read_only governs the desk form; validate_creator_identity_locked is what holds against a direct API write. Deliberately NOT reqd, unlike Lab Experiment.employee_code: Administrator has no Employee record, and a template must stay creatable by an admin. The creation date is Frappe's own `creation`; no custom date field duplicates it.",
+   "fieldname": "employee_code",
+   "fieldtype": "Link",
+   "label": "Employee ID (Creator)",
+   "options": "Employee",
+   "read_only": 1,
+   "no_copy": 1,
+   "ignore_user_permissions": 1
+  },
+  {
+   "fieldname": "column_break_creator",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "fetch_from": "employee_code.employee_name",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "description": "The signed-in user at the moment the template was created, stored explicitly rather than read from Frappe's own `owner`. Set by ExperimentTemplate.set_creator_identity and fixed afterwards - read_only governs the desk form, validate_creator_identity_locked is what holds against a direct API write.",
+   "fieldname": "created_by",
+   "fieldtype": "Link",
+   "label": "Created By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1,
+   "ignore_user_permissions": 1
+  },
+  {
+   "description": "Server time at creation, stored explicitly rather than read from Frappe's own `creation`. Same lock as Created By.",
+   "fieldname": "created_on",
+   "fieldtype": "Datetime",
+   "label": "Created On",
+   "read_only": 1,
+   "no_copy": 1
   },
   {
    "fieldname": "section_break_aim",
@@ -256,11 +306,6 @@
    "fieldname": "objective_hypothesis",
    "fieldtype": "Small Text",
    "label": "Objective & Hypothesis"
-  },
-  {
-   "fieldname": "created_by",
-   "fieldtype": "Data",
-   "label": "Created By"
   },
   {
    "fieldname": "department",
