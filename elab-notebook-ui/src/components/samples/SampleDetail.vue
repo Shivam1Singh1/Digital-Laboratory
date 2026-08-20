@@ -5,11 +5,29 @@ import axios from 'axios'
 import { formatAuditDate } from '../../utils/dateFormatter'
 import { readServerError } from '../../utils/serverError'
 import './SampleDetail.css'
+// === DYNAMIC-PERMS-START ===
+// import { usePermissionStore } from '../../stores/permissions'
+// === DYNAMIC-PERMS-END ===
 
 const API = 'elab_notebook.elab_notebook.api.sample'
 
 const route = useRoute()
 const router = useRouter()
+// === DYNAMIC-PERMS-START ===
+// const permStore = usePermissionStore()
+//
+// // Sample is its own doctype with its own has_sample_permission hook, so this is
+// // a real record-level answer and not an inherited one. ANDed with the parent
+// // run's lock, not ORed: comments_locked is a workflow rule that binds everyone
+// // including System Managers ("for everyone, System Managers included" in the
+// // hint below), so a write permission must not be able to reopen it. Every other
+// // gate on this page ORs; this one is the exception and the reason is the lock.
+// const canEditSampleComments = computed(
+//   () =>
+//     !commentsLocked.value &&
+//     (canEditComments.value || permStore.can('Sample', 'write', route.params.id))
+// )
+// === DYNAMIC-PERMS-END ===
 
 const loading = ref(true)
 const error = ref('')
@@ -105,6 +123,13 @@ watch(
   }
 )
 
+// === DYNAMIC-PERMS-START ===
+// // Its own fetch, keyed on the Sample record - a child doctype's permissions do
+// // not cascade from the parent Lab Experiment and are not derivable from it.
+// onMounted(async () => {
+//   await Promise.all([load(), permStore.fetchAndCache('Sample', route.params.id)])
+// })
+// === DYNAMIC-PERMS-END ===
 onMounted(load)
 </script>
 
@@ -195,6 +220,16 @@ onMounted(load)
           <span v-if="commentsLocked" class="sample-lock-pill">Locked</span>
         </div>
 
+        <!-- === DYNAMIC-PERMS-START ===
+        <textarea
+          v-model="commentDraft"
+          class="form-control textarea"
+          :class="{ readonly: !canEditSampleComments }"
+          :readonly="!canEditSampleComments"
+          rows="4"
+          :placeholder="canEditSampleComments ? 'Notes on this sample…' : 'No comments recorded.'"
+        ></textarea>
+        === DYNAMIC-PERMS-END === -->
         <textarea
           v-model="commentDraft"
           class="form-control textarea"
@@ -210,6 +245,11 @@ onMounted(load)
               Frozen because the parent run is {{ parent.workflow_state }}. Comments lock
               when the run is sent for approval — for everyone, System Managers included.
             </template>
+            <!-- === DYNAMIC-PERMS-START ===
+            <template v-else-if="!canEditSampleComments">
+              This sample is cancelled, or you do not have write access to it.
+            </template>
+            === DYNAMIC-PERMS-END === -->
             <template v-else-if="!canEditComments">
               This sample is cancelled, or you do not have write access to it.
             </template>
@@ -217,6 +257,16 @@ onMounted(load)
               Editable until the parent run is sent for approval.
             </template>
           </span>
+          <!-- === DYNAMIC-PERMS-START ===
+          <button
+            v-if="canEditSampleComments"
+            class="btn btn-secondary btn-sm"
+            :disabled="savingComments || !commentsDirty"
+            @click="saveComments"
+          >
+            {{ savingComments ? 'Saving…' : 'Save Comments' }}
+          </button>
+          === DYNAMIC-PERMS-END === -->
           <button
             v-if="canEditComments"
             class="btn btn-secondary btn-sm"

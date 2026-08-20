@@ -23,9 +23,7 @@
   "cost_center",
   "segment",
   "section_break_wtsv",
-  "protocol_steps",
   "observation",
-  "observations",
   "details_tab",
   "section_break_xqiv",
   "amended_from",
@@ -49,6 +47,10 @@
   "rationale",
   "details_section",
   "equipment_details",
+  "protocol_steps_section",
+  "protocol_steps",
+  "observation_table_section",
+  "observations",
   "items_tab",
   "from_bom",
   "bom_no",
@@ -78,6 +80,7 @@
   "nature_of_sample",
   "section_break_aqhn",
   "quality_metrics",
+  "sub_metrics",
   "section_break_vwvz",
   "sample",
   "custom_required_",
@@ -219,7 +222,8 @@
    "fieldname": "protocol_steps",
    "fieldtype": "Table",
    "label": "Protocol Steps",
-   "options": "Lab Experiment Step CT"
+   "options": "Lab Experiment Step CT",
+   "reqd": 0
   },
   {
    "fieldname": "observation",
@@ -231,8 +235,9 @@
   {
    "fieldname": "observations",
    "fieldtype": "Table",
-   "label": "Observations",
-   "options": "Lab Experiment Observation CT"
+   "label": "Observation Table",
+   "options": "Lab Experiment Observation CT",
+   "reqd": 0
   },
   {
    "fieldname": "details_tab",
@@ -352,6 +357,16 @@
    "options": "Lab Experiment Equipment CT",
    "allow_bulk_edit": 1,
    "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+  },
+  {
+   "fieldname": "protocol_steps_section",
+   "fieldtype": "Section Break",
+   "label": "Protocol Steps"
+  },
+  {
+   "fieldname": "observation_table_section",
+   "fieldtype": "Section Break",
+   "label": "Observation Table"
   },
   {
    "fieldname": "items_tab",
@@ -510,6 +525,14 @@
    "fieldtype": "Table",
    "label": "Quality Metrics",
    "options": "Quality Metrics"
+  },
+  {
+   "description": "A second Parameter/Value/Unit grid, for the extra readings a Sub Experiment records beyond the standard quality metrics. Reuses the Quality Metrics child doctype rather than a near-identical copy of it - same three columns, one place to change them. Optional: nothing reads it and a run saves with it empty.",
+   "fieldname": "sub_metrics",
+   "fieldtype": "Table",
+   "label": "Sub Experiment Metrics",
+   "options": "Quality Metrics",
+   "depends_on": "eval:doc.experiment_category == \"Sub Experiment\""
   },
   {
    "fieldname": "section_break_vwvz",

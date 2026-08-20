@@ -1,13 +1,33 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { extractFrappeError } from '../../utils/frappeError'
 import PageHeader from '../layout/PageHeader.vue'
 import './TeamSetup.css'
+// === DYNAMIC-PERMS-START ===
+// import { usePermissionStore } from '../../stores/permissions'
+// === DYNAMIC-PERMS-END ===
 
 const userStore = useUserStore()
+const route = useRoute()
 const API = 'elab_notebook.elab_notebook.api.experiment_team'
+// === DYNAMIC-PERMS-START ===
+// const permStore = usePermissionStore()
+//
+// // OR, never AND. Frappe's doctype-level create on Experiment Team belongs to
+// // System Manager alone, while the page's real gate is "do you head this
+// // Employee Function" - and _assert_head lets a System Manager through by
+// // bypass. ANDing the two would hide Create Team from every head who is not a
+// // System Manager, which is all of them here (verified: has_permission says
+// // create=0 for the head, who can nonetheless create a team). ORing adds the
+// // case the domain check misses - a System Manager who heads nothing but may
+// // still create by bypass - and takes nothing away.
+// const canCreateTeam = computed(
+//   () => isHead.value || permStore.can('Experiment Team', 'create')
+// )
+// === DYNAMIC-PERMS-END ===
 
 const loading = ref(true)
 const saving = ref(false)
@@ -97,17 +117,24 @@ const loadContext = async () => {
   }
 }
 
+// Two separate numbers per team. They used to be one: the badge printed the
+// experiment count twice, once labelled Samples, so a team with no samples at
+// all still read "6 Samples".
 const teamExperimentCounts = ref({})
+const teamSampleCounts = ref({})
 
 const fetchTeamExperimentCounts = async () => {
   try {
     const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.dashboard.get_team_experiment_counts')
     const counts = res.data.message || []
-    const map = {}
+    const expMap = {}
+    const sampleMap = {}
     for (const item of counts) {
-      map[item.team] = item.count
+      expMap[item.team] = item.count
+      sampleMap[item.team] = item.sample_count
     }
-    teamExperimentCounts.value = map
+    teamExperimentCounts.value = expMap
+    teamSampleCounts.value = sampleMap
   } catch (err) {
     console.error('Failed to fetch team experiment counts', err)
   }
@@ -248,14 +275,53 @@ watch(employeeFunction, () => {
   loadSegmentsAndCostCenters()
 })
 
+// Arriving from the Experiment form's "Set up a team for this project" link,
+// which sends create=1 plus the pair it had already resolved. Seeding them here
+// is what lets that form drop its own copy of this dialog: the user lands on the
+// same one, already filled in, instead of retyping what the other page knew.
+//
+// employeeFunction is set first and the project a tick later: the watcher above
+// clears the project whenever the function changes, so setting both at once
+// would wipe the one that arrived in the URL.
+const applyCreateIntent = async () => {
+  if (!route.query.create) return
+
+  const fn = route.query.employee_function
+  if (fn && functions.value.some((f) => f.name === fn)) {
+    employeeFunction.value = fn
+    await nextTick()
+    await loadSegmentsAndCostCenters()
+  }
+
+  openDialog()
+  if (route.query.project) {
+    await nextTick()
+    project.value = route.query.project
+  }
+}
+
 onMounted(async () => {
+  // === DYNAMIC-PERMS-START ===
+  // // Doctype-level: no record exists yet on a list page. Fetched alongside the
+  // // context rather than after it so the create affordance settles in one paint.
+  // await Promise.all([loadContext(), permStore.fetchAndCache('Experiment Team')])
+  // === DYNAMIC-PERMS-END ===
   await loadContext()
   await loadSegmentsAndCostCenters()
+  await applyCreateIntent()
 })
 </script>
 
 <template>
   <div class="team-setup-container">
+    <!-- === DYNAMIC-PERMS-START ===
+    <PageHeader
+      :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Elab Notebook' }]"
+      title="Elab Notebook"
+      subtitle="Decide, project by project, who may create experiments."
+      :action="canCreateTeam ? { label: 'Create Team', onClick: openDialog } : null"
+    />
+    === DYNAMIC-PERMS-END === -->
     <PageHeader
       :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Elab Notebook' }]"
       title="Elab Notebook"
@@ -277,6 +343,9 @@ onMounted(async () => {
     </div>
 
     <!-- Neither a head nor a participant anywhere -->
+    <!-- === DYNAMIC-PERMS-START ===
+    <div v-else-if="!canCreateTeam && !filteredMyTeams.length" class="empty-state">
+    === DYNAMIC-PERMS-END === -->
     <div v-else-if="!isHead && !filteredMyTeams.length" class="empty-state">
       <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -295,6 +364,11 @@ onMounted(async () => {
         <div class="table-actions">
           <div>
             <h3 class="section-title no-margin">Your Teams</h3>
+            <!-- === DYNAMIC-PERMS-START ===
+            <p class="section-sub">
+              {{ canCreateTeam ? 'Teams you have set up, plus any you take part in.' : 'Teams you take part in.' }}
+            </p>
+            === DYNAMIC-PERMS-END === -->
             <p class="section-sub">
               {{ isHead ? 'Teams you have set up, plus any you take part in.' : 'Teams you take part in.' }}
             </p>
@@ -305,6 +379,12 @@ onMounted(async () => {
         <div v-if="!filteredMyTeams.length" class="grid-empty standalone">
           <div class="empty-state-content">
             <p class="empty-state-text">No teams yet</p>
+            <!-- === DYNAMIC-PERMS-START ===
+            <button v-if="canCreateTeam" class="btn btn-primary btn-lg" @click="openDialog">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Create Team
+            </button>
+            === DYNAMIC-PERMS-END === -->
             <button v-if="isHead" class="btn btn-primary btn-lg" @click="openDialog">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon-svg"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Create Team
@@ -336,7 +416,7 @@ onMounted(async () => {
                   <span class="count-badge">{{ t.participant_count }} {{ t.participant_count === 1 ? 'participant' : 'participants' }}</span>
                 </td>
                 <td class="count-col">
-                  <span class="count-badge">{{ teamExperimentCounts[t.name] || 0 }} Exp. / {{ teamExperimentCounts[t.name] || 0 }} Samples</span>
+                  <span class="count-badge">{{ teamExperimentCounts[t.name] || 0 }} Exp. / {{ teamSampleCounts[t.name] || 0 }} Samples</span>
                 </td>
               </tr>
             </tbody>

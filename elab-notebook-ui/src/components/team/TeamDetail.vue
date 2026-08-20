@@ -6,10 +6,26 @@ import { useUserStore } from '../../stores/user'
 import { extractFrappeError } from '../../utils/frappeError'
 import { deskUrl } from '../../utils/frappeUrl'
 import './TeamSetup.css'
+// === DYNAMIC-PERMS-START ===
+// import { usePermissionStore } from '../../stores/permissions'
+// === DYNAMIC-PERMS-END ===
 
 const API = 'elab_notebook.elab_notebook.api.experiment_team'
 const route = useRoute()
 const userStore = useUserStore()
+// === DYNAMIC-PERMS-START ===
+// const permStore = usePermissionStore()
+//
+// // Record-level, so Frappe does run has_team_permission here - but verified
+// // that the hook can only restrict, never grant, so the owner of this very team
+// // still reads write=0 from the role table. ORed with the server's own can_edit
+// // for that reason: the dict may add access, it must never subtract it.
+// const canEditTeam = computed(
+//   () =>
+//     Boolean(team.value?.can_edit) ||
+//     permStore.can('Experiment Team', 'write', route.params.id)
+// )
+// === DYNAMIC-PERMS-END ===
 
 const loading = ref(true)
 const saving = ref(false)
@@ -155,10 +171,19 @@ const getDocstatusLabel = (statusNum) => {
 }
 
 watch(() => route.params.id, async () => {
+  // === DYNAMIC-PERMS-START ===
+  // // The previous record's answer is not this record's. Dropped before the
+  // // refetch so a stale dict cannot gate the incoming team for a frame.
+  // permStore.invalidate('Experiment Team', route.params.id)
+  // await Promise.all([load(), permStore.fetchAndCache('Experiment Team', route.params.id)])
+  // === DYNAMIC-PERMS-END ===
   await load()
   await loadSegmentsAndCostCenters()
 })
 onMounted(async () => {
+  // === DYNAMIC-PERMS-START ===
+  // await Promise.all([load(), permStore.fetchAndCache('Experiment Team', route.params.id)])
+  // === DYNAMIC-PERMS-END ===
   await load()
   await loadSegmentsAndCostCenters()
 })
@@ -236,6 +261,15 @@ onMounted(async () => {
         <div class="scope-grid">
           <div class="form-group">
             <label class="form-label">Team Name *</label>
+            <!-- === DYNAMIC-PERMS-START ===
+            <input
+              v-if="canEditTeam && editing"
+              v-model="team.team_name"
+              type="text"
+              class="form-control"
+              placeholder="e.g. R&D Team Alpha"
+            />
+            === DYNAMIC-PERMS-END === -->
             <input
               v-if="team.can_edit && editing"
               v-model="team.team_name"
@@ -305,6 +339,12 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- === DYNAMIC-PERMS-START ===
+        <p v-if="!canEditTeam" class="field-hint readonly-note">
+          You are a participant on this team. Only {{ team.head_name || 'the function head' }}
+          can change who is on it.
+        </p>
+        === DYNAMIC-PERMS-END === -->
         <p v-if="!team.can_edit" class="field-hint readonly-note">
           You are a participant on this team. Only {{ team.head_name || 'the function head' }}
           can change who is on it.
@@ -322,6 +362,9 @@ onMounted(async () => {
               <span class="team-ref">{{ team.name }}</span>
             </p>
           </div>
+          <!-- === DYNAMIC-PERMS-START ===
+          <div class="header-actions" v-if="canEditTeam">
+          === DYNAMIC-PERMS-END === -->
           <div class="header-actions" v-if="team.can_edit">
             <button v-if="!editing" class="btn btn-secondary btn-sm" @click="startEdit">
               Edit participants

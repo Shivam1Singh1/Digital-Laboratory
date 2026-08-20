@@ -76,6 +76,66 @@
   gap: 0.5rem;
 }
 
+/* Expand/collapse sit closer to each other than to anything else in the bar:
+   the pair is one control, and the divider is what says the rest is not. */
+.tree-view-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Icon plus label, so the pair is readable without hovering. Sized down from a
+   real button: these are view controls sitting next to the create action, and
+   matching its weight would make them compete with it. */
+.tree-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease, opacity 0.15s ease;
+}
+
+.tree-view-btn svg {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.tree-view-btn:hover:not([aria-disabled='true']) {
+  color: var(--accent);
+  background-color: var(--bg-elevated);
+}
+
+.tree-view-btn:focus-visible {
+  outline: none;
+  color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Greyed rather than removed: the icon still names the move it would make, and
+   it stays hoverable so the tooltip keeps working. See the template comment. */
+.tree-view-btn[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.tree-toolbar-divider {
+  align-self: stretch;
+  width: 1px;
+  min-height: 1.3rem;
+  margin: 0 0.15rem;
+  background-color: var(--border);
+}
+
 /* Attach picker ---------------------------------------------------------- */
 
 .tree-picker {

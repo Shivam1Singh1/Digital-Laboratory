@@ -12,10 +12,16 @@ import { showsRawDataTab } from '../../utils/rawData'
 import AddRow from '../common/AddRow.vue'
 import { readServerError } from '../../utils/serverError'
 import './ExperimentDetail.css'
+// === DYNAMIC-PERMS-START ===
+// import { usePermissionStore } from '../../stores/permissions'
+// === DYNAMIC-PERMS-END ===
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+// === DYNAMIC-PERMS-START ===
+// const permStore = usePermissionStore()
+// === DYNAMIC-PERMS-END ===
 
 const loading = ref(true)
 const saving = ref(false)
@@ -280,6 +286,9 @@ const runWorkflowAction = async (action) => {
       ? JSON.parse(err.response.data._server_messages).join(', ') 
       : 'Error running workflow action.'
   } finally {
+    // === DYNAMIC-PERMS-START ===
+    // await refreshPermsAfterTransition()
+    // === DYNAMIC-PERMS-END ===
     runningWorkflowAction.value = false
   }
 }
@@ -349,6 +358,9 @@ const applyWorkflowChain = async (actions, message) => {
   } finally {
     await loadExperiment()
     await loadHistory()
+    // === DYNAMIC-PERMS-START ===
+    // await refreshPermsAfterTransition()
+    // === DYNAMIC-PERMS-END ===
     runningWorkflowAction.value = false
   }
 }
@@ -379,6 +391,25 @@ const isWorkflowLocked = () => {
 }
 
 // Check if current user is System Manager
+// === DYNAMIC-PERMS-START ===
+// // The one genuine hardcoded role check on these four pages: a role name matched
+// // in JS against a list the client happens to hold. Everything else that looked
+// // like one turned out to be a server-computed domain answer. Replaced by the
+// // record-level permission dict, which is decided by Frappe over the same doc -
+// // Role Permission Manager, User Permissions and has_lab_experiment_permission
+// // together - instead of one string this file knows about.
+// //
+// // The name is kept because ~20 template sites read it; what it now means is
+// // "may override the workflow lock". ORed with the old check so a System Manager
+// // whose permission dict has not arrived yet is never worse off than before.
+// const isSystemManager = computed(() => {
+//   return (
+//     permStore.can('Lab Experiment', 'write', route.params.id) ||
+//     userStore.user?.roles?.includes('System Manager') ||
+//     false
+//   )
+// })
+// === DYNAMIC-PERMS-END ===
 const isSystemManager = computed(() => {
   return userStore.user?.roles?.includes('System Manager') || false
 })
@@ -518,6 +549,35 @@ const addEquipment = () => {
   experiment.value.equipment_details.push({ equipment_name: '', equipment_id: '', remarks: '' })
 }
 
+// The run's own protocol steps and observations. Distinct from
+// experiment_protocol_steps, which is the template's planned checklist shown on
+// the Procedure tab and cloned in by api/template.py - these two are the run's
+// own record and are never populated from a template.
+//
+// step_no is seeded from the current length rather than left blank: the doctype
+// carries a real step_no column (it predates idx being the convention), so a row
+// with none reads as step 0 in the grid.
+const addProtocolStep = () => {
+  const rows = experiment.value.protocol_steps
+  rows.push({
+    step_no: rows.length + 1,
+    instruction: '',
+    expected_duration: 0,
+    is_critical: 0,
+    attachment: ''
+  })
+}
+
+const addObservationRow = () => {
+  experiment.value.observations.push({
+    parameter: '',
+    unit: '',
+    expected_range: '',
+    remarks: '',
+    observation: ''
+  })
+}
+
 const addMethod = () => {
   experiment.value.methodology.push({
     method: '',
@@ -547,6 +607,8 @@ const removeChildRow = (fieldname, index) => {
 const removeMethod = (index) => removeChildRow('methodology', index)
 const removeMaterial = (index) => removeChildRow('material_required', index)
 const removeEquipment = (index) => removeChildRow('equipment_details', index)
+const removeProtocolStep = (index) => removeChildRow('protocol_steps', index)
+const removeObservationRow = (index) => removeChildRow('observations', index)
 
 // Format field names to readable strings
 const formatFieldName = (name) => {
@@ -637,6 +699,15 @@ const loadSamples = async () => {
       }
     })
     samplesList.value = res.data.data || []
+    // === DYNAMIC-PERMS-START ===
+    // // Sample is its own doctype with its own has_sample_permission hook, so a
+    // // row's permissions are not the parent run's and cannot be derived from
+    // // them. One fetch per row, keyed on the Sample name. The store dedupes
+    // // in-flight keys, so re-entering this tab does not refetch what it holds.
+    // await Promise.all(
+    //   samplesList.value.map((s) => permStore.fetchAndCache('Sample', s.name))
+    // )
+    // === DYNAMIC-PERMS-END ===
   } catch (err) {
     console.error('Failed to load samples:', err)
   } finally {
@@ -825,6 +896,23 @@ watch([() => experiment.value?.experiment_category, activeTab], ([category, tab]
   if (tab === 'rawdata' && !showsRawDataTab(category)) activeTab.value = 'general'
 })
 
+// === DYNAMIC-PERMS-START ===
+// // Re-read after any transition. The dict describes the state the run was in
+// // before the action, and the workflow lock this page gates on is exactly what
+// // the action just changed. Kept apart from get_workflow_actions on purpose:
+// // that answers "which transition may I press", which get_doc_permissions does
+// // not model and must not be folded into.
+// //
+// // NOTE, verified: get_doc_permissions is called with ptype=None, and Frappe
+// // invokes the controller hook once with that same None - so a ptype-specific
+// // rule (Approved revokes delete) does NOT show up in the dict. Re-fetching is
+// // still right, but do not rely on the dict alone for state-dependent rules.
+// const refreshPermsAfterTransition = async () => {
+//   permStore.invalidate('Lab Experiment', route.params.id)
+//   await permStore.fetchAndCache('Lab Experiment', route.params.id)
+// }
+// === DYNAMIC-PERMS-END ===
+
 const loadEverything = async () => {
   // Sequenced rather than fired together: loadSamples reads experiment.value.name
   // and returns early without it, so launching them in parallel meant the samples
@@ -832,6 +920,11 @@ const loadEverything = async () => {
   // button, which is gated on "no sample exists yet", was deciding from a list
   // that had never loaded.
   await loadExperiment()
+  // === DYNAMIC-PERMS-START ===
+  // // Record-level, alongside the rest rather than before it: nothing above reads
+  // // the dict, and can() fails closed until it lands.
+  // permStore.fetchAndCache('Lab Experiment', route.params.id)
+  // === DYNAMIC-PERMS-END ===
   loadTeamName()
   loadHistory()
   loadSamples()
@@ -1206,12 +1299,200 @@ onMounted(() => {
               <div class="readonly-textarea">{{ experiment.rationale || 'No rationale specified' }}</div>
             </div>
 
+            <!-- The run's own step list, bound to `protocol_steps`. Not the same
+                 table as the Procedure tab's Execution Checklist, which reads
+                 `experiment_protocol_steps` - that one is the template's planned
+                 protocol, cloned in and never edited here. Both stay optional:
+                 nothing on the server reads either of these tables. -->
             <section class="meta-card">
-              <h3 class="pane-subtitle">Observation Comments</h3>
+              <h3 class="pane-subtitle">Protocol Steps</h3>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 4rem">No.</th>
+                      <th>Instructions</th>
+                      <th style="width: 9rem">Expected Duration</th>
+                      <th style="width: 6rem">Critical</th>
+                      <th>Attachment</th>
+                      <th class="actions-col"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(step, idx) in experiment.protocol_steps" :key="idx">
+                      <td>
+                        <input
+                          type="number"
+                          v-model="step.step_no"
+                          class="form-control table-input"
+                          min="0"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          v-model="step.instruction"
+                          class="form-control table-input"
+                          placeholder="What to do at this step…"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          v-model="step.expected_duration"
+                          class="form-control table-input"
+                          min="0"
+                          placeholder="seconds"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td class="text-center">
+                        <input
+                          type="checkbox"
+                          v-model="step.is_critical"
+                          :true-value="1"
+                          :false-value="0"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <!-- Same shape as the Raw Data tab's attachment rows: this
+                           SPA has no upload widget anywhere, so an Attach field
+                           is entered as the file path it stores. -->
+                      <td>
+                        <input
+                          type="text"
+                          v-model="step.attachment"
+                          class="form-control table-input"
+                          placeholder="/files/…"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          class="delete-row-btn"
+                          @click="removeProtocolStep(idx)"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                          :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete step'"
+                        >×</button>
+                      </td>
+                    </tr>
+                    <tr v-if="!experiment.protocol_steps || experiment.protocol_steps.length === 0">
+                      <td colspan="6" class="empty-table-cell">No Data</td>
+                    </tr>
+                    <tr class="add-row-tr">
+                      <td colspan="6">
+                        <AddRow
+                          label="Add Step"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                          @add="addProtocolStep"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <!-- Parameters measured during or after the run, bound to
+                 `observations`. Description is the child's `observation` field -
+                 a Text Editor on the doctype, kept as a plain textarea here so a
+                 grid row does not sprout a toolbar. -->
+            <section class="meta-card">
+              <h3 class="pane-subtitle">Observation Table</h3>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 4rem">No.</th>
+                      <th>Parameter</th>
+                      <th style="width: 7rem">Unit</th>
+                      <th style="width: 10rem">Expected Range</th>
+                      <th>Remarks</th>
+                      <th class="actions-col"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(obs, idx) in experiment.observations" :key="idx">
+                      <!-- Row number is positional, like the doctype grid's own
+                           idx - there is no No. column on this child table. -->
+                      <td class="text-center">{{ idx + 1 }}</td>
+                      <td>
+                        <input
+                          type="text"
+                          v-model="obs.parameter"
+                          class="form-control table-input"
+                          placeholder="e.g. Temperature"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          v-model="obs.unit"
+                          class="form-control table-input"
+                          placeholder="e.g. °C"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          v-model="obs.expected_range"
+                          class="form-control table-input"
+                          placeholder="e.g. 20–25"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          v-model="obs.remarks"
+                          class="form-control table-input"
+                          placeholder="Short note…"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                        />
+                      </td>
+                      <td>
+                        <button
+                          class="delete-row-btn"
+                          @click="removeObservationRow(idx)"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                          :title="isWorkflowLocked() && !isSystemManager ? 'Locked in this workflow state' : 'Delete observation'"
+                        >×</button>
+                      </td>
+                    </tr>
+                    <tr v-if="!experiment.observations || experiment.observations.length === 0">
+                      <td colspan="6" class="empty-table-cell">No Data</td>
+                    </tr>
+                    <tr class="add-row-tr">
+                      <td colspan="6">
+                        <AddRow
+                          label="Add Observation"
+                          :disabled="isWorkflowLocked() && !isSystemManager"
+                          @add="addObservationRow"
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <!-- Overall written observation for the whole run, kept apart from
+                 the per-row notes above. Bound to Lab Experiment's own
+                 `observation` Text Editor, which already existed and is already
+                 fetched from the template - so no observation_summary field was
+                 added; a second top-level field would have meant two places to
+                 write the same thing. -->
+            <section class="meta-card">
+              <h3 class="pane-subtitle">Observation</h3>
               <div class="form-group stacked-field">
                 <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" :readonly="isWorkflowLocked() && !isSystemManager" />
               </div>
             </section>
+
           </div>
         </div>
 
@@ -1356,7 +1637,15 @@ onMounted(() => {
 
         <!-- 5. PROTOCOL STEPS TAB (CHECKLIST) -->
         <div v-if="activeTab === 'procedure'" class="tab-pane">
-          <h3 class="pane-subtitle">Execution Checklist</h3>
+          <!-- Renamed only, behaviour untouched: this reads
+               experiment_protocol_steps, the template's planned protocol, which
+               is a different table from the run's own Protocol Steps on the
+               Details tab. Two lists called the same thing was the confusion. -->
+          <h3 class="pane-subtitle">Planned Protocol (from Template)</h3>
+          <p class="field-hint" style="margin: -0.25rem 0 1rem">
+            Cloned from the Experiment Template and tracked as a checklist. The run's own
+            steps live under Details → Protocol Steps.
+          </p>
           
           <div class="protocol-steps-list">
             <div 

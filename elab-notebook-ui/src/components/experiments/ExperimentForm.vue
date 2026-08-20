@@ -114,6 +114,14 @@ const experiment = ref({
   methodology: [],
   observation: '',
 
+  // The run's own step list and observation rows, same two tables the detail
+  // page edits. Seeded here for the reason given below: the payload is this
+  // object posted whole, so a table Vue never saw is a table the server never
+  // receives. Not in TEMPLATE_CHILD_FIELDS - neither is ever cloned from a
+  // template, so no row here can arrive flagged from_template.
+  protocol_steps: [],
+  observations: [],
+
   // Raw Data tab. Seeded here rather than left to appear on first keystroke:
   // the payload is this object posted whole, and a key Vue never saw is a key
   // the server never receives. Checks are 0/1 to match the doctype's Check.
@@ -131,6 +139,10 @@ const experiment = ref({
   nature_of_sample: '',
   result_attachment: [],
   quality_metrics: [],
+  // Sub Experiment only, but seeded at every level for the reason above: the
+  // payload is this object posted whole. An empty array on the other levels
+  // costs nothing and is never shown.
+  sub_metrics: [],
   sample: []
 })
 
@@ -218,6 +230,37 @@ const removeMaterial = (index) => {
   // LabExperiment.validate_imported_rows_kept().
   if (experiment.value.material_required[index]?.from_template) return
   experiment.value.material_required.splice(index, 1)
+}
+
+// No from_template guard on these two, unlike the tables above: they are never
+// populated from a template, so every row is one the user added here and every
+// row is theirs to delete.
+const addProtocolStep = () => {
+  const rows = experiment.value.protocol_steps
+  rows.push({
+    step_no: rows.length + 1,
+    instruction: '',
+    expected_duration: 0,
+    is_critical: 0,
+    attachment: ''
+  })
+}
+
+const removeProtocolStep = (index) => {
+  experiment.value.protocol_steps.splice(index, 1)
+}
+
+const addObservationRow = () => {
+  experiment.value.observations.push({
+    parameter: '',
+    unit: '',
+    expected_range: '',
+    remarks: ''
+  })
+}
+
+const removeObservationRow = (index) => {
+  experiment.value.observations.splice(index, 1)
 }
 
 const addEquipment = () => {
@@ -594,21 +637,30 @@ const selectEquipment = (eq, item) => {
   eq.equipment_name = item.item_name || item.name
 }
 
-// Segment and Cost Centre are the Employee Function's, not the run's: the
-// function record carries the pair(s) its work is booked against
-// (get_segments_and_cost_centers reads them straight off it), and a team was
-// itself set up by picking from that same list. Reading them from the function
-// is what makes them resolvable before any team exists, and what keeps two users
-// on different functions from inheriting each other's cost centre - the run is
-// filed under whoever is signed in, and that is not always the same person.
+// Segment and Cost Centre come off the team the run is filed under: a team is
+// set up by picking a pair (ExperimentTeam.validate refuses one without), and a
+// run booked anywhere other than where its own team books is a run filed under
+// the wrong budget. The Employee Function supplies the list the picker offers -
+// the function record carries the pairs its work is booked against, which is the
+// same list Team Setup chose from - so the field is still answerable before any
+// team exists, and two users on different functions never inherit each other's
+// cost centre. Team first, function as the fallback.
 const segmentOptions = ref([])
 const costCenterOptions = ref([])
 const financialsLoaded = ref(false)
+const fetchedFromTeam = ref(false)
+
+// The team picker settles after this runs (loadTeamsForProject pre-selects a
+// lone team), so two loads can be in flight at once and the earlier one must not
+// land last with the team-less answer.
+let financialsRun = 0
 
 const loadFinancials = async () => {
+  const run = ++financialsRun
   segmentOptions.value = []
   costCenterOptions.value = []
   financialsLoaded.value = false
+  fetchedFromTeam.value = false
 
   if (!employeeFunction.value) {
     experiment.value.segment = ''
@@ -623,38 +675,54 @@ const loadFinancials = async () => {
       axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_segments_and_cost_centers', {
         params: { employee_function: employeeFunction.value },
       }),
-      // The team's own pair, used only to choose between the function's options
-      // below - never as a source of its own.
+      // The pair belonging to the team named in the picker. Passing it is what
+      // makes this the run's own team rather than whichever team of this project
+      // and function happens to be oldest.
       project.value
         ? axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_team_financials', {
-            params: { project: project.value, employee_function: employeeFunction.value },
+            params: {
+              project: project.value,
+              employee_function: employeeFunction.value,
+              team: experiment.value.experiment_team || undefined,
+            },
           })
         : Promise.resolve({ data: {} }),
     ])
+    if (run !== financialsRun) return
     segmentOptions.value = fnRes.data.message?.segments || []
     costCenterOptions.value = fnRes.data.message?.cost_centers || []
     teamFin = teamRes.data.message || {}
   } catch (err) {
+    if (run !== financialsRun) return
     console.error('Failed to load segments and cost centres:', err)
   } finally {
-    financialsLoaded.value = true
+    if (run === financialsRun) financialsLoaded.value = true
   }
 
-  // The team's value when the function still offers it, the function's answer
-  // when it only has one, and otherwise nothing - a pick, not a guess.
-  const settle = (options, teamValue) => {
-    if (!options.length) return teamValue || ''
-    if (teamValue && options.includes(teamValue)) return teamValue
-    return options.length === 1 ? options[0] : ''
+  // The team's value wins outright, including when the function no longer maps
+  // it - the team books where it books, and blanking the field would quietly
+  // re-file the run. A value the list is missing is added to it so the picker
+  // can show what is selected. With no team to read, a function offering exactly
+  // one answer fills itself in and anything else is left for the user to pick.
+  const settle = (optionsRef, teamValue) => {
+    if (teamValue) {
+      if (!optionsRef.value.includes(teamValue)) {
+        optionsRef.value = [...optionsRef.value, teamValue].sort()
+      }
+      return teamValue
+    }
+    return optionsRef.value.length === 1 ? optionsRef.value[0] : ''
   }
 
-  experiment.value.segment = settle(segmentOptions.value, teamFin.segment)
-  experiment.value.cost_center = settle(costCenterOptions.value, teamFin.cost_center)
+  experiment.value.segment = settle(segmentOptions, teamFin.segment)
+  experiment.value.cost_center = settle(costCenterOptions, teamFin.cost_center)
+  fetchedFromTeam.value = Boolean(teamFin.segment || teamFin.cost_center)
 }
 
 const financialsHint = (options, kind) => {
   if (!employeeFunction.value) return 'Set once an Employee Function is picked.'
-  if (!financialsLoaded.value) return 'Looking up this function’s bookings…'
+  if (!financialsLoaded.value) return 'Looking up this run’s bookings…'
+  if (fetchedFromTeam.value) return `Fetched from this run’s Experiment Team — change it only if this run books elsewhere.`
   if (!options.length) return `This Employee Function has no ${kind} mapped to it.`
   return options.length === 1
     ? `This function’s only ${kind}, filled in for you.`
@@ -757,6 +825,33 @@ const loadTeamsForProject = async () => {
     teamsLoaded.value = true
   }
 }
+
+// Which team the run is filed under is what decides where it books, so the
+// financials are re-read whenever that answer changes - including the
+// pre-selection above, which lands after the first read. Without this the run
+// keeps the pair of whichever team was resolved first while naming another.
+watch(() => experiment.value.experiment_team, loadFinancials)
+
+// ---------------------------------------------------------------------------
+// Getting a team when the project has none
+// ---------------------------------------------------------------------------
+// This form used to carry its own team-creation panel - name field, roster
+// checkboxes, its own save_team call - which meant the same feature existed
+// twice, here and in Team Setup, and had to be fixed twice. It is gone. The link
+// below carries the project and function this form already resolved, plus
+// create=1, and Team Setup opens its own dialog seeded with them.
+//
+// Deliberate consequence: leaving this form loses what has been typed into it.
+// That is why the inline panel existed. Team Setup is one page and one save, and
+// the run is started again from a project that now has a team.
+const teamSetupUrl = computed(() => ({
+  path: '/elab-notebook',
+  query: {
+    create: 1,
+    ...(project.value ? { project: project.value } : {}),
+    ...(employeeFunction.value ? { employee_function: employeeFunction.value } : {}),
+  },
+}))
 
 // ---------------------------------------------------------------------------
 // Project and Employee Function
@@ -1413,11 +1508,15 @@ onMounted(async () => {
                   </option>
                 </select>
                 <span class="field-hint" :class="{ 'field-hint-error': noTeamAvailable }">{{ teamHint }}</span>
-                <!-- The dead end is deliberate, so it has to offer a way out -
-                     but only ever to Team Setup: nothing is created from here. -->
+                <!-- One way out, not two. Team creation lives in Team Setup and
+                     only there: this form used to carry its own copy of the whole
+                     thing - name field, roster checkboxes, save_team call - which
+                     was the same feature maintained twice. The link seeds the
+                     project and function it already knows and opens Team Setup's
+                     own dialog, so nothing is retyped on arrival. -->
                 <div v-if="noTeamAvailable" class="team-recovery">
-                  <router-link to="/elab-notebook" class="btn btn-secondary btn-sm">
-                    Go to Team Setup
+                  <router-link :to="teamSetupUrl" class="btn btn-primary btn-sm">
+                    Set up a team for this project
                   </router-link>
                 </div>
               </div>
@@ -1636,6 +1735,121 @@ onMounted(async () => {
                 rows="3"
                 placeholder="Hypothesis rationale..."
               ></textarea>
+            </div>
+
+            <!-- Same two tables the detail page carries, in the same order, so a
+                 run can be written up as it is created instead of being saved
+                 and then reopened. Both optional: a run saves with them empty,
+                 and nothing on the server reads either one. -->
+            <div class="form-group stacked-field">
+              <label class="form-label">Protocol Steps</label>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 4rem">No.</th>
+                      <th>Instructions</th>
+                      <th style="width: 9rem">Expected Duration</th>
+                      <th style="width: 6rem">Critical</th>
+                      <th>Attachment</th>
+                      <th class="actions-col"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(step, idx) in experiment.protocol_steps" :key="idx">
+                      <td>
+                        <input type="number" v-model="step.step_no" class="form-control table-input" min="0" />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          v-model="step.instruction"
+                          class="form-control table-input"
+                          placeholder="What to do at this step…"
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          v-model="step.expected_duration"
+                          class="form-control table-input"
+                          min="0"
+                          placeholder="seconds"
+                        />
+                      </td>
+                      <td class="text-center">
+                        <input type="checkbox" v-model="step.is_critical" :true-value="1" :false-value="0" />
+                      </td>
+                      <!-- Path, not an upload widget: this SPA has no uploader
+                           anywhere, and the Raw Data tab enters its attachments
+                           the same way. -->
+                      <td>
+                        <input
+                          type="text"
+                          v-model="step.attachment"
+                          class="form-control table-input"
+                          placeholder="/files/…"
+                        />
+                      </td>
+                      <td>
+                        <button class="delete-row-btn" title="Delete step" @click="removeProtocolStep(idx)">×</button>
+                      </td>
+                    </tr>
+                    <tr v-if="experiment.protocol_steps.length === 0">
+                      <td colspan="6" class="empty-table-cell">No Data</td>
+                    </tr>
+                    <tr class="add-row-tr">
+                      <td colspan="6"><AddRow label="Add Step" @add="addProtocolStep" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="form-group stacked-field">
+              <label class="form-label">Observation Table</label>
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width: 4rem">No.</th>
+                      <th>Parameter</th>
+                      <th style="width: 7rem">Unit</th>
+                      <th style="width: 10rem">Expected Range</th>
+                      <th>Remarks</th>
+                      <th class="actions-col"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(obs, idx) in experiment.observations" :key="idx">
+                      <!-- Positional, like the doctype grid's own idx - this child
+                           table has no No. column of its own. -->
+                      <td class="text-center">{{ idx + 1 }}</td>
+                      <td>
+                        <input type="text" v-model="obs.parameter" class="form-control table-input" placeholder="e.g. Temperature" />
+                      </td>
+                      <td>
+                        <input type="text" v-model="obs.unit" class="form-control table-input" placeholder="e.g. °C" />
+                      </td>
+                      <td>
+                        <input type="text" v-model="obs.expected_range" class="form-control table-input" placeholder="e.g. 20–25" />
+                      </td>
+                      <td>
+                        <input type="text" v-model="obs.remarks" class="form-control table-input" placeholder="Short note…" />
+                      </td>
+                      <td>
+                        <button class="delete-row-btn" title="Delete observation" @click="removeObservationRow(idx)">×</button>
+                      </td>
+                    </tr>
+                    <tr v-if="experiment.observations.length === 0">
+                      <td colspan="6" class="empty-table-cell">No Data</td>
+                    </tr>
+                    <tr class="add-row-tr">
+                      <td colspan="6"><AddRow label="Add Observation" @add="addObservationRow" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             <div class="form-group stacked-field">

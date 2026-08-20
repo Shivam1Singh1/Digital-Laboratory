@@ -13,6 +13,7 @@ const userStore = useUserStore()
 const loading = ref(true)
 const experiments = ref([])
 const statusFilter = ref('')
+const categoryFilter = ref('')
 
 const currentPage = ref(1)
 const pageSize = 7
@@ -31,7 +32,9 @@ const fetchExperiments = async () => {
     const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.dashboard.get_experiments_list', {
       params: {
         project: userStore.currentProject,
-        workflow_state: statusFilter.value || undefined
+        workflow_state: statusFilter.value || undefined,
+        // Blank means every level, so it is dropped rather than sent as ''.
+        experiment_category: categoryFilter.value || undefined
       }
     })
     experiments.value = res.data.message || []
@@ -51,6 +54,10 @@ const navigateToDetail = (id) => {
 // (api/hierarchy.get_category_options) rather than spelled out here - the same
 // source ExperimentForm and ExperimentDetail read it from.
 const rootCategory = ref('')
+// The same call also fills the type filter, so the four levels and their order
+// come from api/hierarchy rather than being retyped as a literal list here - the
+// filter cannot drift out of step with the hierarchy the server enforces.
+const categoryOptions = ref([])
 
 const loadRootCategory = async () => {
   try {
@@ -58,11 +65,13 @@ const loadRootCategory = async () => {
       '/api/method/elab_notebook.elab_notebook.api.hierarchy.get_category_options'
     )
     const options = res.data.message || []
+    categoryOptions.value = options
     // The root is the level no other level adopts.
     rootCategory.value =
       options.find((o) => !options.some((p) => p.child_category === o.category))?.category || ''
   } catch (err) {
     console.error('Failed to load experiment categories:', err)
+    categoryOptions.value = []
     rootCategory.value = ''
   }
 }
@@ -92,7 +101,7 @@ watch(() => userStore.currentProject, () => {
   fetchExperiments()
 })
 
-watch(statusFilter, () => {
+watch([statusFilter, categoryFilter], () => {
   currentPage.value = 1
   fetchExperiments()
 })
@@ -148,6 +157,20 @@ onMounted(() => {
           <option value="Pending Approval">Pending Approval</option>
           <option value="In Review">In Review</option>
           <option value="Approved">Approved</option>
+        </select>
+      </div>
+
+      <!-- The four levels, in hierarchy order, straight from the server. The
+           first option is deliberately blank rather than labelled: it is the
+           same empty leading choice the doctype's own experiment_category Select
+           carries, and it means no filter at all. -->
+      <div class="filter-group">
+        <label class="filter-label">Experiment Type:</label>
+        <select v-model="categoryFilter" class="filter-select">
+          <option value=""></option>
+          <option v-for="opt in categoryOptions" :key="opt.category" :value="opt.category">
+            {{ opt.category }}
+          </option>
         </select>
       </div>
     </div>
@@ -251,7 +274,7 @@ onMounted(() => {
         <line x1="9" y1="11" x2="15" y2="11" />
       </svg>
       <h3>No experiments found</h3>
-      <p>No experiment runs match the selected project or status filters.</p>
+      <p>No experiment runs match the selected project, status or experiment type filters.</p>
       <!-- The same entry point as the header action: one page, one way to start
            a run. -->
       <button class="btn btn-secondary mt-3" @click="startNewExperiment">

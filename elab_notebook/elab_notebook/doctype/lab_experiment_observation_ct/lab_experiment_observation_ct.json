@@ -6,19 +6,55 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
+  "parameter",
+  "unit",
+  "expected_range",
+  "remarks",
   "observation",
   "observed_by",
-  "observed_on",
-  "remarks"
+  "observed_on"
  ],
  "fields": [
   {
+   "fieldname": "parameter",
+   "fieldtype": "Data",
+   "label": "Parameter",
+   "in_list_view": 1,
+   "description": "What is being measured or observed.",
+   "reqd": 0
+  },
+  {
+   "fieldname": "unit",
+   "fieldtype": "Data",
+   "label": "Unit",
+   "in_list_view": 1,
+   "description": "Optional - not every parameter has one.",
+   "reqd": 0
+  },
+  {
+   "fieldname": "expected_range",
+   "fieldtype": "Data",
+   "label": "Expected Range",
+   "in_list_view": 1,
+   "description": "Optional reference range, free text, e.g. 20-25 C.",
+   "reqd": 0
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks",
+   "columns": 2,
+   "in_list_view": 1,
+   "reqd": 0
+  },
+  {
    "fieldname": "observation",
    "fieldtype": "Text Editor",
-   "label": "Observation",
+   "label": "Description",
    "columns": 5,
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 0,
+   "in_list_view": 0,
+   "description": "Optional free-form write-up, for when Remarks is not enough. Was mandatory; relaxed so an observation row can be a bare parameter reading."
   },
   {
    "fieldname": "observed_by",
@@ -27,7 +63,8 @@
    "options": "User",
    "default": "__user",
    "columns": 2,
-   "in_list_view": 1
+   "in_list_view": 0,
+   "reqd": 0
   },
   {
    "fieldname": "observed_on",
@@ -36,13 +73,8 @@
    "default": "Now",
    "description": "Set automatically when the row is added.",
    "columns": 2,
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "remarks",
-   "fieldtype": "Small Text",
-   "label": "Remarks",
-   "columns": 2
+   "in_list_view": 0,
+   "reqd": 0
   }
  ],
  "index_web_pages_for_search": 1,
