@@ -22,7 +22,11 @@ const props = defineProps({
   clearable: { type: Boolean, default: true }
 })
 
-const emit = defineEmits(['update:modelValue', 'select'])
+// `search` carries the raw typed text, which no other event does: modelValue
+// only ever holds a committed link. A caller that offers "create the thing you
+// were looking for" needs what was typed, not what was chosen. Additive - every
+// existing call site simply does not listen for it.
+const emit = defineEmits(['update:modelValue', 'select', 'search'])
 
 const query = ref(props.modelValue ? String(props.modelValue) : '')
 const options = ref([])
@@ -121,6 +125,7 @@ const onFocus = () => {
 
 const onInput = () => {
   open.value = true
+  emit('search', query.value)
   runSearch()
 }
 

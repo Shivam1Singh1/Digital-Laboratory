@@ -46,6 +46,19 @@ const SECTIONS = [
 
 const descendantCount = computed(() => Math.max(nodeCount.value - 1, 0))
 
+// Report scope. 'full' is every descendant; 'successful' follows only runs
+// flagged Successful / Include in Report, and prunes an unflagged branch whole -
+// see api/hierarchy.get_successful_subtree, which gates the branch rather than
+// the row. Kept as a scope switch rather than a filter applied to loaded data:
+// the pruning decision is the server's, and re-deriving it here would be a
+// second implementation of the same rule.
+const SCOPES = [
+  { key: 'full', label: 'Full hierarchy' },
+  { key: 'successful', label: 'Successful sub-tree only' },
+]
+const scope = ref('full')
+const scopedToSuccessful = computed(() => scope.value === 'successful')
+
 const filled = (n) => SECTIONS.filter((s) => String(n[s.key] ?? '').trim())
 
 const stateClass = (state) => {
@@ -76,7 +89,12 @@ const load = async () => {
   error.value = ''
   try {
     const res = await axios.get(`/api/method/${API}.get_experiment_report`, {
-      params: { experiment: props.experimentId },
+      params: {
+        experiment: props.experimentId,
+        // 1/0 rather than true/false: it crosses as a query string either way,
+        // and the endpoint reads it with cint.
+        successful_only: scopedToSuccessful.value ? 1 : 0,
+      },
     })
     const data = res.data.message || {}
     node.value = data.node || null
@@ -92,11 +110,33 @@ const load = async () => {
 }
 
 watch(() => props.experimentId, load)
+// Reloads rather than filters in place, for the reason given on SCOPES above.
+watch(scope, load)
 onMounted(load)
 </script>
 
 <template>
   <div class="experiment-report">
+    <!-- Outside the loading branch so the scope stays switchable while the next
+         one loads - moving it inside made the control vanish on every change,
+         which is exactly when someone wants to change it back. -->
+    <div class="rep-scope-row">
+      <span class="rep-scope-label">Scope</span>
+      <div class="rep-scope-options">
+        <button
+          v-for="s in SCOPES"
+          :key="s.key"
+          type="button"
+          class="rep-scope-btn"
+          :class="{ active: scope === s.key }"
+          :disabled="loading"
+          @click="scope = s.key"
+        >
+          {{ s.label }}
+        </button>
+      </div>
+    </div>
+
     <div v-if="loading" class="rep-status">Building the report…</div>
 
     <template v-else-if="node">
@@ -108,9 +148,18 @@ onMounted(load)
               {{ node.name }} and {{ descendantCount }} experiment{{ descendantCount === 1 ? '' : 's' }}
               linked below it.
             </template>
+            <template v-else-if="scopedToSuccessful">
+              {{ node.name }} — no run below this one is flagged for reporting.
+            </template>
             <template v-else>
               {{ node.name }} — nothing is linked below this run.
             </template>
+          </p>
+          <!-- Said out loud, because a pruned report and a full one look the
+               same: the reader cannot see the branches that are missing. -->
+          <p v-if="scopedToSuccessful" class="rep-scope-note">
+            Showing only runs flagged <strong>Successful / Include in Report</strong>.
+            An unflagged run is left out together with everything beneath it.
           </p>
         </div>
         <p v-if="ancestors.length" class="rep-ancestry">

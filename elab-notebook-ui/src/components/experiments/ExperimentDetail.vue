@@ -156,11 +156,17 @@ const visibleTabs = computed(() => [
 ])
 
 // The experiment's id is generated from its team, so the team is the natural
-// parent to jump to. The desk form is the target because /elab-notebook/:id in
-// this app is the team *setup* page, not a record view.
-const teamUrl = computed(() =>
+// parent to jump to - and it stays inside this app. The old comment here said
+// /elab-notebook/:id was the team *setup* page and sent the user to the desk
+// form instead; that was wrong. `/elab-notebook` with no id is TeamSetup,
+// `/elab-notebook/:id` is TeamDetail, which is the record view (router.js).
+//
+// experiment_team holds the Experiment Team docname, and get_team_detail takes
+// a docname despite its `team_name` parameter being named after the label - so
+// this value goes straight through with nothing to resolve.
+const teamRoute = computed(() =>
   experiment.value?.experiment_team
-    ? `/app/experiment-team/${encodeURIComponent(experiment.value.experiment_team)}`
+    ? `/elab-notebook/${encodeURIComponent(experiment.value.experiment_team)}`
     : ''
 )
 
@@ -853,6 +859,34 @@ const onSampleItem = (opt) => {
   if (opt && !newSample.value.name_of_sample) newSample.value.name_of_sample = opt.item_name || ''
 }
 
+// What was typed into the item picker, kept so "Create the Item" can carry it
+// over as the new item's name. The picker itself only ever reports a committed
+// link, and a name that matched nothing is exactly the case this is for.
+const sampleItemSearch = ref('')
+const onSampleItemSearch = (text) => {
+  sampleItemSearch.value = text || ''
+}
+
+const newItemHintTail = computed(() =>
+  sampleItemSearch.value.trim()
+    ? `— opens prefilled as “${sampleItemSearch.value.trim()}”, then search for it here.`
+    : '— fill in its classification there, then search for it here.'
+)
+
+// The Item form, not a mini-form in this dialog. Item here is mandatory on
+// stock_uom, four separate Item Group fields and an HSN/SAC code; inventing
+// defaults for a GST classification from a sample dialog would put wrong tax
+// data in the item master. Only the name is carried over, because the name is
+// the only part this dialog actually knows.
+const openNewItemForm = () => {
+  const typed = sampleItemSearch.value.trim()
+  window.open(
+    deskUrl('/app/item/new', typed ? { item_name: typed } : {}),
+    '_blank',
+    'noopener'
+  )
+}
+
 const submitSampleForm = async () => {
   if (!newSample.value.item) {
     sampleFormError.value = 'Pick the item this sample is of.'
@@ -1177,14 +1211,18 @@ onMounted(() => {
             </button>
           </span>
 
+          <!-- The only Add Sample control on the page. Outside the isRunning
+               block on purpose: Sample accepts Completed and Pending Approval
+               too, and leaving it in there meant a run in either of those states
+               offered no way to add one. canAddSample() carries the real rule
+               and disables it with a reason everywhere else. -->
+          <span :title="addSampleReason()">
+            <button class="btn btn-sm btn-success" :disabled="!canAddSample()" @click="openSampleModal">
+              Add Sample
+            </button>
+          </span>
+
           <template v-if="isRunning">
-            <!-- Gated on exactly what api/generation enforces server-side, so the
-                 user never discovers a rule through a backend error. -->
-            <span :title="addSampleReason()">
-              <button class="btn btn-sm btn-success" :disabled="!canAddSample()" @click="openSampleModal">
-                Add Sample
-              </button>
-            </span>
             <button
               class="btn btn-sm btn-danger"
               :disabled="saving || runningWorkflowAction"
@@ -1254,14 +1292,57 @@ onMounted(() => {
         <!-- 1. GENERAL TAB -->
         <div v-if="activeTab === 'general'" class="tab-pane">
           <div class="pane-grid">
+            <!-- First, because it is the most identifying thing about a run and
+                 was missing entirely: the level decides which tabs exist, whether
+                 a template applies and what may sit under it. Paired with the
+                 parent, since "which level" and "under what" are one question -
+                 a Master Experiment is the only level with no answer to the
+                 second half. -->
+            <div class="form-group-row">
+              <div class="form-group">
+                <label class="form-label">Experiment Category</label>
+                <input
+                  type="text"
+                  :value="experiment.experiment_category || '—'"
+                  class="form-control readonly"
+                  readonly
+                />
+                <span class="field-hint">Fixed when the run was created.</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Parent Experiment</label>
+                <RouterLink
+                  v-if="experiment.parent_experiment"
+                  :to="`/experiments/${encodeURIComponent(experiment.parent_experiment)}`"
+                  class="form-control link-value"
+                  :title="`Open ${experiment.parent_experiment}`"
+                >
+                  <span class="link-value-text">{{ experiment.parent_experiment }}</span>
+                  <svg class="link-value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </RouterLink>
+                <input
+                  v-else
+                  type="text"
+                  value="None — this is a top-level run"
+                  class="form-control readonly"
+                  readonly
+                />
+              </div>
+            </div>
+
             <div class="form-group-row">
               <div class="form-group">
                 <label class="form-label">Experiment Team</label>
-                <a
+                <!-- RouterLink, not an <a href> to the desk: this is an in-app
+                     route now, and a plain href would tear the whole SPA down
+                     and reload it. Still renders a real href, so middle-click
+                     and open-in-new-tab keep working. The external-link icon is
+                     gone with the external link. -->
+                <RouterLink
                   v-if="experiment.experiment_team"
-                  :href="teamUrl"
-                  target="_blank"
-                  rel="noopener"
+                  :to="teamRoute"
                   class="form-control link-value"
                   :title="`Open ${experiment.experiment_team}`"
                 >
@@ -1270,11 +1351,9 @@ onMounted(() => {
                        none, and then the id stands on its own. -->
                   <span class="link-value-text">{{ teamLabel }}</span>
                   <svg class="link-value-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
+                    <polyline points="9 18 15 12 9 6" />
                   </svg>
-                </a>
+                </RouterLink>
                 <input v-else type="text" value="None" class="form-control readonly" readonly />
               </div>
               <div class="form-group">
@@ -1819,19 +1898,12 @@ onMounted(() => {
 
         <!-- 7. SAMPLES TAB -->
         <div v-if="activeTab === 'samples'" class="tab-pane">
-          <!-- Two actions, two cards, because they are independent: samples can
-               go on being added after the Stock Entry exists, and the Stock
-               Entry is unaffected by how many samples there are. The reason text
-               sits under each button rather than only in a tooltip - a greyed
-               button says nothing on its own, and the approved case in
-               particular needs saying out loud. -->
+          <!-- No Add Sample button here: there is one, in the header. The reason
+               text stays, though - a header button that is greyed out says
+               nothing about why, and the approved case in particular needs
+               saying out loud rather than living only in a tooltip. -->
           <div class="samples-section-header">
             <h3 class="pane-section-title">Result Output Samples</h3>
-            <div class="header-action-wrapper" :title="addSampleReason()">
-              <button class="btn btn-primary" :disabled="!canAddSample()" @click="openSampleModal">
-                + Add Sample
-              </button>
-            </div>
           </div>
           <p v-if="generationCtx" class="field-hint" style="margin: -0.5rem 0 1.25rem">
             {{ addSampleReason() }}
@@ -2113,7 +2185,20 @@ onMounted(() => {
               placeholder="Search items…"
               input-class="form-control"
               @select="onSampleItem"
+              @search="onSampleItemSearch"
             />
+            <!-- For a substance this run just produced that has no Item yet.
+                 Opens the real Item form rather than asking for the item here:
+                 an Item on this site needs an HSN/SAC code and four Item Group
+                 classifications, and those are tax and reporting decisions that
+                 should not be guessed at from a sample dialog. -->
+            <span class="field-hint">
+              New substance with no Item yet?
+              <a href="#" class="inline-link" @click.prevent="openNewItemForm">
+                Create the Item
+              </a>
+              {{ newItemHintTail }}
+            </span>
           </div>
 
           <div class="form-group-row two-columns">

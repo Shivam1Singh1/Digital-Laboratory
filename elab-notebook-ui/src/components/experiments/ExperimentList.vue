@@ -50,49 +50,39 @@ const navigateToDetail = (id) => {
   router.push(`/experiments/${encodeURIComponent(id)}`)
 }
 
-// The name of the top level, read off the server's ordering
-// (api/hierarchy.get_category_options) rather than spelled out here - the same
-// source ExperimentForm and ExperimentDetail read it from.
-const rootCategory = ref('')
-// The same call also fills the type filter, so the four levels and their order
-// come from api/hierarchy rather than being retyped as a literal list here - the
-// filter cannot drift out of step with the hierarchy the server enforces.
+// Fills the type filter, so the four levels and their order come from
+// api/hierarchy rather than being retyped as a literal list here - the filter
+// cannot drift out of step with the hierarchy the server enforces.
 const categoryOptions = ref([])
 
-const loadRootCategory = async () => {
+const loadCategoryOptions = async () => {
   try {
     const res = await axios.get(
       '/api/method/elab_notebook.elab_notebook.api.hierarchy.get_category_options'
     )
-    const options = res.data.message || []
-    categoryOptions.value = options
-    // The root is the level no other level adopts.
-    rootCategory.value =
-      options.find((o) => !options.some((p) => p.child_category === o.category))?.category || ''
+    categoryOptions.value = res.data.message || []
   } catch (err) {
     console.error('Failed to load experiment categories:', err)
     categoryOptions.value = []
-    rootCategory.value = ''
   }
 }
 
-// A run started from nothing, at the top of the tree. This is the only entry
-// point that starts a root: the team flow leaves the level to the form, and a
-// saved Master's own Create Experiment button starts the level *below* it and
-// carries that Master as the parent. Here there is no parent by definition -
-// api/hierarchy.assert_parent_presence rejects one on the root.
+// A run started from nothing. The level is left blank for the author to pick:
+// this used to open pre-set to the root level, which put
+// ?experiment_category=Master+Experiment in the URL and had the form open on a
+// choice nobody had made. Starting from the list does not imply starting at the
+// top of the tree - the form's own picker is where the level gets decided.
+//
+// The other entry points still seed it, and should: the tree's Add Child button
+// and a run's own Create button both start a *specific* level below a known
+// parent, which is a level the user has effectively already chosen.
 //
 // It opens the create form directly. There is no setup dialog in front of it any
 // more: Project and Employee Function are fields on the form itself, the latter
 // resolved from the signed-in user, so there is nothing left for an intermediate
 // step to collect.
 const startNewExperiment = () => {
-  router.push({
-    path: '/experiments/new',
-    // If the ordering never arrived, the form asks for the level rather than
-    // opening at one guessed here.
-    query: rootCategory.value ? { experiment_category: rootCategory.value } : {},
-  })
+  router.push('/experiments/new')
 }
 
 // Watchers
@@ -125,7 +115,7 @@ const getExperimentStatusClass = (status) => {
 
 onMounted(() => {
   fetchExperiments()
-  loadRootCategory()
+  loadCategoryOptions()
 })
 </script>
 

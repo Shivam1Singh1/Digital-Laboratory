@@ -1,9 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { Chart } from 'chart.js/auto'
 import { useUserStore } from '../../stores/user'
 import { formatMonth } from '../../utils/dateFormatter'
+import { deskUrl } from '../../utils/frappeUrl'
 import './EntityStatsBlock.css'
 
 const props = defineProps({
@@ -342,10 +344,38 @@ const onKeydown = (e) => {
   if (e.key === 'Escape' && showTrends.value) closeTrends()
 }
 
+// Doctypes this app has its own list page for. Anything not here has no Vue
+// equivalent and still goes to the desk - Workstation, the fourth block on the
+// dashboard, is the case that keeps this fallback honest.
+//
+// Keyed on doctype rather than on the block's entityName label, because the
+// label is display text ("Team", "Experiments") that can be reworded without
+// anyone realising a route depends on it.
+const IN_APP_LISTS = {
+  'Experiment Template': '/templates',
+  'Experiment Team': '/elab-notebook',
+  'Lab Experiment': '/experiments'
+}
+
+const router = useRouter()
+
+// `month` is accepted because the month rows pass it, and deliberately unused:
+// none of the in-app lists take a month filter, and the desk URL this replaced
+// did not carry one either, so nothing is lost by ignoring it here rather than
+// inventing a filter format each list would have to learn.
 const navigateToListView = (month) => {
-  const origin = window.location.origin
-  const url = `${origin}/app/List/${props.doctype}`
-  window.open(url, '_blank')
+  const route = IN_APP_LISTS[props.doctype]
+  if (route) {
+    // Same tab. These are pages of this app, and opening one in a new tab left
+    // the user with two copies of the SPA running.
+    router.push(route)
+    return
+  }
+  // /app/List/<Doctype> unchanged from before - Frappe resolves that form and
+  // redirects to its own slug, and this is not the place to start guessing at
+  // slugification rules. deskUrl only fixes the origin: on the Vite dev server
+  // window.location.origin is :5173, which is not where the desk lives.
+  window.open(deskUrl(`/app/List/${props.doctype}`), '_blank', 'noopener')
 }
 
 // Watchers

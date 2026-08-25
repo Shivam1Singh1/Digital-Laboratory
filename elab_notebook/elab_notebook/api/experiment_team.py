@@ -391,7 +391,9 @@ def get_team_financials(project: str, employee_function: str, team: str | None =
 
 
 @frappe.whitelist()
-def get_authorized_projects_for_user(user: str | None = None):
+def get_authorized_projects_for_user(
+	user: str | None = None, employee_function: str | None = None
+):
 	"""Projects the user is authorised to create Experiments for.
 
 	Authorisation, not readiness. These are two different questions and this
@@ -410,6 +412,14 @@ def get_authorized_projects_for_user(user: str | None = None):
 	  a project impossible to reach from here: the project stayed invisible until
 	  somebody had already done the thing the head was trying to do.
 
+	`employee_function` narrows the answer to one function. It is a filter on top
+	of authorisation, never a way around it: each route is narrowed in the terms
+	that route is expressed in - a participant's teams by the team's own
+	employee_function, a head's mapping by whether they actually head the function
+	asked for - so a function nobody authorised the user for yields nothing rather
+	than everything. Omitted, the answer is every function at once, which is what
+	the create form asks for before it knows which one the run belongs to.
+
 	Callers that need a *saveable* run must handle a project with no team -
 	Experiment Team is mandatory on Lab Experiment. ExperimentForm offers to
 	create one inline rather than filtering the project back out.
@@ -417,6 +427,18 @@ def get_authorized_projects_for_user(user: str | None = None):
 	user = user or frappe.session.user
 
 	if has_bypass(user):
+		# Bypass is "every project", so the filter is the whole mapping for the
+		# function rather than an intersection with a list that was never bounded.
+		if employee_function:
+			allowed = get_projects_for_employee_function(employee_function)
+			if not allowed:
+				return []
+			return frappe.get_all(
+				"Project",
+				filters={"name": ("in", allowed)},
+				fields=["name", "project_name"],
+				order_by="name asc",
+			)
 		return frappe.get_all("Project", fields=["name", "project_name"], order_by="name asc")
 
 	teams = frappe.get_all(
@@ -425,15 +447,24 @@ def get_authorized_projects_for_user(user: str | None = None):
 		pluck="parent",
 	)
 
+	team_filters = {"name": ("in", teams)}
+	if employee_function:
+		team_filters["employee_function"] = employee_function
+
 	project_names = set(
-		frappe.get_all("Experiment Team", filters={"name": ("in", teams)}, pluck="project")
+		frappe.get_all("Experiment Team", filters=team_filters, pluck="project")
 		if teams
 		else []
 	)
 
 	# Heads get the whole mapping for their functions, not just the projects that
 	# already carry a team.
-	for function in get_headed_employee_functions(user):
+	headed = get_headed_employee_functions(user)
+	if employee_function:
+		# Only if they head the one asked for - otherwise heading any function at
+		# all would widen the answer back out past the filter.
+		headed = [f for f in headed if f == employee_function]
+	for function in headed:
 		project_names.update(get_projects_for_employee_function(function))
 
 	if not project_names:

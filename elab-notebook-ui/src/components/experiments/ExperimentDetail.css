@@ -319,6 +319,18 @@
   color: var(--text-primary);
 }
 
+/* An action offered inside a hint line - reads as part of the sentence rather
+   than as a button competing with the dialog's own footer. */
+.inline-link {
+  color: var(--accent, #a78bfa);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.inline-link:hover {
+  opacity: 0.85;
+}
+
 /* Whole sample rows open the sample. The action cell stops its own clicks, so
    the pointer is reset there - a cursor promising navigation over a Submit
    button would be lying about what pressing it does. */

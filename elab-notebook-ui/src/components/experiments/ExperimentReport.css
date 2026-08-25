@@ -279,3 +279,63 @@
   font-size: 0.85rem;
   line-height: 1.5;
 }
+
+/* Report scope switch. Sits above the loading state, so it stays usable while
+   the next scope loads rather than disappearing at the moment of the change. */
+.rep-scope-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.rep-scope-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.rep-scope-options {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.rep-scope-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.rep-scope-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background-color: var(--bg-elevated);
+}
+
+.rep-scope-btn.active {
+  background-color: var(--bg-elevated);
+  border-color: var(--accent, #a78bfa);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.rep-scope-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* The pruning notice. Deliberately not styled as an error - a curated report is
+   a normal thing to produce, it just must not be mistaken for a complete one. */
+.rep-scope-note {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}

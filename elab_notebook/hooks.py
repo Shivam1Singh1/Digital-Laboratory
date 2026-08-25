@@ -43,6 +43,9 @@ app_license = "mit"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
+# Prefills a new Stock Entry opened from a Lab Experiment run - see the file for
+# why the entry cannot simply be created for the user instead.
+doctype_js = {"Stock Entry": "public/js/stock_entry.js"}
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}

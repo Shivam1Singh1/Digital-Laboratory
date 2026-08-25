@@ -20,7 +20,6 @@ _COMMENTS_LOCKED_STATES = (
 class Sample(Document):
 	def validate(self):
 		self.validate_experiment_exists()
-		self.validate_one_sample_per_experiment()
 		self.validate_experiment_workflow_state()
 		self.validate_comments_lock()
 
@@ -46,36 +45,13 @@ class Sample(Document):
 				title=_("Invalid Experiment")
 			)
 
-	def validate_one_sample_per_experiment(self):
-		"""Enforce: Only one Sample per Experiment"""
-		if not self.experiment:
-			return
-
-		# Check if another Sample already exists for this experiment (excluding this doc if amending)
-		existing = frappe.db.get_list(
-			"Sample",
-			filters={
-				"experiment": self.experiment,
-				"docstatus": ["!=", 2]  # Exclude cancelled
-			},
-			fields=["name"],
-			limit=1
-		)
-
-		# If this is a new doc and a Sample exists, reject
-		if existing and not self.name:
-			frappe.throw(
-				_("A Sample already exists for Experiment '{0}'. Only one Sample is allowed per Experiment.").format(self.experiment),
-				title=_("Duplicate Sample")
-			)
-
-		# If amending, allow it (user is updating existing sample)
-		# If updating by name, check it's the same sample
-		if existing and self.name and existing[0]["name"] != self.name:
-			frappe.throw(
-				_("A different Sample already exists for Experiment '{0}'. Only one Sample is allowed per Experiment.").format(self.experiment),
-				title=_("Duplicate Sample")
-			)
+	# validate_one_sample_per_experiment() used to live here and refused a second
+	# Sample on any run. It is gone: samples are now generated in a batch from the
+	# run's own Sample table when the run is concluded, one Sample per row, so
+	# "more than one" is the normal case rather than the error case. The name is
+	# still unique per sample - the Sample_Custom_ID server script seeds `series`
+	# as {experiment}-A0001, A0002, ... and format:{series} names the record from
+	# it.
 
 	def validate_experiment_workflow_state(self):
 		"""Ensure Experiment is in a state that allows Sample creation/editing"""

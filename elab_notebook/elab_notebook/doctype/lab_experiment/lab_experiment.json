@@ -2,9 +2,8 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:{series}",
- "creation": "2026-08-12 10:00:00.000000",
+ "creation": "2026-08-12 10:00:00",
  "doctype": "DocType",
- "editable_grid": 0,
  "engine": "InnoDB",
  "field_order": [
   "template_tab",
@@ -62,6 +61,9 @@
   "result_tab",
   "results",
   "observation_and_conclusion",
+  "conclusion",
+  "result",
+  "is_successful",
   "attachments_tab",
   "result_attachment",
   "sample_details",
@@ -83,6 +85,9 @@
   "sub_metrics",
   "section_break_vwvz",
   "sample",
+  "generation_section",
+  "stock_entry",
+  "samples_generated_on",
   "custom_required_",
   "order_required_by",
   "required",
@@ -109,20 +114,20 @@
    "description": "Who created this run. Stamped from the signed-in user's Employee record at creation (LabExperiment.set_creator_identity) and fixed afterwards - never entered by hand. read_only here governs the desk form; validate_creator_identity_locked is what holds against a direct API write.",
    "fieldname": "employee_code",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "label": "Employee ID (Creator)",
+   "no_copy": 1,
    "options": "Employee",
    "read_only": 1,
-   "reqd": 1,
-   "no_copy": 1,
-   "ignore_user_permissions": 1
+   "reqd": 1
   },
   {
+   "fetch_from": "employee_code.employee_name",
    "fieldname": "employee_name",
    "fieldtype": "Data",
    "label": "Employee Name",
-   "fetch_from": "employee_code.employee_name",
-   "read_only": 1,
-   "no_copy": 1
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "project",
@@ -150,20 +155,20 @@
    "options": "Employee Function"
   },
   {
+   "description": "The team this run belongs to, required at every Experiment Category. Picked explicitly on the create form - pre-selected when the project and Employee Function have only one team, but still shown and still changeable. Locked once saved: the run ID is generated from it (LabExperiment.set_series).",
    "fieldname": "experiment_team",
    "fieldtype": "Link",
    "label": "Experiment Team",
+   "no_copy": 1,
    "options": "Experiment Team",
    "read_only_depends_on": "eval:!doc.__islocal",
-   "reqd": 1,
-   "no_copy": 1,
-   "description": "The team this run belongs to, required at every Experiment Category. Picked explicitly on the create form - pre-selected when the project and Employee Function have only one team, but still shown and still changeable. Locked once saved: the run ID is generated from it (LabExperiment.set_series)."
+   "reqd": 1
   },
   {
+   "default": "Today",
    "fieldname": "experiment_start_date",
    "fieldtype": "Date",
-   "label": "Experiment Start Date",
-   "default": "Today"
+   "label": "Experiment Start Date"
   },
   {
    "fieldname": "experiment_end_date",
@@ -175,10 +180,10 @@
    "fieldtype": "Column Break"
   },
   {
+   "fetch_from": "employee_code.department",
    "fieldname": "department",
    "fieldtype": "Data",
-   "label": "Department",
-   "fetch_from": "employee_code.department"
+   "label": "Department"
   },
   {
    "description": "Retired. Who may work on a run is decided by its Experiment Team, not by a per-employee roster copied onto the run - hidden rather than dropped only because the column and its child table still exist. Nothing writes it.",
@@ -189,12 +194,12 @@
    "options": "Lab Experiment Participant CT"
   },
   {
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'",
    "description": "Only a Sub Sub Experiment runs from a template, and even there it is optional. Picking one clones its materials, equipment and methodology onto this run (api/template.py).",
    "fieldname": "template",
    "fieldtype": "Link",
    "label": "Template",
-   "options": "Experiment Template",
-   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+   "options": "Experiment Template"
   },
   {
    "fieldname": "remark",
@@ -222,22 +227,20 @@
    "fieldname": "protocol_steps",
    "fieldtype": "Table",
    "label": "Protocol Steps",
-   "options": "Lab Experiment Step CT",
-   "reqd": 0
+   "options": "Lab Experiment Step CT"
   },
   {
+   "fetch_from": "template.observation_comments",
+   "fetch_if_empty": 1,
    "fieldname": "observation",
    "fieldtype": "Text Editor",
-   "label": "Observation",
-   "fetch_from": "template.observation_comments",
-   "fetch_if_empty": 1
+   "label": "Observation"
   },
   {
    "fieldname": "observations",
    "fieldtype": "Table",
    "label": "Observation Table",
-   "options": "Lab Experiment Observation CT",
-   "reqd": 0
+   "options": "Lab Experiment Observation CT"
   },
   {
    "fieldname": "details_tab",
@@ -252,10 +255,10 @@
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
-   "options": "Lab Experiment",
-   "read_only": 1,
    "no_copy": 1,
+   "options": "Lab Experiment",
    "print_hide": 1,
+   "read_only": 1,
    "search_index": 1
   },
   {
@@ -264,10 +267,10 @@
    "label": "AIM"
   },
   {
+   "description": "The run's own title, entered by hand. Distinct from Aim: the aim is what the run sets out to show, the title is what it is called.",
    "fieldname": "title",
    "fieldtype": "Data",
-   "label": "Experiment Title",
-   "description": "The run's own title, entered by hand. Distinct from Aim: the aim is what the run sets out to show, the title is what it is called."
+   "label": "Experiment Title"
   },
   {
    "fieldname": "aim",
@@ -323,14 +326,14 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.experiment_category && doc.experiment_category != 'Master Experiment'",
    "description": "The run one level up that this one sits under. Required at every level except Master Experiment, which is the top of its tree and takes none. Set here at creation, or later by attaching this run from its parent's Experiment Tree - either way one parent per run, and LabExperiment.validate_parent_link holds both paths to the same rules.",
    "fieldname": "parent_experiment",
    "fieldtype": "Link",
    "label": "Parent Experiment",
+   "mandatory_depends_on": "eval:doc.experiment_category && doc.experiment_category != 'Master Experiment'",
    "no_copy": 1,
    "options": "Lab Experiment",
-   "depends_on": "eval:doc.experiment_category && doc.experiment_category != 'Master Experiment'",
-   "mandatory_depends_on": "eval:doc.experiment_category && doc.experiment_category != 'Master Experiment'",
    "read_only_depends_on": "eval:!doc.__islocal",
    "search_index": 1
   },
@@ -345,18 +348,18 @@
    "label": "Rationale"
   },
   {
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'",
    "fieldname": "details_section",
    "fieldtype": "Section Break",
-   "label": "Details",
-   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+   "label": "Details"
   },
   {
+   "allow_bulk_edit": 1,
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'",
    "fieldname": "equipment_details",
    "fieldtype": "Table",
    "label": "Equipment Details",
-   "options": "Lab Experiment Equipment CT",
-   "allow_bulk_edit": 1,
-   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+   "options": "Lab Experiment Equipment CT"
   },
   {
    "fieldname": "protocol_steps_section",
@@ -374,25 +377,25 @@
    "label": "Items"
   },
   {
+   "default": "0",
    "fieldname": "from_bom",
    "fieldtype": "Check",
-   "label": "From BOM",
-   "default": "0"
+   "label": "From BOM"
   },
   {
+   "depends_on": "eval:doc.from_bom",
    "fieldname": "bom_no",
    "fieldtype": "Link",
    "label": "BOM No.",
-   "options": "BOM",
-   "depends_on": "eval:doc.from_bom"
+   "options": "BOM"
   },
   {
+   "depends_on": "eval:doc.from_bom",
    "fieldname": "item",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Item",
-   "depends_on": "eval:doc.from_bom",
-   "mandatory_depends_on": "from_bom",
-   "in_list_view": 1
+   "mandatory_depends_on": "from_bom"
   },
   {
    "fieldname": "items",
@@ -421,14 +424,33 @@
    "label": "Result"
   },
   {
+   "description": "Free-form write-up of what the run produced. Starts empty on purpose - a table can still be built with the editor's own toolbar, but nothing is pre-laid-out.",
    "fieldname": "results",
    "fieldtype": "Text Editor",
    "label": "Results"
   },
   {
    "fieldname": "observation_and_conclusion",
-   "fieldtype": "Text",
-   "label": "Observation and Conclusion"
+   "fieldtype": "Text Editor",
+   "label": "Observation"
+  },
+  {
+   "fieldname": "conclusion",
+   "fieldtype": "Text Editor",
+   "label": "Conclusion"
+  },
+  {
+   "fieldname": "result",
+   "fieldtype": "Select",
+   "label": "Result",
+   "options": "\nPass\nFail"
+  },
+  {
+   "default": "0",
+   "description": "Curates the reporting tree. api/hierarchy.get_successful_subtree follows only children with this set, so clearing it on a run prunes that run AND everything beneath it from the successful sub-tree - the flag gates the branch, not just the row. Independent of Result: a run can be a Pass that is not worth reporting, and the two are answered by different people at different times.",
+   "fieldname": "is_successful",
+   "fieldtype": "Check",
+   "label": "Successful / Include in Report"
   },
   {
    "depends_on": "eval:doc.experiment_category != \"Master Experiment\"",
@@ -527,12 +549,12 @@
    "options": "Quality Metrics"
   },
   {
+   "depends_on": "eval:doc.experiment_category == \"Sub Experiment\"",
    "description": "A second Parameter/Value/Unit grid, for the extra readings a Sub Experiment records beyond the standard quality metrics. Reuses the Quality Metrics child doctype rather than a near-identical copy of it - same three columns, one place to change them. Optional: nothing reads it and a run saves with it empty.",
    "fieldname": "sub_metrics",
    "fieldtype": "Table",
    "label": "Sub Experiment Metrics",
-   "options": "Quality Metrics",
-   "depends_on": "eval:doc.experiment_category == \"Sub Experiment\""
+   "options": "Quality Metrics"
   },
   {
    "fieldname": "section_break_vwvz",
@@ -543,6 +565,29 @@
    "fieldtype": "Table",
    "label": "Sample",
    "options": "Lab Experiment Sample CT"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "generation_section",
+   "fieldtype": "Section Break",
+   "label": "Generated On Conclusion"
+  },
+  {
+   "description": "The single Stock Entry raised for this run's Material Required rows, created as a draft by api/generation.generate_samples_and_stock_entry. Its presence is what stops a second one being raised. Blank is normal: a run with no Material Required rows generates samples and no Stock Entry.",
+   "fieldname": "stock_entry",
+   "fieldtype": "Link",
+   "label": "Stock Entry",
+   "no_copy": 1,
+   "options": "Stock Entry",
+   "read_only": 1
+  },
+  {
+   "description": "When the first Sample was filed against this run. A record of when sampling started, not a guard - api/generation.add_sample stamps it once and never reads it back, so any number of further samples can be added.",
+   "fieldname": "samples_generated_on",
+   "fieldtype": "Datetime",
+   "label": "First Sample Added On",
+   "no_copy": 1,
+   "read_only": 1
   },
   {
    "fieldname": "custom_required_",
@@ -578,11 +623,11 @@
    "label": "Create Biofoundry"
   },
   {
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'",
    "fieldname": "experiment_template",
    "fieldtype": "Link",
    "label": "Experiment Template",
-   "options": "Experiment Template",
-   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+   "options": "Experiment Template"
   },
   {
    "fieldname": "experiment_ingredients",
@@ -603,18 +648,18 @@
    "options": "Template Protocol Step"
   },
   {
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'",
    "fieldname": "material_required",
    "fieldtype": "Table",
    "label": "Material Required",
-   "options": "Material Required CT",
-   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+   "options": "Material Required CT"
   },
   {
+   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'",
    "fieldname": "methodology",
    "fieldtype": "Table",
    "label": "Methodology",
-   "options": "Methodology CT",
-   "depends_on": "eval:doc.experiment_category == 'Sub Sub Experiment'"
+   "options": "Methodology CT"
   },
   {
    "fieldname": "status",
@@ -625,19 +670,19 @@
   {
    "fieldname": "workflow_state",
    "fieldtype": "Select",
-   "label": "Workflow State",
-   "options": "Draft\nSaved\nRunning\nCompleted\nPending Approval from System Manager\nApproved\nRejected",
-   "read_only": 1,
-   "no_copy": 1,
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Workflow State",
+   "no_copy": 1,
+   "options": "Draft\nSaved\nRunning\nCompleted\nPending Approval from System Manager\nApproved\nRejected",
+   "read_only": 1
   },
   {
+   "default": "In Progress",
    "fieldname": "experiment_status",
    "fieldtype": "Select",
    "label": "Experiment Status",
-   "options": "In Progress\nCompleted\nFailed",
-   "default": "In Progress"
+   "options": "In Progress\nCompleted\nFailed"
   },
   {
    "fieldname": "creator_section",
@@ -652,7 +697,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-12 10:00:00.000000",
+ "modified": "2026-08-25 11:06:22.465178",
  "modified_by": "Administrator",
  "module": "Elab Notebook",
  "name": "Lab Experiment",
@@ -667,9 +712,9 @@
    "print": 1,
    "read": 1,
    "report": 1,
+   "role": "System Manager",
    "share": 1,
-   "write": 1,
-   "role": "System Manager"
+   "write": 1
   },
   {
    "create": 1,
@@ -679,9 +724,9 @@
    "print": 1,
    "read": 1,
    "report": 1,
+   "role": "Employee",
    "share": 1,
-   "write": 1,
-   "role": "Employee"
+   "write": 1
   }
  ],
  "row_format": "Dynamic",

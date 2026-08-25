@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { extractFrappeError } from '../../utils/frappeError'
-import { deskUrl } from '../../utils/frappeUrl'
 import './TeamSetup.css'
 // === DYNAMIC-PERMS-START ===
 // import { usePermissionStore } from '../../stores/permissions'
@@ -73,14 +72,11 @@ const createReason = computed(() => {
   return 'You are not on this team, so you cannot create experiments for this project. Add yourself to the participants list, or ask the function head to.'
 })
 
-const createExperimentUrl = computed(() =>
-  team.value
-    ? deskUrl('/app/experiment/new', {
-        project: team.value.project,
-        employee_function: team.value.employee_function
-      })
-    : '#'
-)
+// createExperimentUrl was removed here. It was unreferenced - the Create
+// Experiment button above calls userStore.openCreateExperimentModal - and it
+// pointed at /app/experiment/new, the legacy Stock-module `Experiment` desk
+// form. That is a different doctype from the `Lab Experiment` this app creates,
+// so wiring it back up would have silently produced records in the wrong table.
 
 const initials = (row) =>
   String(row.full_name || row.user || '')

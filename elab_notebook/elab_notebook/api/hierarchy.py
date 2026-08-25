@@ -30,6 +30,7 @@ validate() re-checks the same invariants on any write that touches
 
 import frappe
 from frappe import _
+from frappe.utils import cint
 
 # Ordered top to bottom. Index in this tuple *is* the depth.
 CATEGORIES = (
@@ -553,6 +554,7 @@ def get_experiment_subtree(experiment: str) -> dict:
 	node["children"] = _descendants(experiment)
 	node["child_count"] = len(node["children"])
 	node["is_root_of_view"] = True
+	_stamp_sample_counts(node)
 
 	return {
 		"node": node,
@@ -626,6 +628,112 @@ def get_experiment_root_tree(experiment: str) -> dict:
 	return tree
 
 
+def _successful_descendants(root_name: str) -> list[dict]:
+	"""`_descendants`, pruned to children carrying `is_successful`.
+
+	The flag gates the branch, not the row. A child without it is skipped and
+	never joins the frontier, so its own descendants are never queried - an
+	unsuccessful Experiment takes its Sub Experiments out of the reporting tree
+	with it, whatever they are flagged as. That is the point of the curation: a
+	branch nobody is reporting has no reportable children.
+
+	Structurally a copy of `_descendants` rather than a flag on it, and
+	deliberately: that function backs the hierarchy tab, which must keep showing
+	the tree as it really is. Threading a "filtered" mode through it would put
+	the tab one bad argument away from silently hiding runs from the view whose
+	whole job is to show them.
+	"""
+	index: dict[str, dict] = {}
+	by_parent: dict[str, list[dict]] = {}
+	seen = {root_name}
+	frontier = [root_name]
+	depth = 1
+
+	while frontier and depth <= _MAX_DEPTH:
+		# is_successful is applied server-side rather than filtered after the
+		# fetch, so an unreported branch costs nothing to skip.
+		rows = frappe.get_list(
+			"Lab Experiment",
+			filters={"parent_experiment": ["in", frontier], "is_successful": 1},
+			fields=list(_NODE_FIELDS) + ["is_successful"],
+			order_by="creation asc",
+			limit_page_length=0,
+		)
+
+		frontier = []
+		for row in rows:
+			if row["name"] in seen:
+				continue
+			seen.add(row["name"])
+
+			node = dict(row)
+			node["children"] = []
+			node["child_count"] = 0
+			index[row["name"]] = node
+			by_parent.setdefault(row["parent_experiment"], []).append(node)
+			frontier.append(row["name"])
+
+		depth += 1
+
+	for parent_name, children in by_parent.items():
+		parent = index.get(parent_name)
+		if parent is not None:
+			parent["children"] = children
+			parent["child_count"] = len(children)
+
+	return by_parent.get(root_name, [])
+
+
+@frappe.whitelist()
+def get_successful_subtree(experiment_name: str) -> dict:
+	"""`experiment_name` plus only the descendants flagged for reporting.
+
+	The root is returned whatever its own flag says. It is the run that was
+	asked about, not a candidate for inclusion - refusing to answer because the
+	starting point is unflagged would make the endpoint impossible to call from
+	the page you are standing on. `node.is_successful` is shipped so the caller
+	can say so; every node *below* it is flagged by construction.
+
+	Same shape as get_experiment_subtree - {name, title, experiment_category,
+	children[], ...} from _NODE_FIELDS - so the tree renderer takes this in
+	place of the full tree with nothing to translate.
+
+	Permission-filtered at every level, through the same frappe.get_list the
+	unfiltered walk uses: this curates a view, it does not widen one.
+	"""
+	if not frappe.has_permission("Lab Experiment", "read", doc=experiment_name):
+		frappe.throw(
+			_("You are not permitted to view {0}.").format(frappe.bold(experiment_name)),
+			frappe.PermissionError,
+			title=_("Not Authorized"),
+		)
+
+	root = frappe.db.get_value(
+		"Lab Experiment", experiment_name, list(_NODE_FIELDS) + ["is_successful"], as_dict=True
+	)
+	if not root:
+		frappe.throw(_("Experiment {0} not found.").format(frappe.bold(experiment_name)))
+
+	node = dict(root)
+	node["children"] = _successful_descendants(experiment_name)
+	node["child_count"] = len(node["children"])
+	node["is_root_of_view"] = True
+
+	return {
+		"node": node,
+		"ancestors": _ancestors(root),
+		# Counted here because the caller's reason for asking is usually "how
+		# much of this programme is being reported", and walking the tree twice
+		# in the browser to find out would be the alternative.
+		"included_count": _count_nodes(node),
+	}
+
+
+def _count_nodes(node: dict) -> int:
+	"""Nodes in a tree, root included."""
+	return 1 + sum(_count_nodes(c) for c in node.get("children") or [])
+
+
 # The scientific content the Report tab rolls up, deliberately separate from
 # _NODE_FIELDS: the tree tab ships one row per node and has no use for Text
 # Editor columns, so loading them there would make every tree render pay for a
@@ -653,13 +761,20 @@ _REPORT_FIELDS = (
 
 
 @frappe.whitelist()
-def get_experiment_report(experiment: str) -> dict:
+def get_experiment_report(experiment: str, successful_only: int | str | bool = 0) -> dict:
 	"""`experiment` and its descendants, each carrying its scientific content.
 
 	Shape and traversal come from `get_experiment_subtree` unchanged -- this call
 	does not walk the tree itself. What it adds is the second half of the answer:
 	the subtree ships identity fields only, and a report needs the aim, rationale,
 	observations and results hanging off each node.
+
+	`successful_only` swaps the traversal for `get_successful_subtree` and changes
+	nothing else: the same enrichment runs over whatever node set comes back, so
+	the curated report is the full report minus pruned branches, never a
+	differently-shaped document. Default off - every existing caller keeps the
+	whole tree without passing anything. It arrives over HTTP as "0"/"1", hence
+	cint rather than a bare truth test, which would read the string "0" as true.
 
 	Enrichment is one `frappe.get_list` over the whole node set rather than a read
 	per node, so a fifty-node tree costs two queries, not fifty-one. Going through
@@ -672,10 +787,11 @@ def get_experiment_report(experiment: str) -> dict:
 	Eager, in one round trip, matching the Experiment Hierarchy tab it sits beside
 	-- see `_descendants`, which collects the full subtree with no page limit.
 	"""
-	tree = get_experiment_subtree(experiment)
+	scoped = bool(cint(successful_only))
+	tree = get_successful_subtree(experiment) if scoped else get_experiment_subtree(experiment)
 	root = tree.get("node")
 	if not root:
-		return {"node": None, "ancestors": [], "node_count": 0}
+		return {"node": None, "ancestors": [], "node_count": 0, "successful_only": scoped}
 
 	names = []
 	_collect_names(root, names)
@@ -696,6 +812,10 @@ def get_experiment_report(experiment: str) -> dict:
 		"node": root,
 		"ancestors": tree.get("ancestors") or [],
 		"node_count": len(names),
+		# Echoed back so the view can label what it is showing. A curated report
+		# that looks identical to a full one is the failure mode worth guarding
+		# against - the reader cannot tell that branches are missing by eye.
+		"successful_only": scoped,
 	}
 
 
@@ -718,6 +838,47 @@ def _merge_content(node: dict, content: dict) -> None:
 		node["children"] = children
 	for child in node.get("children") or []:
 		_merge_content(child, content)
+
+
+def _walk(node: dict):
+	"""Every node in a built tree, root first."""
+	yield node
+	for child in node.get("children") or []:
+		yield from _walk(child)
+
+
+def _stamp_sample_counts(node: dict) -> None:
+	"""Give every node in `node`'s tree its own `sample_count`.
+
+	One query for the whole tree, not one per node: the names are collected first
+	and counted with a single grouped read. `_descendants` already went to some
+	trouble to keep the traversal off N+1, and a per-node count would have put it
+	straight back.
+
+	The count is the node's own samples, not a rollup of its children's - it
+	answers "what came out of this run", and a Master that produced nothing itself
+	should not read as though it did.
+
+	Cancelled samples are excluded, matching what the Samples tab and
+	api/generation both treat as a live sample. `frappe.get_all` keeps the Sample
+	permission query in play, so a user counts only the samples they could open.
+	"""
+	names = [n["name"] for n in _walk(node)]
+	if not names:
+		return
+
+	counts = {
+		row["experiment"]: row["count"]
+		for row in frappe.get_all(
+			"Sample",
+			filters={"experiment": ["in", names], "docstatus": ["!=", 2]},
+			fields=["experiment", "count(name) as count"],
+			group_by="experiment",
+		)
+	}
+
+	for n in _walk(node):
+		n["sample_count"] = counts.get(n["name"], 0)
 
 
 def _descendants(root_name: str) -> list[dict]:
