@@ -1,13 +1,20 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
 
+import './RichTextEditor.css'
+
 // Backs a Frappe "Text Editor" field, which stores HTML. Deliberately
 // dependency-free: a contenteditable surface with a minimal toolbar rather than
 // pulling a full editor bundle into the app.
 const props = defineProps({
   modelValue: { type: String, default: '' },
   placeholder: { type: String, default: '' },
-  minHeight: { type: String, default: '120px' }
+  minHeight: { type: String, default: '120px' },
+  // The detail page passes this on every editor it renders, to hold a locked run
+  // open to System Managers only. It was being passed before it was declared, so
+  // it landed on the wrapper as a stray attribute and the surface below stayed
+  // editable: `contenteditable` was the literal `true`, not a binding.
+  readonly: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -23,12 +30,14 @@ const TOOLS = [
 ]
 
 const exec = (cmd) => {
+  if (props.readonly) return
   editor.value?.focus()
   document.execCommand(cmd, false, null)
   emit('update:modelValue', editor.value?.innerHTML || '')
 }
 
 const onInput = () => {
+  if (props.readonly) return
   emit('update:modelValue', editor.value?.innerHTML || '')
 }
 
@@ -49,8 +58,8 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="rich-text">
-    <div class="rich-text-toolbar">
+  <div class="rich-text" :class="{ 'rich-text-readonly': readonly }">
+    <div v-if="!readonly" class="rich-text-toolbar">
       <button
         v-for="tool in TOOLS"
         :key="tool.cmd"
@@ -64,7 +73,7 @@ onMounted(() => {
     <div
       ref="editor"
       class="rich-text-surface"
-      contenteditable="true"
+      :contenteditable="readonly ? 'false' : 'true'"
       :data-placeholder="placeholder"
       :style="{ minHeight }"
       @input="onInput"

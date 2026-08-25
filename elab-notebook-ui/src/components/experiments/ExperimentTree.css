@@ -485,6 +485,16 @@ a.tree-node:focus-visible {
   white-space: nowrap;
 }
 
+/* What the run produced. Same weight as the child count deliberately - both are
+   secondary to the row's id and title, and neither should read as a status. */
+.tree-sample-count {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .tree-cat-badge {
   flex: 0 0 auto;
   font-size: 0.63rem;

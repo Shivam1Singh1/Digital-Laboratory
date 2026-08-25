@@ -515,6 +515,12 @@ onMounted(load)
             <span v-if="row.node.child_count > 0" class="tree-child-count">
               {{ row.node.child_count }} child{{ row.node.child_count === 1 ? '' : 'ren' }}
             </span>
+            <!-- This node's own samples, not its subtree's. Hidden at zero, the
+                 same way the child count above is: a row that produced nothing
+                 says nothing rather than carrying a "0 samples" of its own. -->
+            <span v-if="row.node.sample_count > 0" class="tree-sample-count">
+              {{ row.node.sample_count }} sample{{ row.node.sample_count === 1 ? '' : 's' }}
+            </span>
             <span class="tree-state" :class="stateClass(row.node.workflow_state)">
               {{ row.node.workflow_state || 'Draft' }}
             </span>

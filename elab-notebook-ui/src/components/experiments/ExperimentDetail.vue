@@ -11,6 +11,8 @@ import RawDataTab from './RawDataTab.vue'
 import { showsRawDataTab } from '../../utils/rawData'
 import AddRow from '../common/AddRow.vue'
 import { readServerError } from '../../utils/serverError'
+import { formatAuditDate } from '../../utils/dateFormatter'
+import { deskUrl } from '../../utils/frappeUrl'
 import './ExperimentDetail.css'
 // === DYNAMIC-PERMS-START ===
 // import { usePermissionStore } from '../../stores/permissions'
@@ -36,10 +38,10 @@ const TAB_KEYS = [
   'general',
   'details',
   'rawdata',
+  'result',
   'materials',
   'equipment',
   'methodology',
-  'procedure',
   'tree',
   'report',
   'samples',
@@ -128,18 +130,29 @@ const visibleTabs = computed(() => [
   ...(showsRawDataTab(experiment.value?.experiment_category)
     ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
+  // Kept in the same slot as the create form - after Raw Data rather than
+  // before it as on the desk - so the two forms in this app present the run's
+  // tabs in one order. result_tab carries no depends_on, so this shows at every
+  // level, Master Experiment included.
+  { key: 'result', label: 'Result' },
   ...(usesTemplate.value
     ? [
-        { key: 'materials', label: 'Material Required' },
-        { key: 'equipment', label: 'Equipment Details' },
-        { key: 'methodology', label: 'Methodology' },
-        { key: 'procedure', label: 'Protocol Steps' },
+        // One tab, two stacked sections: Material Required above, Equipment
+        // Details below. Keyed 'materials' so existing ?tab=materials links and
+        // the TEMPLATE_TABS reset guard keep working unchanged.
+        { key: 'materials', label: 'Material & Equipment' },
+        // Methodology's content moved under Details and its tab is gone with it.
+        // Protocol Steps is gone outright: it showed experiment_protocol_steps,
+        // the template's planned checklist, which is no longer surfaced in the
+        // SPA at all. The table and its data are untouched on the server.
       ]
     : []),
   { key: 'tree', label: 'Experiment Hierarchy' },
   { key: 'report', label: 'Report' },
   { key: 'samples', label: 'Samples' },
-  { key: 'history', label: 'History/Audit Log' },
+  // History/Audit Log is hidden, not removed: the pane below and loadHistory()
+  // are intact, so putting the line back here is all it takes to show it again.
+  // ?tab=history still opens it for anyone holding such a link.
 ])
 
 // The experiment's id is generated from its team, so the team is the natural
@@ -201,7 +214,6 @@ const notebookUrl = computed(() =>
     : ''
 )
 const historyList = ref([])
-const completedSteps = ref({})
 
 // Workflow state and actions
 const workflowActions = ref([])
@@ -218,14 +230,6 @@ const loadExperiment = async () => {
     const res = await axios.get(`/api/resource/Lab%20Experiment/${encodeURIComponent(route.params.id)}`)
     experiment.value = res.data.data || null
     await fetchWorkflowActions()
-    
-    // Initialize completed steps checkboxes from local storage if any
-    const saved = localStorage.getItem(`exp_steps_${route.params.id}`)
-    if (saved) {
-      completedSteps.value = JSON.parse(saved)
-    } else {
-      completedSteps.value = {}
-    }
   } catch (err) {
     console.error('Failed to load experiment:', err)
     error.value = 'Failed to load experiment details. It may not exist or you lack permission.'
@@ -505,12 +509,6 @@ const loadHistory = async () => {
   }
 }
 
-// Toggle step completion checkbox
-const toggleStep = (stepOrder) => {
-  completedSteps.value[stepOrder] = !completedSteps.value[stepOrder]
-  localStorage.setItem(`exp_steps_${route.params.id}`, JSON.stringify(completedSteps.value))
-}
-
 // Update experiment (PUT)
 const updateExperiment = async () => {
   saving.value = true
@@ -623,17 +621,10 @@ const formatTimestamp = (ts) => {
 }
 
 // --- Section: Samples
-const showRegisterModal = ref(false)
-const savingSample = ref(false)
+// Samples are generated in a batch from the run's Sample rows (see
+// api/generation.py), so there is no per-sample draft object here any more.
 const loadingSamples = ref(false)
 const samplesList = ref([])
-const newSample = ref({
-  item: '',
-  name_of_sample: '',
-  qty: 0,
-  uom: '',
-  comments: ''
-})
 
 // Comments are edited per sample and saved on their own, so the textarea is
 // backed by a draft keyed on the sample id rather than by samplesList - a
@@ -677,13 +668,6 @@ const saveSampleComments = async (sample) => {
     sampleError.value = readServerError(err, 'Could not save the comments for this sample.')
   } finally {
     savingCommentsFor.value = ''
-  }
-}
-
-const onItemSelect = (opt) => {
-  newSample.value.uom = opt ? opt.stock_uom || '' : ''
-  if (opt && !newSample.value.name_of_sample) {
-    newSample.value.name_of_sample = opt.item_name || ''
   }
 }
 
@@ -764,58 +748,6 @@ const markFailedNoSample = async () => {
 // user had typed the moment they dismissed it.
 const sampleError = ref('')
 
-const openRegisterModal = () => {
-  sampleError.value = ''
-  showRegisterModal.value = true
-}
-
-const registerSample = async () => {
-  sampleError.value = ''
-  if (!newSample.value.item || newSample.value.qty <= 0) {
-    sampleError.value = 'Select an item and enter a quantity greater than zero.'
-    return
-  }
-  savingSample.value = true
-  try {
-    const payload = {
-      experiment: experiment.value.name,
-      item: newSample.value.item,
-      name_of_sample: newSample.value.name_of_sample,
-      qty: newSample.value.qty,
-      comments: newSample.value.comments
-    }
-    // Posted without a docstatus, so the Sample lands as a Draft and stays
-    // editable. Submitting it is the user's own later action, after which every
-    // field except `comments` is frozen - that one is allow_on_submit so it can
-    // keep taking notes until the run is sent for approval.
-    await axios.post('/api/resource/Sample', payload)
-
-    // Producing a sample no longer ends the run: it records the fact and leaves
-    // the run Running and editable. experiment_status is settled only by
-    // Complete & Send for Approval or Mark as Failed, because
-    // validate_terminal_outcome freezes these fields as soon as it goes terminal.
-    await axios.put(`/api/resource/Lab%20Experiment/${encodeURIComponent(experiment.value.name)}`, {
-      sample_generated: 1,
-      sample_not_generated: 0
-    })
-
-
-    // Reset and reload
-    newSample.value = { item: '', name_of_sample: '', qty: 0, uom: '', comments: '' }
-    showRegisterModal.value = false
-    await loadSamples()
-    await loadExperiment()
-  } catch (err) {
-    console.error('Failed to register sample:', err)
-    sampleError.value = readServerError(
-      err,
-      'Could not register the sample. Please check the details and try again.'
-    )
-  } finally {
-    savingSample.value = false
-  }
-}
-
 const getDocstatusLabel = (statusNum) => {
   if (statusNum === 0) return 'Draft'
   if (statusNum === 1) return 'Submitted'
@@ -823,28 +755,183 @@ const getDocstatusLabel = (statusNum) => {
   return 'Unknown'
 }
 
-// Check if Sample can be created (only in Running state with no existing Sample)
-const canCreateSample = () => {
-  if (!experiment.value) return false
-  const state = experiment.value.workflow_state || ''
-  const isRunning = state.toLowerCase().includes('running')
-  const sampleExists = samplesList.value && samplesList.value.length > 0
-  return isRunning && !sampleExists
+// Two independent actions on a concluded run, and they stay independent:
+//
+//   Add Sample       - repeatable. A run yields samples in rounds, so there is no
+//                      point at which "no more samples" becomes true.
+//   Create Stock Entry - once. The materials were consumed once, and
+//                      Lab Experiment.stock_entry is what says it already happened.
+//
+// api/generation.py owns both rules; everything here only decides what the two
+// buttons say and when they are live.
+const GENERATION_API = 'elab_notebook.elab_notebook.api.generation'
+
+const generationCtx = ref(null)
+const loadingGeneration = ref(false)
+
+const loadGenerationContext = async () => {
+  if (!route.params.id) return
+  loadingGeneration.value = true
+  try {
+    const res = await axios.get(`/api/method/${GENERATION_API}.get_generation_context`, {
+      params: { experiment_name: route.params.id }
+    })
+    generationCtx.value = res.data.message || null
+  } catch (err) {
+    console.error('Failed to load generation context', err)
+    generationCtx.value = null
+  } finally {
+    loadingGeneration.value = false
+  }
 }
 
-// Get tooltip for Create Sample button
-const getCreateSampleTooltip = () => {
-  if (!experiment.value) return 'Load experiment first'
-  const state = experiment.value.workflow_state || 'Draft'
-  const sampleExists = samplesList.value && samplesList.value.length > 0
+// The exact list Sample.validate_experiment_workflow_state accepts. Mirrored
+// rather than approximated: the old test here asked whether the state looked
+// approved or rejected, which let Draft and Saved through - both of which the
+// doctype refuses, so the button was live and the save threw.
+//
+// This is NOT the status gate that was removed. That one was on
+// `experiment_status` and lived in api/generation; this is the Sample doctype's
+// own rule about its parent run's `workflow_state`, and it is still enforced
+// server-side. A run in Draft has to be Started before it can carry samples.
+const SAMPLE_ALLOWED_RUN_STATES = [
+  'Running',
+  'Completed',
+  'Pending Approval from System Manager'
+]
 
-  if (sampleExists) {
-    return 'Sample already exists. One sample per experiment.'
+const runAcceptsSamples = () =>
+  SAMPLE_ALLOWED_RUN_STATES.includes(experiment.value?.workflow_state || '')
+
+// ---- Add Sample (repeatable) ----------------------------------------------
+const showSampleModal = ref(false)
+const savingSample = ref(false)
+const sampleFormError = ref('')
+const newSample = ref({ item: '', qty: 1, name_of_sample: '', comments: '', uom: '' })
+
+// FUTURE STATUS GATE: `c.is_concluded` used to be a term here, and dropping it
+// is what makes this button live at any Experiment Status. Put it back here and
+// in addSampleReason() below when the stage is decided - and in
+// api/generation._experiment_for_generation, which is the half that actually
+// enforces. This function only decides whether the button looks pressable.
+//
+// runAcceptsSamples() is NOT that gate and stays: it mirrors the Sample
+// doctype's own rule, so dropping it would only move the refusal to a backend
+// error.
+const canAddSample = () => {
+  const c = generationCtx.value
+  return Boolean(c && c.can_create_sample && runAcceptsSamples())
+}
+
+const addSampleReason = () => {
+  const c = generationCtx.value
+  if (!c) return 'Loading…'
+  if (!runAcceptsSamples()) {
+    const state = experiment.value?.workflow_state || 'Draft'
+    // Draft is a step away from working; Approved is a door that has shut. The
+    // two need different sentences because one of them has something to do.
+    if (state === 'Draft' || state === 'Saved') {
+      return `This run is ${state}. Start the run first — samples can be added from Running onwards.`
+    }
+    return `This run is ${state}, and samples can no longer be written against it. `
+      + 'Samples must be added before it is approved.'
   }
-  if (!state.toLowerCase().includes('running')) {
-    return `Sample creation available only in Running state. Current: ${state}`
+  if (!c.can_create_sample) return 'You do not have permission to create Samples.'
+  return 'Add as many samples as this run produced — there is no limit.'
+}
+
+const openSampleModal = () => {
+  sampleFormError.value = ''
+  newSample.value = { item: '', qty: 1, name_of_sample: '', comments: '', uom: '' }
+  showSampleModal.value = true
+}
+
+// uom is read_only on Sample and fetched from the item server-side; shown here
+// only so the dialog is not silent about what unit the quantity is in.
+const onSampleItem = (opt) => {
+  newSample.value.uom = opt ? opt.stock_uom || '' : ''
+  if (opt && !newSample.value.name_of_sample) newSample.value.name_of_sample = opt.item_name || ''
+}
+
+const submitSampleForm = async () => {
+  if (!newSample.value.item) {
+    sampleFormError.value = 'Pick the item this sample is of.'
+    return
   }
-  return 'Create a new sample for this experiment'
+  if (!(newSample.value.qty > 0)) {
+    sampleFormError.value = 'Quantity must be greater than zero.'
+    return
+  }
+  savingSample.value = true
+  sampleFormError.value = ''
+  try {
+    await axios.post(`/api/method/${GENERATION_API}.add_sample`, {
+      experiment_name: route.params.id,
+      item: newSample.value.item,
+      qty: newSample.value.qty,
+      name_of_sample: newSample.value.name_of_sample || null,
+      comments: newSample.value.comments || null
+    })
+    showSampleModal.value = false
+    await Promise.all([loadSamples(), loadGenerationContext()])
+  } catch (err) {
+    console.error('Failed to add sample', err)
+    sampleFormError.value = readServerError(err, 'Could not add this sample.')
+  } finally {
+    savingSample.value = false
+  }
+}
+
+// ---- Create Stock Entry (once) --------------------------------------------
+
+// FUTURE STATUS GATE: `c.is_concluded` was a term here too - see the note on
+// canAddSample above. The three remaining terms are not status gates and all
+// stay: `stock_entry` is the one-per-run rule, `material_row_count` is "there is
+// nothing to issue", and `can_create_stock_entry` is a permission.
+const canCreateStockEntry = () => {
+  const c = generationCtx.value
+  return Boolean(
+    c && !c.stock_entry && c.material_row_count > 0 && c.can_create_stock_entry
+  )
+}
+
+const stockEntryReason = () => {
+  const c = generationCtx.value
+  if (!c) return 'Loading…'
+  if (c.stock_entry) return ''          // the link is shown instead
+  if (!c.material_row_count) {
+    return 'No Material Required rows on this run, so there is no stock to issue.'
+  }
+  if (!c.can_create_stock_entry) return 'You do not have permission to create Stock Entries.'
+  return `Opens a Stock Entry prefilled with ${c.material_row_count} material `
+    + `line${c.material_row_count === 1 ? '' : 's'} — pick the warehouse there and save.`
+}
+
+// Opens the real Stock Entry form, prefilled, instead of asking for a warehouse
+// here and saving on the user's behalf. Not a preference: ERPNext refuses to
+// save a Material Consumption entry whose rows carry no source warehouse, so
+// there was never a draft to create before one had been picked. The desk form is
+// where the rest of the entry gets filled in anyway.
+//
+// public/js/stock_entry.js reads `elab_experiment` off this URL and fills the
+// form from api/generation.get_stock_entry_prefill.
+//
+// Nothing is reserved by opening it. `Lab Experiment.stock_entry` is stamped
+// after the user saves, so the button below only hides on the next load of this
+// page - not the moment it is clicked.
+const openStockEntryForm = () => {
+  const url = deskUrl('/app/stock-entry/new', { elab_experiment: route.params.id })
+  window.open(url, '_blank', 'noopener')
+}
+
+
+const deskStockEntryUrl = (name) => deskUrl(`/app/stock-entry/${encodeURIComponent(name)}`)
+
+// The in-app Sample detail, the same target SampleList.openSample pushes. Not
+// the desk form: /samples/:id is a real route in this app (router.js), and
+// sending a row to the desk instead would leave the run behind.
+const openSample = (sample) => {
+  router.push(`/samples/${encodeURIComponent(sample.name)}`)
 }
 
 // Check if Sample editing is allowed (Running or Completed only)
@@ -875,9 +962,17 @@ watch(activeTab, (newTab) => {
   }
 })
 
+// Tabs that were folded into another one. Their keys stay recognised rather
+// than being dropped: links to them were handed out while they were tabs, and
+// landing on the tab that now holds that content beats bouncing to Template.
+// 'procedure' is deliberately absent - that pane is gone, not moved, so
+// ?tab=procedure falls through to Template like any unknown key.
+const MERGED_TABS = { equipment: 'materials', methodology: 'details' }
+
 const applyTabFromRoute = () => {
   const wanted = String(route.query.tab || '')
-  activeTab.value = TAB_KEYS.includes(wanted) ? wanted : 'general'
+  const resolved = MERGED_TABS[wanted] || wanted
+  activeTab.value = TAB_KEYS.includes(resolved) ? resolved : 'general'
 }
 
 // A ?tab=materials link, or a tab left open while navigating between runs, can
@@ -916,10 +1011,12 @@ watch([() => experiment.value?.experiment_category, activeTab], ([category, tab]
 const loadEverything = async () => {
   // Sequenced rather than fired together: loadSamples reads experiment.value.name
   // and returns early without it, so launching them in parallel meant the samples
-  // list stayed empty until the Samples tab was opened - and the Create Sample
-  // button, which is gated on "no sample exists yet", was deciding from a list
-  // that had never loaded.
+  // list stayed empty until the Samples tab was opened - and the button that
+  // reads that list was deciding from one that had never loaded.
   await loadExperiment()
+  // Drives the Generate button and, more importantly, the sentence under it that
+  // says why it cannot be pressed.
+  loadGenerationContext()
   // === DYNAMIC-PERMS-START ===
   // // Record-level, alongside the rest rather than before it: nothing above reads
   // // the dict, and can() fails closed until it lands.
@@ -1057,13 +1154,35 @@ onMounted(() => {
             {{ runningWorkflowAction ? 'Starting...' : 'Start' }}
           </button>
 
+          <!-- The only Create Stock Entry control on the page. Not inside the
+               isRunning block below: the status gate is off, so the run's stage
+               is not what decides whether this shows.
+
+               One per run, so once `stock_entry` is set this disappears outright
+               rather than turning into a link - the entry is reachable from the
+               Material Consumption card, and a header control that cannot do
+               anything is just something else to read. `generationCtx` being
+               null means the answer has not arrived; the button stays visible
+               but canCreateStockEntry() holds it disabled until it does. -->
+          <span
+            v-if="!(generationCtx && generationCtx.stock_entry)"
+            :title="stockEntryReason()"
+          >
+            <button
+              class="btn btn-sm btn-secondary"
+              :disabled="!canCreateStockEntry()"
+              @click="openStockEntryForm"
+            >
+              + Create Stock Entry
+            </button>
+          </span>
+
           <template v-if="isRunning">
-            <!-- Gated in the UI on exactly what Sample enforces server-side: the run
-                 must be Running, and one non-cancelled Sample per run is the limit -
-                 so the user never has to discover that through a backend error. -->
-            <span :title="getCreateSampleTooltip()">
-              <button class="btn btn-sm btn-success" :disabled="!canCreateSample()" @click="openRegisterModal">
-                Create Sample
+            <!-- Gated on exactly what api/generation enforces server-side, so the
+                 user never discovers a rule through a backend error. -->
+            <span :title="addSampleReason()">
+              <button class="btn btn-sm btn-success" :disabled="!canAddSample()" @click="openSampleModal">
+                Add Sample
               </button>
             </span>
             <button
@@ -1554,8 +1673,11 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 3. EQUIPMENT TAB (EDITABLE with delete) -->
-        <div v-if="activeTab === 'equipment'" class="tab-pane">
+        <!-- 3. EQUIPMENT — the second half of the Material & Equipment tab.
+             Shares the tab key with the materials pane above so the two stack,
+             rather than being folded into that pane's markup: the banner and
+             table below are untouched, only what reveals them changed. -->
+        <div v-if="activeTab === 'materials'" class="tab-pane">
           <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit equipment in this state.
           </div>
@@ -1594,7 +1716,13 @@ onMounted(() => {
         </div>
 
         <!-- 4. METHODOLOGY TAB (EDITABLE) -->
-        <div v-if="activeTab === 'methodology'" class="tab-pane">
+        <!-- Methodology — now the last section of the Details tab. Same key as
+             the Details panes above so it stacks under them; the pane's own
+             contents are unchanged.
+             `usesTemplate` is kept from when this was its own tab: Details shows
+             at every level, and without it a Master Experiment would start
+             carrying a Methodology table it has no use for. -->
+        <div v-if="activeTab === 'details' && usesTemplate" class="tab-pane">
           <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit fields in this state.
           </div>
@@ -1632,54 +1760,6 @@ onMounted(() => {
                 </tr>
               </tbody>
             </table>
-          </div>
-        </div>
-
-        <!-- 5. PROTOCOL STEPS TAB (CHECKLIST) -->
-        <div v-if="activeTab === 'procedure'" class="tab-pane">
-          <!-- Renamed only, behaviour untouched: this reads
-               experiment_protocol_steps, the template's planned protocol, which
-               is a different table from the run's own Protocol Steps on the
-               Details tab. Two lists called the same thing was the confusion. -->
-          <h3 class="pane-subtitle">Planned Protocol (from Template)</h3>
-          <p class="field-hint" style="margin: -0.25rem 0 1rem">
-            Cloned from the Experiment Template and tracked as a checklist. The run's own
-            steps live under Details → Protocol Steps.
-          </p>
-          
-          <div class="protocol-steps-list">
-            <div 
-              v-for="step in experiment.experiment_protocol_steps" 
-              :key="step.step_order" 
-              class="protocol-step-item execution-step"
-              :class="{ completed: completedSteps[step.step_order] }"
-              @click="toggleStep(step.step_order)"
-            >
-              <div class="step-checkbox-wrapper">
-                <div class="step-checkbox" :class="{ checked: completedSteps[step.step_order] }">
-                  <svg v-if="completedSteps[step.step_order]" class="check-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
-                    <polyline points="20 6 9 17 4 12"/>
-                  </svg>
-                </div>
-              </div>
-              <div class="step-num">{{ step.step_order }}.</div>
-              <div class="step-details">
-                <div class="step-title-row">
-                  <strong class="step-heading" :class="{ 'line-through': completedSteps[step.step_order] }">
-                    {{ step.title }}
-                  </strong>
-                  <span v-if="step.duration" class="step-duration">Duration: {{ step.duration }}</span>
-                </div>
-                <p class="step-desc">{{ step.description }}</p>
-                <div class="step-meta" v-if="step.equipment || step.operator_role">
-                  <span v-if="step.equipment">Equipment: <strong>{{ step.equipment }}</strong></span>
-                  <span v-if="step.operator_role">Role: <strong>{{ step.operator_role }}</strong></span>
-                </div>
-              </div>
-            </div>
-            <div v-if="!experiment.experiment_protocol_steps || experiment.experiment_protocol_steps.length === 0" class="empty-list-pane">
-              No checklist steps loaded.
-            </div>
           </div>
         </div>
 
@@ -1739,34 +1819,23 @@ onMounted(() => {
 
         <!-- 7. SAMPLES TAB -->
         <div v-if="activeTab === 'samples'" class="tab-pane">
-          <!-- Sample Status Indicators -->
-          <div class="sample-status-indicators" style="margin-bottom: 1.5rem; display: flex; gap: 2rem;">
-            <div class="status-indicator">
-              <span class="status-label">Sample Generated:</span>
-              <span class="status-value" :class="{ 'status-active': samplesList.length > 0 }">
-                {{ samplesList.length > 0 ? '✓ Generated' : '○ Not Generated' }}
-              </span>
-            </div>
-            <div class="status-indicator">
-              <span class="status-label">Sample Submitted:</span>
-              <span class="status-value" :class="{ 'status-active': samplesList.some(s => s.docstatus === 1) }">
-                {{ samplesList.some(s => s.docstatus === 1) ? '✓ Submitted' : '○ Pending' }}
-              </span>
-            </div>
-          </div>
-
+          <!-- Two actions, two cards, because they are independent: samples can
+               go on being added after the Stock Entry exists, and the Stock
+               Entry is unaffected by how many samples there are. The reason text
+               sits under each button rather than only in a tooltip - a greyed
+               button says nothing on its own, and the approved case in
+               particular needs saying out loud. -->
           <div class="samples-section-header">
             <h3 class="pane-section-title">Result Output Samples</h3>
-            <div class="header-action-wrapper" :title="getCreateSampleTooltip()">
-              <button
-                class="btn btn-primary"
-                :disabled="!canCreateSample()"
-                @click="openRegisterModal"
-              >
-                + Create Sample
+            <div class="header-action-wrapper" :title="addSampleReason()">
+              <button class="btn btn-primary" :disabled="!canAddSample()" @click="openSampleModal">
+                + Add Sample
               </button>
             </div>
           </div>
+          <p v-if="generationCtx" class="field-hint" style="margin: -0.5rem 0 1.25rem">
+            {{ addSampleReason() }}
+          </p>
 
           <!-- Lock Warning -->
           <div v-if="isSampleLocked()" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
@@ -1779,6 +1848,9 @@ onMounted(() => {
           </div>
 
           <div v-else class="samples-list-wrapper">
+            <!-- No empty state: a run with no samples yet shows the Add Sample
+                 button and nothing else, rather than a card explaining that
+                 nothing is there. -->
             <table class="samples-table" v-if="samplesList.length > 0">
               <thead>
                 <tr>
@@ -1792,7 +1864,18 @@ onMounted(() => {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="sample in samplesList" :key="sample.name">
+                <!-- Whole row opens the sample. The two action buttons in the
+                     last cell stop the click themselves rather than being
+                     excluded here: Submit and Cancel act on the row in place,
+                     and navigating away from a row you just submitted would
+                     hide the result of pressing it. -->
+                <tr
+                  v-for="sample in samplesList"
+                  :key="sample.name"
+                  class="sample-row-link"
+                  :title="`Open ${sample.elab_no || sample.name}`"
+                  @click="openSample(sample)"
+                >
                   <td><strong>{{ sample.elab_no }}</strong></td>
                   <td>{{ sample.item }}</td>
                   <td>{{ sample.name_of_sample || 'Unnamed' }}</td>
@@ -1810,14 +1893,14 @@ onMounted(() => {
                       {{ getDocstatusLabel(sample.docstatus) }}
                     </span>
                   </td>
-                  <td>
+                  <td @click.stop>
                     <div class="row-actions" style="display: flex; gap: 0.5rem;">
                       <button
                         v-if="sample.docstatus === 0"
                         class="btn btn-sm btn-success"
                         :disabled="submittingSampleId === sample.name || (isSampleLocked() && !isSystemManager)"
                         :title="isSampleLocked() && !isSystemManager ? 'Sample is locked in this workflow state' : 'Submit sample'"
-                        @click="submitSample(sample)"
+                        @click.stop="submitSample(sample)"
                         style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
                       >
                         {{ submittingSampleId === sample.name ? 'Submitting...' : 'Submit' }}
@@ -1827,7 +1910,7 @@ onMounted(() => {
                         class="btn btn-sm btn-danger"
                         :disabled="cancellingSampleId === sample.name || (isSampleLocked() && !isSystemManager)"
                         :title="isSampleLocked() && !isSystemManager ? 'Sample is locked in this workflow state' : 'Cancel sample'"
-                        @click="cancelSample(sample)"
+                        @click.stop="cancelSample(sample)"
                         style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
                       >
                         {{ cancellingSampleId === sample.name ? 'Cancelling...' : 'Cancel' }}
@@ -1838,13 +1921,9 @@ onMounted(() => {
               </tbody>
             </table>
             
-            <div v-else class="empty-list-pane">
-              No samples have been registered for this experiment run yet.
-            </div>
-
             <!-- Comments sit below the table rather than in a column: a textarea
-                 in a table cell is unusable, and there is at most one live
-                 sample per run anyway (validate_one_sample_per_experiment). -->
+                 in a table cell is unusable. One block per sample, since a run
+                 can now carry any number of them. -->
             <div v-if="samplesList.length > 0" class="sample-comments-wrapper">
               <div v-if="commentsNotice" class="sample-comments-notice">{{ commentsNotice }}</div>
 
@@ -1895,6 +1974,32 @@ onMounted(() => {
               </section>
             </div>
           </div>
+
+          <!-- Only once the entry exists. Before that this card said nothing the
+               header button was not already saying, which is what it was removed
+               for; after it, this is the only way back to the entry, because the
+               header control hides itself once the run has one. -->
+          <section
+            v-if="generationCtx && generationCtx.stock_entry"
+            class="meta-card"
+            style="margin-bottom: 1.25rem"
+          >
+            <div class="samples-section-header" style="margin-bottom: 0.5rem">
+              <h3 class="pane-subtitle">Material Consumption</h3>
+              <a
+                :href="deskStockEntryUrl(generationCtx.stock_entry)"
+                target="_blank"
+                rel="noopener"
+                class="btn btn-secondary"
+              >
+                {{ generationCtx.stock_entry }}
+              </a>
+            </div>
+            <p class="field-hint" style="margin: 0">
+              Raised as a draft — submit it from the desk to move stock. One per run,
+              so this cannot be raised again.
+            </p>
+          </section>
         </div>
 
         <!-- EXPERIMENT HIERARCHY TAB -->
@@ -1911,6 +2016,66 @@ onMounted(() => {
           />
         </div>
 
+        <!-- RESULT TAB -->
+        <!-- Editable under the same lock as the rest of the run, and saved by
+             the page's own Save button: the PUT sends `experiment` whole, so
+             these four need no wiring of their own. The three write-ups are
+             descriptive prose, empty until someone fills them in. -->
+        <div v-if="activeTab === 'result'" class="tab-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            ⚠️ This experiment is locked. Only System Managers can edit the result in this state.
+          </div>
+
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Results</h3>
+            <div class="form-group stacked-field">
+              <RichTextEditor
+                v-model="experiment.results"
+                placeholder="Describe what the run produced…"
+                min-height="200px"
+                :readonly="isWorkflowLocked() && !isSystemManager"
+              />
+            </div>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Observation</h3>
+            <div class="form-group stacked-field">
+              <RichTextEditor
+                v-model="experiment.observation_and_conclusion"
+                placeholder="Describe what was observed…"
+                :readonly="isWorkflowLocked() && !isSystemManager"
+              />
+            </div>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Conclusion</h3>
+            <div class="form-group stacked-field">
+              <RichTextEditor
+                v-model="experiment.conclusion"
+                placeholder="What the run concludes…"
+                :readonly="isWorkflowLocked() && !isSystemManager"
+              />
+            </div>
+          </section>
+
+          <section class="meta-card">
+            <div class="form-group">
+              <label class="form-label">Result</label>
+              <select
+                v-model="experiment.result"
+                class="form-control"
+                :disabled="isWorkflowLocked() && !isSystemManager"
+              >
+                <option value="">Not decided yet</option>
+                <option value="Pass">Pass</option>
+                <option value="Fail">Fail</option>
+              </select>
+            </div>
+          </section>
+        </div>
+
         <div v-if="activeTab === 'report'" class="tab-pane">
           <ExperimentReport :experiment-id="String(route.params.id)" />
         </div>
@@ -1918,89 +2083,78 @@ onMounted(() => {
     </div>
 
     <!-- 8. Register Sample Modal Dialog -->
-    <div v-if="showRegisterModal && experiment" class="modal-overlay" @click.self="showRegisterModal = false">
-      <div class="modal-container sample-register-modal">
+    <!-- Generate Samples + Stock Entry. Replaces the old one-at-a-time Register
+         Sample modal: samples now come from the run's own Sample rows, so there
+    <!-- Add Sample. Repeatable: opens empty every time and closes on success, so
+         pressing it again is the whole "add another" flow. Sample's mandatory
+         fields are item and qty; name and comments are optional and uom is
+         read_only, fetched from the item server-side. -->
+    <div v-if="showSampleModal && experiment" class="modal-overlay" @click.self="showSampleModal = false">
+      <div class="modal-content">
         <div class="modal-header">
-          <h3 class="modal-title">Register Output Sample</h3>
-          <button class="modal-close-btn" @click="showRegisterModal = false">×</button>
+          <h3>Add Sample</h3>
+          <button class="modal-close-btn" @click="showSampleModal = false">×</button>
         </div>
-        
-        <div class="modal-body">
-          <div v-if="sampleError" class="form-error-banner" style="margin-bottom: 1rem;">
-            <strong>Error:</strong> {{ sampleError }}
-            <button class="form-error-close" @click="sampleError = ''">×</button>
-          </div>
 
-          <div class="form-group-row">
-            <div class="form-group">
-              <label class="form-label">Parent Experiment ID</label>
-              <input type="text" :value="experiment.name" class="form-control readonly" readonly />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Elab No.</label>
-              <input type="text" :value="experiment.name" class="form-control readonly" readonly />
-            </div>
+        <div class="modal-body">
+          <div v-if="sampleFormError" class="form-error-banner" style="margin-bottom: 1rem;">
+            <strong>Error:</strong> {{ sampleFormError }}
+            <button class="form-error-close" @click="sampleFormError = ''">×</button>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Select Output Item *</label>
+            <label class="form-label">Item *</label>
             <LinkField
               v-model="newSample.item"
               doctype="Item"
               :fields="['item_name', 'stock_uom']"
               :search-fields="['name', 'item_name']"
               description-field="item_name"
-              placeholder="Search item code or name..."
-              @select="onItemSelect"
+              placeholder="Search items…"
+              input-class="form-control"
+              @select="onSampleItem"
             />
           </div>
 
-          <div class="form-group-row">
-            <div class="form-group">
-              <label class="form-label">Name of Sample</label>
-              <input 
-                type="text" 
-                v-model="newSample.name_of_sample" 
-                class="form-control" 
-                placeholder="Enter sample descriptive name..." 
-              />
-            </div>
+          <div class="form-group-row two-columns">
             <div class="form-group">
               <label class="form-label">Quantity *</label>
-              <div class="qty-input-group">
-                <input 
-                  type="number" 
-                  step="any" 
-                  min="0" 
-                  v-model.number="newSample.qty" 
-                  class="form-control" 
-                  placeholder="0.0"
-                  required 
-                />
-                <span class="qty-uom-suffix" v-if="newSample.uom">{{ newSample.uom }}</span>
-              </div>
+              <input v-model.number="newSample.qty" type="number" min="0" step="any" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">UOM</label>
+              <input type="text" :value="newSample.uom || '—'" class="form-control readonly" readonly />
+              <span class="field-hint">Comes from the item.</span>
             </div>
           </div>
 
           <div class="form-group">
+            <label class="form-label">Sample Name</label>
+            <input v-model="newSample.name_of_sample" type="text" class="form-control" placeholder="e.g. Aliquot 1" />
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Comments</label>
-            <textarea
-              v-model="newSample.comments"
-              class="form-control textarea"
-              rows="3"
-              placeholder="Optional notes on this sample…"
-            ></textarea>
+            <textarea v-model="newSample.comments" class="form-control textarea" rows="3" placeholder="Optional notes on this sample…"></textarea>
             <span class="field-hint">Editable until this run is sent for approval.</span>
           </div>
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showRegisterModal = false" :disabled="savingSample">Cancel</button>
-          <button class="btn btn-primary" @click="registerSample" :disabled="savingSample || !newSample.item || newSample.qty <= 0">
-            {{ savingSample ? 'Saving...' : 'Register' }}
+          <button class="btn btn-secondary" @click="showSampleModal = false" :disabled="savingSample">Cancel</button>
+          <button
+            class="btn btn-primary"
+            :disabled="savingSample || !newSample.item || !(newSample.qty > 0)"
+            @click="submitSampleForm"
+          >
+            {{ savingSample ? 'Adding…' : 'Add Sample' }}
           </button>
         </div>
       </div>
     </div>
+
+    <!-- No Create Stock Entry modal any more: the entry is filled in on its own
+         desk form, which is the only place the warehouse can be supplied before
+         ERPNext will save it. See openStockEntryForm above. -->
   </div>
 </template>

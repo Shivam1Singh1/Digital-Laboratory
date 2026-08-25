@@ -1,0 +1,57 @@
+/**
+ * Styles the editor owns, imported by RichTextEditor.vue so they load wherever
+ * it does. The older .rich-text / .rich-text-surface rules still live in
+ * components/templates/TemplateDetail.css and are untouched - this file only
+ * adds what those never covered.
+ *
+ * Tables need rules here because the content is Frappe HTML: the Result tab's
+ * tables carry class="table table-bordered", a Bootstrap convention the desk
+ * styles for free. This app has no Bootstrap, so without the below a seeded
+ * readings table renders as borderless run-together text.
+ */
+
+.rich-text-surface table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4rem 0;
+  font-size: 0.82rem;
+  /* The readings table is ten columns wide. Without this the cells compress to
+     unreadable slivers on a narrow pane instead of letting the wrapper scroll. */
+  min-width: 640px;
+}
+
+/* Paired with the min-width above: the surface, not the page, takes the
+   overflow, so a wide table never pushes the form's own layout sideways. */
+.rich-text-surface {
+  overflow-x: auto;
+}
+
+.rich-text-surface th,
+.rich-text-surface td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+  /* Cells are typed into directly; without a floor an empty one collapses to a
+     line the pointer cannot reliably land in. */
+  min-width: 60px;
+}
+
+/* The seeded tables mark their header row with <strong> rather than <th>: the
+   desk's Quill 2 table format has no <th> and would rewrite it to <td> on first
+   edit, so the bold cell is what both editors can agree to keep. */
+.rich-text-surface tr:first-child td {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rich-text-readonly {
+  background-color: var(--bg-elevated);
+}
+
+.rich-text-readonly .rich-text-surface {
+  color: var(--text-muted);
+  cursor: default;
+}

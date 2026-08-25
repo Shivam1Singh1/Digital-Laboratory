@@ -319,6 +319,22 @@
   color: var(--text-primary);
 }
 
+/* Whole sample rows open the sample. The action cell stops its own clicks, so
+   the pointer is reset there - a cursor promising navigation over a Submit
+   button would be lying about what pressing it does. */
+.samples-table tr.sample-row-link {
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.samples-table tr.sample-row-link:hover {
+  background-color: var(--bg-elevated);
+}
+
+.samples-table tr.sample-row-link .row-actions {
+  cursor: default;
+}
+
 .uom-badge {
   background-color: var(--bg-elevated);
   padding: 0.2rem 0.5rem;

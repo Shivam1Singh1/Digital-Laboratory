@@ -122,6 +122,17 @@ const experiment = ref({
   protocol_steps: [],
   observations: [],
 
+  // Result tab. All three write-ups start empty: they are descriptive prose, and
+  // an author who wants a table can build one in the editor. Seeded here anyway,
+  // blank and all, for the reason given above - the payload is this object
+  // posted whole, so a key Vue never saw is a key the server never receives.
+  // `result` stays empty too: blank is the first option of the doctype's Select,
+  // and a run nobody has judged yet should not post as Pass.
+  results: '',
+  observation_and_conclusion: '',
+  conclusion: '',
+  result: '',
+
   // Raw Data tab. Seeded here rather than left to appear on first keystroke:
   // the payload is this object posted whole, and a key Vue never saw is a key
   // the server never receives. Checks are 0/1 to match the doctype's Check.
@@ -869,10 +880,21 @@ const teamSetupUrl = computed(() => ({
 const authorizedProjects = ref([])
 const projectsLoaded = ref(false)
 
+// Scoped to the chosen Employee Function once there is one. The narrowing is the
+// server's, not a filter applied to a list it already sent: a head is authorised
+// for projects that carry no team yet, and those exist only in the function ->
+// project mapping, so they cannot be recovered from an unfiltered response.
+//
+// Before a function is picked this asks for all of them, which is what keeps the
+// no-function fallback reachable: a user whose employee record maps to no
+// function picks a project first and takes the function from that project's
+// teams (loadProjectFunctions). Filtering on an empty function would empty the
+// picker they need to get out of that state.
 const loadAuthorizedProjects = async () => {
   try {
     const res = await axios.get(
-      '/api/method/elab_notebook.elab_notebook.api.experiment_team.get_authorized_projects_for_user'
+      '/api/method/elab_notebook.elab_notebook.api.experiment_team.get_authorized_projects_for_user',
+      { params: employeeFunction.value ? { employee_function: employeeFunction.value } : {} }
     )
     authorizedProjects.value = res.data.message || []
   } catch (err) {
@@ -896,8 +918,18 @@ const projectSearch = async (txt) => {
 const projectHint = computed(() => {
   if (!projectsLoaded.value) return 'Looking up the projects you can start a run for…'
   if (!authorizedProjects.value.length) {
+    // Two different dead ends, and they need different things done about them:
+    // the function may be the wrong one for this run, or the user may have no
+    // route into any project at all.
+    if (employeeFunction.value) {
+      return `No project under ${employeeFunction.value} is available to you. `
+        + 'Change the Employee Function, or set up an Experiment Team on one of its projects.'
+    }
     return 'No project is available to you: a run needs an Experiment Team you are on '
       + '(or head). Set one up in Team Setup first.'
+  }
+  if (employeeFunction.value) {
+    return `Required. Showing projects under ${employeeFunction.value} that you belong to, or head.`
   }
   return 'Required. Only projects with a team you belong to, or head, are listed.'
 })
@@ -987,6 +1019,23 @@ const employeeFunctionHint = computed(() => {
     ? 'No Employee Function is assigned to your employee record, so these are the functions '
       + 'this project offers you. Ask HR to map your Employee record.'
     : 'No Employee Function is assigned to your employee record, and this project offers none.'
+})
+
+// The project list itself is scoped by the function, so it is reloaded when the
+// function changes - and only then. Kept out of the pair watcher below because
+// that one also fires on `project`, and reloading the list a project was just
+// chosen from would be a round trip that can only return what is already there.
+//
+// A project chosen under the previous function is dropped if the new one does
+// not offer it, for the same reason that watcher drops the team and template:
+// carrying it over leaves a value the picker no longer lists but the payload
+// still posts. Cleared after the reload, so the decision is made against the new
+// list rather than the old one.
+watch(employeeFunction, async () => {
+  await loadAuthorizedProjects()
+  if (project.value && !authorizedProjects.value.some((p) => p.name === project.value)) {
+    project.value = ''
+  }
 })
 
 // Everything scoped by the pair has to be resolved again when either half of it
@@ -1079,12 +1128,21 @@ const visibleTabs = computed(() => [
   ...(showsRawDataTab(experiment.value.experiment_category)
     ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
+  // After Raw Data, not before it as on the desk form. The desk runs
+  // Procedure -> Result -> Raw Data, but this app has no Procedure tab at all
+  // and deliberately holds Raw Data third at every level (above). Slotting
+  // Result in ahead of it would push Raw Data to fourth and break that; the
+  // doctype puts no depends_on on result_tab, so unlike Raw Data this one shows
+  // at every level including Master Experiment.
+  { key: 'result', label: 'Result' },
   ...(usesTemplate.value
     ? [
-        { key: 'materials', label: 'Material Required' },
-        { key: 'equipment', label: 'Equipment Details' },
-        { key: 'methodology', label: 'Methodology' },
-        { key: 'procedure', label: 'Protocol Steps' },
+        // One tab, two stacked sections: Material Required above, Equipment
+        // Details below. Keyed 'materials', which is also what TEMPLATE_TABS
+        // resets from, so nothing else had to change.
+        { key: 'materials', label: 'Material & Equipment' },
+        // Methodology moved under Details; Protocol Steps is gone outright.
+        // Both tables stay on the server, untouched.
       ]
     : []),
   { key: 'hierarchy', label: 'Experiment Hierarchy' },
@@ -1943,8 +2001,10 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- 3. EQUIPMENT DETAILS TAB -->
-        <div v-if="activeTab === 'equipment'" class="tab-pane">
+        <!-- 3. EQUIPMENT DETAILS — the second half of the Material & Equipment
+             tab. Same key as the materials pane above so the two render one
+             under the other; the pane's own contents are unchanged. -->
+        <div v-if="activeTab === 'materials'" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Instruments & Tool Allocation</h3>
           </div>
@@ -2020,8 +2080,11 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- 4. METHODOLOGY TAB -->
-        <div v-if="activeTab === 'methodology'" class="tab-pane">
+        <!-- 4. METHODOLOGY — now the last section of the Details tab. Same key
+             as the Details panes above so it stacks under them. usesTemplate is
+             kept from when this was its own tab: Details shows at every level,
+             and a Master Experiment has no use for a Methodology table. -->
+        <div v-if="activeTab === 'details' && usesTemplate" class="tab-pane">
           <div class="pane-header-row">
             <h3 class="pane-subtitle">Experimental Methodology</h3>
           </div>
@@ -2066,40 +2129,6 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- 5. PROTOCOL STEPS TAB -->
-        <div v-if="activeTab === 'procedure'" class="tab-pane">
-          <h3 class="pane-subtitle">Standard Execution Procedure (Checklist)</h3>
-          
-          <div class="protocol-steps-list">
-            <div 
-              v-for="step in experiment.experiment_protocol_steps" 
-              :key="step.step_order" 
-              class="protocol-step-item"
-            >
-              <div class="step-num">{{ step.step_order }}.</div>
-              <div class="step-details">
-                <div class="step-title-row">
-                  <strong class="step-heading">{{ step.title }}</strong>
-                  <span v-if="step.duration" class="step-duration">Duration: {{ step.duration }}</span>
-                </div>
-                <p class="step-desc">{{ step.description }}</p>
-                <div class="step-meta" v-if="step.equipment || step.operator_role">
-                  <span v-if="step.equipment">Equipment: <strong>{{ step.equipment }}</strong></span>
-                  <span v-if="step.operator_role">Role: <strong>{{ step.operator_role }}</strong></span>
-                </div>
-              </div>
-            </div>
-            <div v-if="experiment.experiment_protocol_steps.length === 0" class="empty-list-pane">
-              No checklist steps loaded from template.
-            </div>
-          </div>
-        </div>
-
-        <!-- EXPERIMENT HIERARCHY TAB -->
-        <!-- What follows from the level picked on the first tab: the run this one
-             sits under, and the runs it adopts. The level itself is asked for
-             there rather than here, because it decides which tabs exist at all -
-             including whether this one has anything to offer. -->
         <div v-if="activeTab === 'hierarchy'" class="tab-pane">
           <section class="meta-card">
             <h3 class="pane-subtitle">Experiment Hierarchy</h3>
@@ -2186,6 +2215,57 @@ onMounted(async () => {
              descendants, and neither exists yet. Saying so beats an empty card. -->
         <div v-if="activeTab === 'rawdata'" class="tab-pane">
           <RawDataTab :experiment="experiment" />
+        </div>
+
+        <!-- RESULT TAB -->
+        <!-- Four fields off Lab Experiment's own result_tab, in the doctype's
+             order. The three write-ups are descriptive prose and open empty; the
+             editor's own toolbar is there for anyone who wants to lay a table
+             out by hand, but nothing is pre-built. -->
+        <div v-if="activeTab === 'result'" class="tab-pane">
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Results</h3>
+            <div class="form-group stacked-field">
+              <RichTextEditor
+                v-model="experiment.results"
+                placeholder="Describe what the run produced…"
+                min-height="200px"
+              />
+            </div>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Observation</h3>
+            <div class="form-group stacked-field">
+              <RichTextEditor
+                v-model="experiment.observation_and_conclusion"
+                placeholder="Describe what was observed…"
+              />
+            </div>
+          </section>
+
+          <section class="meta-card">
+            <h3 class="pane-subtitle">Conclusion</h3>
+            <div class="form-group stacked-field">
+              <RichTextEditor
+                v-model="experiment.conclusion"
+                placeholder="What the run concludes…"
+              />
+            </div>
+          </section>
+
+          <section class="meta-card">
+            <div class="form-group">
+              <label class="form-label">Result</label>
+              <select v-model="experiment.result" class="form-control">
+                <!-- Blank first, matching the doctype's Select, so an unjudged
+                     run stays unjudged rather than defaulting to Pass. -->
+                <option value="">Not decided yet</option>
+                <option value="Pass">Pass</option>
+                <option value="Fail">Fail</option>
+              </select>
+            </div>
+          </section>
         </div>
 
         <div v-if="activeTab === 'report'" class="tab-pane">
