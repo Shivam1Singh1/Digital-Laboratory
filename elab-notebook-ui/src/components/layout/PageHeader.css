@@ -101,17 +101,26 @@
 
 /* --- Action button ------------------------------------------------------- */
 
+/* Deliberate deviation from the spec's 40px / 14px / 16px-padding / 8px-radius
+   button, applied here rather than overridden per page so the four headers using
+   this component (Experiments, Samples, Templates, Team Setup) cannot drift
+   apart again - the whole point of the namespace above.
+
+   The spec sized this button before the detail pages were compacted. At 40px it
+   was the heaviest element on a list page, outweighing the 28px title it sits
+   beside, and it no longer matched the 32px header actions on ExperimentDetail
+   and TemplateDetail. These values are those: 32px tall, 13px text. */
 .app-page-header__action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
   border: 1px solid transparent;
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
@@ -147,9 +156,11 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
+/* Scaled with the button above; 16px in a 32px control reads as an oversized
+   glyph rather than a label prefix. */
 .app-page-header__action-icon {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 

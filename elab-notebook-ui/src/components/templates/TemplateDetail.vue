@@ -1166,6 +1166,7 @@ onMounted(async () => {
               <RichTextEditor
                 v-model="methodologyComments"
                 placeholder="Notes that apply across all methodology steps…"
+                tables
               />
             </div>
           </section>
@@ -1176,7 +1177,7 @@ onMounted(async () => {
 
             <div class="form-group">
               <label class="form-label">Steps</label>
-              <RichTextEditor v-model="steps" placeholder="Free-form protocol write-up…" />
+              <RichTextEditor v-model="steps" placeholder="Free-form protocol write-up…" tables />
             </div>
           </section>
         </div>
@@ -1190,6 +1191,7 @@ onMounted(async () => {
               <RichTextEditor
                 v-model="observationComments"
                 placeholder="Describe expected observations, parameters to record, and outcome notes…"
+                tables
               />
             </div>
           </section>

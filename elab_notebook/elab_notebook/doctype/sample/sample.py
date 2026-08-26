@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
 from frappe.model.document import Document
+from frappe.utils import flt
 
 # Parent states in which this sample's comments are frozen. The trigger is the
 # "Send For Approval" transition into Pending Approval, not the later Approved
@@ -21,18 +22,61 @@ class Sample(Document):
 	def validate(self):
 		self.validate_experiment_exists()
 		self.validate_experiment_workflow_state()
+		self.validate_item_and_qty()
 		self.validate_comments_lock()
+		self.validate_rejection_reason()
 
 	def before_update_after_submit(self):
 		"""Frappe does not run validate() on the update-after-submit path.
 
-		`comments` is the doctype's only allow_on_submit field, so that path is
-		reachable for the first time: a submitted sample can be edited while its
-		parent has already been sent for approval. Without this hook the lock
-		would hold on drafts and silently not on submitted samples - which is the
-		state most samples are in by the time approval is requested.
+		`comments` and `rejection_reason` are this doctype's allow_on_submit
+		fields, so that path is reachable for the first time: a submitted sample
+		can be edited while its parent has already been sent for approval.
+		Without this hook the locks would hold on drafts and silently not on
+		submitted samples - which is the state most samples are in by the time
+		approval is requested.
 		"""
 		self.validate_comments_lock()
+		self.validate_rejection_reason()
+
+	def validate_item_and_qty(self):
+		"""A sample has to say what it is a sample of, and how much.
+
+		`item` and `qty` are already reqd on the doctype, so the desk form and a
+		plain insert are covered by Frappe's own mandatory check. This is the
+		floor under that: reqd is skipped by insert(ignore_mandatory=True) and by
+		anything that writes the row directly, and a Sample with no item is not a
+		record with a missing field - it is not a sample. Nothing may carry it
+		into the workflow.
+
+		qty is compared to zero rather than tested for truth: 0 and None are both
+		"no quantity", but a negative qty is a different mistake and is refused
+		with the same sentence rather than passing silently.
+		"""
+		if not self.item or flt(self.qty) <= 0:
+			frappe.throw(
+				_("At least one item with quantity is required before this Sample can proceed."),
+				title=_("Item Required"),
+			)
+
+	def validate_rejection_reason(self):
+		"""A rejected sample has to say why.
+
+		mandatory_depends_on on the field covers the desk form, and nothing else.
+		This covers the rest: apply_workflow called from a script, the REST API,
+		and the SPA - all of which reach Rejected without the desk form's
+		client-side check ever running.
+
+		Checked on before_update_after_submit as well as validate, because
+		Rejected is a doc_status=1 state: the transition that sets it submits the
+		document, and every later edit takes the update-after-submit path where
+		validate() does not run.
+		"""
+		if self.workflow_state == "Rejected" and not (self.rejection_reason or "").strip():
+			frappe.throw(
+				_("Rejection Reason is mandatory when rejecting a sample."),
+				title=_("Reason Required"),
+			)
 
 	def validate_experiment_exists(self):
 		"""Ensure experiment exists"""

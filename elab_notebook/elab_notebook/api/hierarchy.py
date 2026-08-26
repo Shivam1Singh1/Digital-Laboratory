@@ -747,6 +747,11 @@ _REPORT_FIELDS = (
 	"observation",
 	"observation_and_conclusion",
 	"results",
+	# Added when the Result tab gained them; the report predates both and was
+	# silently omitting a run's conclusion and its Pass/Fail verdict.
+	"conclusion",
+	"result",
+	"is_successful",
 	"procedure",
 	"precaution",
 	"sample_details",

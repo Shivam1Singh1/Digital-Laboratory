@@ -63,8 +63,14 @@
   gap: 0.75rem;
 }
 
+/* Grows into the space the smaller create button gave back, so the row reads as
+   a sentence with its controls after it rather than as text stranded opposite a
+   button. min-width is what makes it wrap instead of squeezing to a word a line
+   on a narrow pane. */
 .tree-summary {
   margin: 0;
+  flex: 1 1 auto;
+  min-width: 12rem;
   font-size: 0.85rem;
   color: var(--text-muted);
 }
@@ -73,6 +79,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  flex: 0 0 auto;
   gap: 0.5rem;
 }
 
@@ -126,6 +133,19 @@
 .tree-view-btn[aria-disabled='true'] {
   opacity: 0.4;
   cursor: default;
+}
+
+/* The create action, sized to sit in the same band as the view controls beside
+   it. It already carries .btn-sm, but .btn-sm and .btn have equal specificity
+   and live in different files, so which one wins is decided by import order -
+   and .btn was winning, rendering this at full size. Compounded with .btn here
+   to settle it by specificity instead, and scoped to this toolbar so no other
+   .btn-sm in the app changes size as a side effect. */
+.tree-toolbar-actions .btn.btn-sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 5px;
+  white-space: nowrap;
 }
 
 .tree-toolbar-divider {

@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-25 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "linked_experiment",
+  "linked_experiment_title"
+ ],
+ "fields": [
+  {
+   "description": "The child run being curated into the parent's report. Scoped to the level below the parent by the form that renders this table - the level rule is not restated on the field, because the answer depends on the parent record and a child row cannot see it.",
+   "fieldname": "linked_experiment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Experiment",
+   "options": "Lab Experiment",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "linked_experiment.title",
+   "fieldname": "linked_experiment_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-25 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Elab Notebook",
+ "name": "Lab Experiment Link CT",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

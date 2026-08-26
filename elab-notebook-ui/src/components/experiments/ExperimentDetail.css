@@ -36,6 +36,7 @@
 .experiment-detail-container .tab-content {
   flex: none;
   overflow: visible;
+  padding-top: 0.05rem;  
 }
 
 /* overflow-x:auto zeroes this row's automatic min-height, so as a flex item it
@@ -43,6 +44,12 @@
    visible tab buttons. Same trap as .page-header, same fix. */
 .experiment-detail-container .form-tabs-row {
   flex-shrink: 0;
+  /* The shared rule leaves 1.5rem under the tab strip. That reads as a gap on
+     this page, where the first thing in most panes is a toolbar rather than a
+     heading - the Experiment Hierarchy tab in particular opened with a band of
+     empty space above its summary line. Scoped to the detail container so the
+     create form, whose panes start with a field label, keeps its own spacing. */
+  margin-bottom: 0.2rem;
 }
 
 /* This header carries the run actions as well as the title block, so it is the
@@ -111,6 +118,35 @@
   font-size: 0.8rem;
   font-weight: 600;
   border-radius: 6px;
+  white-space: nowrap;
+}
+
+/* Compact header actions, matching the run-action row directly beneath them and
+   the same treatment TemplateDetail.css already gives its own header.
+   Create <level> and Back to List were running at the base .btn size - 0.875rem
+   text in 0.5rem/1rem padding - which made the two of them the loudest thing on
+   the page and pushed the title into wrapping across three lines.
+
+   Scoped to the detail container so the list page's own buttons keep full size,
+   and compounded past .btn / .btn-workflow to outrank the base sizing. The width
+   this frees is not padded back: .page-header-right is flex-shrink: 0, so the
+   title block beside it simply gets it. */
+.experiment-detail-container .page-header-right {
+  gap: 0.5rem;
+}
+
+.experiment-detail-container .page-header-right .btn,
+.experiment-detail-container .page-header-right .btn-workflow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  /* Fixed height so the primary and secondary buttons line up regardless of
+     whether one of them carries an icon. */
+  height: 32px;
+  box-sizing: border-box;
   white-space: nowrap;
 }
 
@@ -671,4 +707,27 @@
   justify-content: space-between;
   gap: 0.85rem;
   margin-top: 0.6rem;
+}
+
+/* Result tab spacing.
+
+   The four cards in this pane - Results, Observation, Conclusion, and the
+   Pass/Fail select - are plain siblings, and .meta-card carries no margin of
+   its own. What separated them was whatever bottom margin the last .form-group
+   inside each card happened to leave, so the gaps came out uneven: a card
+   ending in an editor sat far from the next, one ending in a select sat almost
+   flush against it.
+
+   One gap on the container instead, so the spacing is a property of the pane
+   rather than a side effect of each card's last child. */
+.result-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* The editors already carry their own min-height; the card should not add a
+   second helping of padding under them. */
+.result-pane .meta-card .form-group.stacked-field:last-child {
+  margin-bottom: 0;
 }

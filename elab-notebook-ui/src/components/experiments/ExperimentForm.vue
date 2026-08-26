@@ -1912,7 +1912,7 @@ onMounted(async () => {
 
             <div class="form-group stacked-field">
               <label class="form-label">Observation</label>
-              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" />
+              <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" tables />
             </div>
           </div>
         </div>
@@ -2230,6 +2230,7 @@ onMounted(async () => {
                 v-model="experiment.results"
                 placeholder="Describe what the run produced…"
                 min-height="200px"
+                tables
               />
             </div>
           </section>
@@ -2240,6 +2241,7 @@ onMounted(async () => {
               <RichTextEditor
                 v-model="experiment.observation_and_conclusion"
                 placeholder="Describe what was observed…"
+                tables
               />
             </div>
           </section>
@@ -2250,6 +2252,7 @@ onMounted(async () => {
               <RichTextEditor
                 v-model="experiment.conclusion"
                 placeholder="What the run concludes…"
+                tables
               />
             </div>
           </section>

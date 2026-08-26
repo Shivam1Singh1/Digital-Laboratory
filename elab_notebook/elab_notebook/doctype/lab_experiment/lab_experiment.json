@@ -64,6 +64,7 @@
   "conclusion",
   "result",
   "is_successful",
+  "successful_children",
   "attachments_tab",
   "result_attachment",
   "sample_details",
@@ -230,11 +231,13 @@
    "options": "Lab Experiment Step CT"
   },
   {
+   "description": "Edited in the SPA only. read_only because the SPA writes rich tables here that the desk's plain Quill 2 editor would silently strip on its next save; fetch_from still fills it server-side, which read_only does not affect.",
    "fetch_from": "template.observation_comments",
    "fetch_if_empty": 1,
    "fieldname": "observation",
    "fieldtype": "Text Editor",
-   "label": "Observation"
+   "label": "Observation",
+   "read_only": 1
   },
   {
    "fieldname": "observations",
@@ -424,20 +427,25 @@
    "label": "Result"
   },
   {
-   "description": "Free-form write-up of what the run produced. Starts empty on purpose - a table can still be built with the editor's own toolbar, but nothing is pre-laid-out.",
+   "description": "Free-form write-up of what the run produced. Edited in the SPA only - see read_only below.",
    "fieldname": "results",
    "fieldtype": "Text Editor",
-   "label": "Results"
+   "label": "Results",
+   "read_only": 1
   },
   {
+   "description": "Edited in the SPA only - see the note on `results`.",
    "fieldname": "observation_and_conclusion",
    "fieldtype": "Text Editor",
-   "label": "Observation"
+   "label": "Observation",
+   "read_only": 1
   },
   {
+   "description": "Edited in the SPA only - see the note on `results`.",
    "fieldname": "conclusion",
    "fieldtype": "Text Editor",
-   "label": "Conclusion"
+   "label": "Conclusion",
+   "read_only": 1
   },
   {
    "fieldname": "result",
@@ -471,9 +479,11 @@
    "label": "Sample details"
   },
   {
+   "description": "Edited in the SPA only - see the note on `observation`.",
    "fieldname": "sample_detailsgenerated",
    "fieldtype": "Text Editor",
-   "label": "Sample details(generated)"
+   "label": "Sample details(generated)",
+   "read_only": 1
   },
   {
    "default": "0",
@@ -692,12 +702,20 @@
   {
    "fieldname": "column_break_creator",
    "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.experiment_category != \"Sub Sub Experiment\"",
+   "description": "Hand-picked children to carry into this run's report. Separate from Successful / Include in Report above: that flag is a run's own verdict on itself, this is the parent choosing which of its children to present. Neither reads the other, and get_successful_subtree ignores this table. Hidden at Sub Sub Experiment, the leaf level, which has no children to pick.",
+   "fieldname": "successful_children",
+   "fieldtype": "Table",
+   "label": "Experiment Table",
+   "options": "Lab Experiment Link CT"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-25 11:06:22.465178",
+ "modified": "2026-08-26 14:46:08.256301",
  "modified_by": "Administrator",
  "module": "Elab Notebook",
  "name": "Lab Experiment",

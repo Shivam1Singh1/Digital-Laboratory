@@ -175,7 +175,7 @@ const onSampleItem = async (row) => {
          it stays visible in the desk form - nothing was dropped. -->
     <div class="form-group">
       <label class="form-label">Sample details(generated)</label>
-      <RichTextEditor v-model="experiment.sample_detailsgenerated" placeholder="Generated sample details…" :readonly="readonly" />
+      <RichTextEditor v-model="experiment.sample_detailsgenerated" placeholder="Generated sample details…" tables :readonly="readonly" />
     </div>
 
     <div class="form-group-row two-columns">

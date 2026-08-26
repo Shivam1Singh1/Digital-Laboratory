@@ -238,9 +238,11 @@
    "read_only": 1
   },
   {
+   "description": "Edited in the SPA only. read_only because the SPA writes rich tables here that the desk's plain Quill 2 editor would silently strip on its next save.",
    "fieldname": "methodology_comments",
    "fieldtype": "Text Editor",
-   "label": "Methodology Comments"
+   "label": "Methodology Comments",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_protocol",
@@ -248,9 +250,11 @@
    "label": "Protocol"
   },
   {
+   "description": "Edited in the SPA only - see the note on `methodology_comments`.",
    "fieldname": "steps",
    "fieldtype": "Text Editor",
-   "label": "Steps"
+   "label": "Steps",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_observation",
@@ -258,9 +262,11 @@
    "label": "Observation"
   },
   {
+   "description": "Edited in the SPA only - see the note on `methodology_comments`. Lab Experiment.observation fetches from this field.",
    "fieldname": "observation_comments",
    "fieldtype": "Text Editor",
-   "label": "Observation Comments"
+   "label": "Observation Comments",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_status",

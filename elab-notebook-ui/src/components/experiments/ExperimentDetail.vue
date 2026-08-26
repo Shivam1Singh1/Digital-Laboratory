@@ -9,6 +9,7 @@ import ExperimentTree from './ExperimentTree.vue'
 import ExperimentReport from './ExperimentReport.vue'
 import RawDataTab from './RawDataTab.vue'
 import { showsRawDataTab } from '../../utils/rawData'
+import { showsReportTab } from '../../utils/reportTab'
 import AddRow from '../common/AddRow.vue'
 import { readServerError } from '../../utils/serverError'
 import { formatAuditDate } from '../../utils/dateFormatter'
@@ -96,6 +97,53 @@ const childCategory = computed(
 // level whose Template tab carries nothing, so the header has room for it.
 const canStartChildRun = computed(() => isRootExperiment.value && Boolean(childCategory.value))
 
+// ---------------------------------------------------------------------------
+// Experiment Table (successful_children)
+// ---------------------------------------------------------------------------
+// A hand-picked list of children to carry into this run's report. Separate from
+// `is_successful`, which is a run's own verdict on itself, and from
+// `parent_experiment`, which is the real hierarchy. Nothing here reads or writes
+// either, and api/hierarchy.get_successful_subtree does not look at this table.
+//
+// Hidden at the leaf: childCategory is empty at Sub Sub Experiment, which has no
+// level below it to pick from.
+const showsCuratedChildren = computed(() => Boolean(childCategory.value))
+
+// Rebuilt whenever the level or the current picks change, so the dropdown is
+// re-scoped if experiment_category is ever edited, and never re-offers a run
+// already in the table. Self-exclusion matters because a run and its child share
+// a project: without it, a run could curate itself.
+const curatedChildFilters = computed(() => {
+  const taken = (experiment.value?.successful_children || [])
+    .map((r) => r.linked_experiment)
+    .filter(Boolean)
+  const filters = [
+    ['experiment_category', '=', childCategory.value],
+    ['name', '!=', String(route.params.id)],
+  ]
+  if (taken.length) filters.push(['name', 'not in', taken])
+  return filters
+})
+
+const addCuratedChild = () => {
+  if (!experiment.value.successful_children) experiment.value.successful_children = []
+  experiment.value.successful_children.push({
+    linked_experiment: '',
+    linked_experiment_title: '',
+  })
+}
+
+const removeCuratedChild = (idx) => {
+  experiment.value.successful_children.splice(idx, 1)
+}
+
+// The title is `fetch_from` on the child doctype, so the server fills it on
+// save. Filled here too, from the option already in hand, so the row reads
+// correctly the moment it is picked instead of after a save and reload.
+const onCuratedChildSelect = (row, opt) => {
+  row.linked_experiment_title = opt ? opt.title || '' : ''
+}
+
 // The create form's own pre-fill mechanism - the URL query it already reads on
 // the team flow (see CreateExperimentModal.handleProceed). Nothing here is
 // locked: every value lands in an editable field, the team included.
@@ -148,7 +196,13 @@ const visibleTabs = computed(() => [
       ]
     : []),
   { key: 'tree', label: 'Experiment Hierarchy' },
-  { key: 'report', label: 'Report' },
+  // The report rolls a run up with everything beneath it, so it only says
+  // anything at a level that has a "beneath". A Sub Sub Experiment is the leaf
+  // and a Sub Experiment's roll-up is one level deep - neither is a report, and
+  // both were rendering a card of the run you were already looking at.
+  ...(showsReportTab(experiment.value?.experiment_category)
+    ? [{ key: 'report', label: 'Report' }]
+    : []),
   { key: 'samples', label: 'Samples' },
   // History/Audit Log is hidden, not removed: the pane below and loadHistory()
   // are intact, so putting the line back here is all it takes to show it again.
@@ -1021,8 +1075,13 @@ watch([usesTemplate, activeTab], ([leaf, tab]) => {
 // A ?tab=rawdata link, or the tab left open while navigating between runs, can
 // land on a Master Experiment, which has no Raw Data tab. Same fallback: show
 // Template rather than a pane the tab row above no longer offers.
+//
+// Report is here for the same reason and matters more: clicking down the tree
+// from a Master to a Sub Experiment keeps the tab open, and without this the
+// pane stayed selected with no tab in the row to close it.
 watch([() => experiment.value?.experiment_category, activeTab], ([category, tab]) => {
   if (tab === 'rawdata' && !showsRawDataTab(category)) activeTab.value = 'general'
+  if (tab === 'report' && !showsReportTab(category)) activeTab.value = 'general'
 })
 
 // === DYNAMIC-PERMS-START ===
@@ -1687,7 +1746,7 @@ onMounted(() => {
             <section class="meta-card">
               <h3 class="pane-subtitle">Observation</h3>
               <div class="form-group stacked-field">
-                <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" :readonly="isWorkflowLocked() && !isSystemManager" />
+                <RichTextEditor v-model="experiment.observation" placeholder="Enter observations…" tables :readonly="isWorkflowLocked() && !isSystemManager" />
               </div>
             </section>
 
@@ -2077,6 +2136,85 @@ onMounted(() => {
         <!-- EXPERIMENT HIERARCHY TAB -->
         <div v-if="activeTab === 'tree'" class="tab-pane">
           <ExperimentTree :experiment-id="String(route.params.id)" />
+
+          <!-- Below the real tree, not inside it: the tree above shows the
+               hierarchy as it is, this picks which parts of it to present.
+               Absent at Sub Sub Experiment - the leaf has no children to pick.
+               Heading only, no explanatory paragraph: the column header names
+               the level, and the empty row says what an empty table means. -->
+          <section v-if="showsCuratedChildren" class="meta-card" style="margin-top: 1.25rem">
+            <h3 class="pane-subtitle" style="margin-bottom: 0.75rem">Experiment Table</h3>
+
+            <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+              ⚠️ This experiment is locked. Only System Managers can change this list.
+            </div>
+
+            <div class="table-container">
+              <table class="samples-table">
+                <thead>
+                  <tr>
+                    <th style="width: 45%">{{ childCategory }}</th>
+                    <th>Title</th>
+                    <th style="width: 60px"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(row, idx) in (experiment.successful_children || [])"
+                    :key="`curated-${idx}`"
+                  >
+                    <td>
+                      <LinkField
+                        v-model="row.linked_experiment"
+                        doctype="Lab Experiment"
+                        :fields="['title', 'experiment_category']"
+                        :search-fields="['name', 'title']"
+                        description-field="title"
+                        :filters="curatedChildFilters"
+                        :disabled="isWorkflowLocked() && !isSystemManager"
+                        :placeholder="`Search ${childCategory} runs…`"
+                        input-class="form-control table-input"
+                        @select="onCuratedChildSelect(row, $event)"
+                      />
+                    </td>
+                    <td>
+                      <!-- Read-only: it mirrors the linked run's own title, and a
+                           second editable copy would be a second place to change
+                           a name that lives somewhere else. -->
+                      <input
+                        type="text"
+                        :value="row.linked_experiment_title || '—'"
+                        class="form-control table-input readonly"
+                        readonly
+                      />
+                    </td>
+                    <td>
+                      <button
+                        class="delete-row-btn"
+                        title="Remove from the list"
+                        :disabled="isWorkflowLocked() && !isSystemManager"
+                        @click="removeCuratedChild(idx)"
+                      >×</button>
+                    </td>
+                  </tr>
+                  <tr v-if="!(experiment.successful_children || []).length">
+                    <td colspan="3" class="empty-table-cell">
+                      Nothing picked — the report uses the full hierarchy.
+                    </td>
+                  </tr>
+                  <tr class="add-row-tr">
+                    <td colspan="3">
+                      <AddRow
+                        :label="`Add ${childCategory}`"
+                        :disabled="isWorkflowLocked() && !isSystemManager"
+                        @add="addCuratedChild"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </div>
 
         <!-- REPORT TAB -->
@@ -2093,11 +2231,17 @@ onMounted(() => {
              the page's own Save button: the PUT sends `experiment` whole, so
              these four need no wiring of their own. The three write-ups are
              descriptive prose, empty until someone fills them in. -->
-        <div v-if="activeTab === 'result'" class="tab-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+        <div v-if="activeTab === 'result'" class="tab-pane result-pane">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.85rem; color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit the result in this state.
           </div>
 
+          <!-- The only three editors in the app with `tables` on. They are also
+               the only three fields marked read_only on the doctype, and the two
+               go together: quill-better-table's markup does not survive a plain
+               Quill 2, which is what the desk Text Editor is, so a field edited
+               here must not be re-savable from the desk. Turning `tables` on for
+               a fourth field means marking that field read_only too. -->
           <section class="meta-card">
             <h3 class="pane-subtitle">Results</h3>
             <div class="form-group stacked-field">
@@ -2105,6 +2249,7 @@ onMounted(() => {
                 v-model="experiment.results"
                 placeholder="Describe what the run produced…"
                 min-height="200px"
+                tables
                 :readonly="isWorkflowLocked() && !isSystemManager"
               />
             </div>
@@ -2116,6 +2261,7 @@ onMounted(() => {
               <RichTextEditor
                 v-model="experiment.observation_and_conclusion"
                 placeholder="Describe what was observed…"
+                tables
                 :readonly="isWorkflowLocked() && !isSystemManager"
               />
             </div>
@@ -2127,6 +2273,7 @@ onMounted(() => {
               <RichTextEditor
                 v-model="experiment.conclusion"
                 placeholder="What the run concludes…"
+                tables
                 :readonly="isWorkflowLocked() && !isSystemManager"
               />
             </div>

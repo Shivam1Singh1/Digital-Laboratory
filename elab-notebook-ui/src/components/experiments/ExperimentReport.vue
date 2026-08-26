@@ -2,19 +2,20 @@
 /**
  * Read-only roll-up of a run and everything linked below it.
  *
- * The record's own content first, then a nested card per descendant, in
- * parent/child order. Depth is not capped: the four-level rule is a property of
- * today's categories, not of this view, and a report that silently stopped at
- * level three would be wrong the moment the hierarchy grew.
+ * The tree arrives nested from api/hierarchy.get_experiment_report and is
+ * rendered by ReportNode, which recurses into its own children. It used to be
+ * flattened here and indented by a margin computed from depth; nesting the
+ * cards for real means a branch collapses with its parent, which a flat list
+ * cannot do.
  *
- * Loading matches the Experiment Hierarchy tab beside it - one eager call, whole
- * subtree, no expand-on-demand (see api/hierarchy._descendants, which recurses
- * with limit_page_length=0). Nesting deeper than the handful of levels the
- * shading covers keeps the deepest card style rather than inventing new ones.
+ * Only offered at Master Experiment and Experiment - see utils/reportTab.js.
+ * Depth is not otherwise capped: the four-level rule is a property of today's
+ * categories, not of this view.
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import axios from 'axios'
 import { readServerError } from '../../utils/serverError'
+import ReportNode from './ReportNode.vue'
 import './ExperimentReport.css'
 
 const API = 'elab_notebook.elab_notebook.api.hierarchy'
@@ -29,60 +30,19 @@ const node = ref(null)
 const ancestors = ref([])
 const nodeCount = ref(0)
 
-// The scientific body of a run, in the order it reads. `html` marks the Text
-// Editor fields, which carry markup and are rendered as such - the rest are
-// plain text and are interpolated, never injected.
-const SECTIONS = [
-  { key: 'aim', label: 'Aim / Hypothesis' },
-  { key: 'sub_aim', label: 'Sub Aim' },
-  { key: 'rationale', label: 'Rationale' },
-  { key: 'procedure', label: 'Procedure', html: true },
-  { key: 'precaution', label: 'Precaution' },
-  { key: 'observation', label: 'Observation', html: true },
-  { key: 'results', label: 'Results', html: true },
-  { key: 'observation_and_conclusion', label: 'Observation & Conclusion' },
-  { key: 'sample_details', label: 'Sample Details' },
-]
-
 const descendantCount = computed(() => Math.max(nodeCount.value - 1, 0))
 
-// Report scope. 'full' is every descendant; 'successful' follows only runs
-// flagged Successful / Include in Report, and prunes an unflagged branch whole -
-// see api/hierarchy.get_successful_subtree, which gates the branch rather than
-// the row. Kept as a scope switch rather than a filter applied to loaded data:
-// the pruning decision is the server's, and re-deriving it here would be a
-// second implementation of the same rule.
+// Report scope. 'successful' follows only runs flagged Successful / Include in
+// Report and prunes an unflagged branch whole - see
+// api/hierarchy.get_successful_subtree, which gates the branch rather than the
+// row. It is the default because that is what a report is for; the full tree is
+// one click away for anyone checking what was left out.
 const SCOPES = [
-  { key: 'full', label: 'Full hierarchy' },
   { key: 'successful', label: 'Successful sub-tree only' },
+  { key: 'full', label: 'Full hierarchy' },
 ]
-const scope = ref('full')
+const scope = ref('successful')
 const scopedToSuccessful = computed(() => scope.value === 'successful')
-
-const filled = (n) => SECTIONS.filter((s) => String(n[s.key] ?? '').trim())
-
-const stateClass = (state) => {
-  const s = (state || '').toLowerCase()
-  if (s.includes('approved')) return 'rep-state-approved'
-  if (s.includes('rejected')) return 'rep-state-rejected'
-  if (s.includes('pending')) return 'rep-state-pending'
-  if (s.includes('running')) return 'rep-state-running'
-  if (s.includes('completed')) return 'rep-state-completed'
-  return 'rep-state-draft'
-}
-
-/**
- * The tree arrives nested and is flattened once, the same way ExperimentTree
- * does it and for the same reason: a self-recursive component buys nothing here,
- * and one flat v-for keeps the depth handling in a single place.
- */
-const flatten = (n, depth = 0, out = []) => {
-  out.push({ node: n, depth })
-  for (const child of n.children || []) flatten(child, depth + 1, out)
-  return out
-}
-
-const cards = computed(() => (node.value ? flatten(node.value) : []))
 
 const load = async () => {
   loading.value = true
@@ -110,7 +70,8 @@ const load = async () => {
 }
 
 watch(() => props.experimentId, load)
-// Reloads rather than filters in place, for the reason given on SCOPES above.
+// Reloads rather than filters in place: the pruning decision is the server's,
+// and re-deriving it here would be a second implementation of the same rule.
 watch(scope, load)
 onMounted(load)
 </script>
@@ -168,53 +129,7 @@ onMounted(load)
         </p>
       </div>
 
-      <!-- One card per node. `depth` drives the indent and the shading, and is
-           clamped for the style only - the nesting itself is unbounded. -->
-      <div
-        v-for="card in cards"
-        :key="card.node.name"
-        class="rep-card"
-        :class="`rep-card-l${Math.min(card.depth, 4)}`"
-        :style="{ marginLeft: `${Math.min(card.depth, 8) * 1.5}rem` }"
-      >
-        <div class="rep-card-head">
-          <span class="rep-cat">{{ card.node.experiment_category || 'Uncategorised' }}</span>
-          <span class="rep-id font-mono">{{ card.node.name }}</span>
-          <span class="rep-state" :class="stateClass(card.node.workflow_state)">
-            {{ card.node.workflow_state || 'Draft' }}
-          </span>
-          <span v-if="card.depth === 0" class="rep-current">This run</span>
-        </div>
-
-        <p class="rep-card-title">{{ card.node.title || card.node.aim || 'Untitled run' }}</p>
-
-        <dl class="rep-meta">
-          <div v-if="card.node.employee_name" class="rep-meta-item">
-            <dt>Created by</dt>
-            <dd>{{ card.node.employee_name }}</dd>
-          </div>
-          <div v-if="card.node.experiment_status" class="rep-meta-item">
-            <dt>Status</dt>
-            <dd>{{ card.node.experiment_status }}</dd>
-          </div>
-          <div v-if="card.node.template" class="rep-meta-item">
-            <dt>Template</dt>
-            <dd class="font-mono">{{ card.node.template }}</dd>
-          </div>
-        </dl>
-
-        <div v-if="filled(card.node).length" class="rep-fields">
-          <div v-for="s in filled(card.node)" :key="s.key" class="rep-field">
-            <span class="rep-field-label">{{ s.label }}</span>
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div v-if="s.html" class="rep-field-value rep-rich" v-html="card.node[s.key]"></div>
-            <p v-else class="rep-field-value">{{ card.node[s.key] }}</p>
-          </div>
-        </div>
-        <p v-else class="rep-empty-body">
-          No aim, observations or results recorded on this run yet.
-        </p>
-      </div>
+      <ReportNode :node="node" :depth="0" />
     </template>
 
     <div v-else class="rep-alert">
