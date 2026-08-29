@@ -14,7 +14,7 @@
   width: 100%;
   border-collapse: collapse;
   margin: 0.4rem 0;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   /* The readings table is ten columns wide. Without this the cells compress to
      unreadable slivers on a narrow pane instead of letting the wrapper scroll. */
   min-width: 640px;
@@ -43,7 +43,7 @@
 .rich-text-surface tr:first-child td {
   background-color: var(--bg-elevated);
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
 }
 
@@ -96,6 +96,20 @@
   fill: var(--accent);
 }
 
+/* Quill hard-codes `font-size:14px; font-weight:500` on every .ql-picker, so
+   the size dropdown - the only actual text in this toolbar, the rest being
+   icons - sat two steps above every control beside it, in a weight the app does
+   not otherwise use. Brought onto the control step, the same one .btn and the
+   inputs it shares a row with already use.
+
+   The repeated .ql-snow is load-bearing: the library's rule is `.ql-snow
+   .ql-picker`, so a single class here would tie on specificity and then lose on
+   source order. */
+.rich-text-quill-toolbar.ql-snow .ql-picker {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+}
+
 /* The font-size dropdown's labels.
 
    Quill's snow stylesheet hard-codes the text of every .ql-size picker entry:
@@ -127,7 +141,7 @@
 .rich-text-quill-toolbar .ql-table-menu,
 .rich-text-quill-toolbar .ql-attach {
   color: var(--text-muted);
-  line-height: 1;
+  line-height: var(--lh-none);
 }
 
 .rich-text-quill-toolbar .ql-better-table:hover,
@@ -147,14 +161,14 @@
 .rich-text-quill-host.ql-container.ql-snow {
   border: none;
   font-family: inherit;
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   color: var(--text-primary);
 }
 
 .rich-text-quill-host .ql-editor {
   min-height: inherit;
   padding: 0.75rem;
-  line-height: 1.6;
+  line-height: var(--lh-relaxed);
 }
 
 .rich-text-quill-host .ql-editor.ql-blank::before {
@@ -192,7 +206,7 @@
 .rich-text-loading,
 .rich-text-error {
   padding: 0.6rem 0.75rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .rich-text-loading {
@@ -239,6 +253,35 @@
 
 .qlbt-operation-menu .qlbt-operation-menu-dividing {
   background-color: var(--border);
+}
+
+/* The library sets a single 14px across the whole menu, so its group subtitles
+   and the commands under them come out at exactly the same size and the menu
+   reads as one flat list with no way in. Commands drop to the app's body step;
+   the subtitle takes the overline treatment th and h6 already use, which is
+   what actually separates the two.
+
+   The doubled class is deliberate. This stylesheet is imported statically,
+   while the library's own is pulled in on demand (see the dynamic import of
+   quill-better-table.css in RichTextEditor.vue), so the vendor rules are
+   injected *after* this file - at equal specificity they would win on order. */
+.qlbt-operation-menu.qlbt-operation-menu {
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+}
+
+.qlbt-operation-menu.qlbt-operation-menu .qlbt-operation-menu-item {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-normal);
+}
+
+.qlbt-operation-menu.qlbt-operation-menu .qlbt-operation-menu-subtitle {
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-widest);
+  text-transform: uppercase;
 }
 
 /* --------------------------------------------------- Quill table appearance
@@ -296,8 +339,8 @@
   justify-content: center;
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   user-select: none;
@@ -432,8 +475,8 @@
   border-radius: 3px;
   background-color: var(--accent);
   color: #fff;
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
@@ -464,9 +507,9 @@
 }
 
 .rte-attachments-head {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
   margin-bottom: 0.4rem;
 }
@@ -480,7 +523,7 @@
   background-color: var(--bg-surface);
   color: var(--text-primary);
   text-align: center;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
 }
 
 .rte-attachments-list {
@@ -496,7 +539,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
 }
 
 .rte-attachment-icon {
@@ -520,7 +563,7 @@
 .rte-attachment-size {
   flex: 0 0 auto;
   color: var(--text-muted);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
 }
 
 .rte-attachment-remove {
@@ -529,8 +572,8 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  font-size: 1rem;
-  line-height: 1;
+  font-size: var(--fs-xl);
+  line-height: var(--lh-none);
   cursor: pointer;
   padding: 0 0.25rem;
 }
@@ -593,8 +636,8 @@
   border-radius: 50%;
   background-color: rgba(255, 255, 255, 0.12);
   color: #fff;
-  font-size: 1.4rem;
-  line-height: 1;
+  font-size: var(--fs-4xl);
+  line-height: var(--lh-none);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }

@@ -41,7 +41,7 @@ def run_tests():
 	
 	# Create dummy template
 	template = frappe.get_doc({
-		"doctype": "Experiment Template",
+		"doctype": "Lab Experiment Template",
 		"project": project,
 		"employee_function": emp_func,
 		"template_name": "Test Delete Guard Template",
@@ -298,11 +298,11 @@ def run_permission_tests(elab_notebook):
 	print(f"Created Team A: {team_a_name} | Team B: {team_b_name}")
 
 	# 2. Create Experiments
-	template_name = frappe.db.get_value("Experiment Template", {}, "name")
+	template_name = frappe.db.get_value("Lab Experiment Template", {}, "name")
 	if not template_name:
 		# Create a fallback dummy template
 		tmp_doc = frappe.get_doc({
-			"doctype": "Experiment Template",
+			"doctype": "Lab Experiment Template",
 			"project": project_a,
 			"employee_function": emp_func,
 			"template_name": "Fallback ISO Test Template"

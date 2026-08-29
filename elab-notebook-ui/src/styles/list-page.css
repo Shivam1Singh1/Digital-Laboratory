@@ -52,8 +52,10 @@
   height: auto;
   flex: 0 0 auto;
   /* Owns the space to the table below, so pages do not need a flex gap that
-     would also stack under PageHeader's 24px margin. */
-  margin-bottom: 1.25rem;
+     would also stack under the margin PageHeader already carries (14px - see
+     PageHeader.css, which is where that number lives). Tightened with it: this
+     bar holds one select, and 20px under it pushed the table down for nothing. */
+  margin-bottom: 0.85rem;
 }
 
 .filter-group {
@@ -65,8 +67,8 @@
 }
 
 .filter-label {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
 }
 
@@ -78,8 +80,8 @@
   padding: 0.35rem 0.75rem;
   outline: none;
   cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   transition: all 0.2s ease;
 }
 
@@ -123,19 +125,19 @@
 .list-table th {
   background-color: rgba(255, 255, 255, 0.02);
   padding: 0.85rem 1.25rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
 }
 
 .list-table td {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   vertical-align: middle;
 }
 
@@ -163,15 +165,15 @@
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 50px;
-  font-weight: 700;
-  font-size: 0.75rem;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--ls-wide);
   white-space: nowrap;
 }
 
 .status-pill-sm {
-  font-size: 0.6rem;
+  font-size: var(--fs-3xs);
   padding: 0.12rem 0.4rem;
 }
 
@@ -223,9 +225,9 @@
 }
 
 .pagination-info {
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   min-width: 50px;
   text-align: center;
 }
@@ -236,8 +238,8 @@
   color: var(--text-primary);
   padding: 0.5rem 1rem;
   border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -276,15 +278,15 @@
 }
 
 .empty-state h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
   margin: 0;
 }
 
 .empty-state p {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   margin: 0;
   max-width: 340px;
 }

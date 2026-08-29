@@ -13,3 +13,6 @@ elab_notebook.patches.v1_0.fix_experiment_observation_fetch_from
 elab_notebook.patches.v1_0.create_lab_experiment_workflow
 elab_notebook.patches.v1_0.add_from_template_flag
 elab_notebook.patches.v1_0.sync_parameter_master
+elab_notebook.patches.v1_0.add_experiment_link_to_stock_entry
+# post_model_sync, so the Status column exists by the time this fills it in.
+elab_notebook.patches.v1_0.backfill_experiment_team_status

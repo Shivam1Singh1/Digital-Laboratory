@@ -19,7 +19,14 @@ const props = defineProps({
   searchFn: { type: Function, default: null },
   emptyHint: { type: String, default: 'No matches found' },
   inputClass: { type: String, default: 'form-control' },
-  clearable: { type: Boolean, default: true }
+  clearable: { type: Boolean, default: true },
+  // Leaves unmatched text in the box instead of snapping back to the last
+  // committed link on blur. For the callers where typing a name that matches no
+  // record is a real answer rather than a mistake - the text is still not a link
+  // and modelValue stays empty, so only what is on screen changes. Off by
+  // default: everywhere else, text that resolved to nothing is a failed search
+  // and leaving it there would read as a selection that had been made.
+  keepTypedText: { type: Boolean, default: false }
 })
 
 // `search` carries the raw typed text, which no other event does: modelValue
@@ -133,7 +140,9 @@ const onBlur = () => {
   // Delay so a click on an option still registers before the list closes.
   blurTimer = setTimeout(() => {
     open.value = false
-    // Free text is not a valid link value — snap back to the last committed one.
+    // Free text is not a valid link value — snap back to the last committed one,
+    // unless the caller has said unmatched text is worth keeping on screen.
+    if (props.keepTypedText) return
     query.value = props.modelValue ? String(props.modelValue) : ''
   }, 150)
 }

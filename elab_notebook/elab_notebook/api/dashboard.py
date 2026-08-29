@@ -1,5 +1,6 @@
 import datetime
 import frappe
+from frappe import _
 
 def get_dashboard_projects(project=None):
     from elab_notebook.elab_notebook.api.user import get_employee_scope
@@ -27,10 +28,18 @@ def get_dashboard_summary(project=None):
         }
     
     # Real DB counts
-    active_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": ["in", ["Draft", "Saved", "Running"]]})
+    # States come from the "Lab Experiment Workflow" Workflow record. Its
+    # predecessor's names (Draft / Saved / Running / Pending Approval from System
+    # Manager) no longer exist on any run, so every one of these counts read zero
+    # until they were renamed:
+    #     Draft   -> Start          Running -> In Progress
+    #     Pending Approval from System Manager -> Sent for Approval
+    # "Edit Completed" is new - a rejected run being corrected is still active
+    # work, so it belongs in the active count rather than nowhere.
+    active_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": ["in", ["Start", "In Progress", "Edit Completed"]]})
     completed_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Completed"})
-    pending_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Pending Approval from System Manager"})
-    running_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Running"})
+    pending_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "Sent for Approval"})
+    running_db = frappe.db.count("Lab Experiment", {"project": ["in", allowed_projects], "workflow_state": "In Progress"})
     
     # Scientists: distinct participants/heads in Experiment Teams for allowed_projects
     teams = frappe.get_all("Experiment Team", filters={"project": ["in", allowed_projects]}, fields=["name", "employee_function"])
@@ -322,13 +331,13 @@ def get_upcoming_tasks(project=None):
         "Lab Experiment",
         filters={
             "project": ["in", allowed_projects],
-            "workflow_state": "Pending Approval from System Manager"
+            "workflow_state": "Sent for Approval"
         },
         fields=["name", "workflow_state", "owner", "reviewer", "title"]
     )
     
     pending_temps = frappe.get_all(
-        "Experiment Template",
+        "Lab Experiment Template",
         filters={
             "project": ["in", allowed_projects],
             "workflow_state": ["in", ["Pending from System Manager", "Pending For Approval"]]
@@ -369,16 +378,44 @@ def get_upcoming_tasks(project=None):
         
     return tasks
 
+# The four tiles the dashboard actually draws (see Dashboard.vue). The endpoint
+# takes a doctype as a parameter, which is convenient for the component and an
+# open door for everyone else: the scoping further down only bites if the doctype
+# carries a `project` field or has a permission_query_conditions hook registered,
+# and for anything else on the bench - Salary Slip, User, Employee - neither is
+# true, so it answered with unfiltered counts grouped by status and month. A
+# parameter that only ever takes four values is an allowlist, so it is written as
+# one.
+ENTITY_STATS_DOCTYPES = frozenset({
+    "Lab Experiment Template",
+    "Experiment Team",
+    "Lab Experiment",
+    "Workstation",
+})
+
+
 @frappe.whitelist()
 def get_entity_stats(doctype, status_field, project=None):
+    if doctype not in ENTITY_STATS_DOCTYPES:
+        frappe.throw(_("{0} is not a dashboard entity.").format(doctype), frappe.PermissionError)
+
     if not frappe.db.exists("DocType", doctype):
         frappe.throw(f"Invalid DocType: {doctype}")
-        
+
+    # Role-level read on the doctype, on top of the allowlist. The row-level rules
+    # are applied further down through the permission_query_conditions hooks; this
+    # is the coarser gate that stops a user with no read rights at all from
+    # counting rows they could never open.
+    if not frappe.has_permission(doctype, "read"):
+        frappe.throw(
+            _("You are not permitted to read {0}.").format(doctype), frappe.PermissionError
+        )
+
     meta = frappe.get_meta(doctype)
     valid_fields = [f.fieldname for f in meta.fields] + ["name", "owner", "creation", "modified", "docstatus"]
     if status_field not in valid_fields:
         frappe.throw(f"Invalid field: {status_field} on DocType: {doctype}")
-        
+
     # Project filtering
     from elab_notebook.elab_notebook.api.dashboard import get_dashboard_projects
     allowed_projects = get_dashboard_projects(project)
@@ -511,7 +548,7 @@ def get_experiments_list(project=None, workflow_state=None, experiment_category=
 def get_template_experiment_counts():
     """Get experiment counts per template (including zero-count rows)."""
     # Fetch templates user can see
-    templates = frappe.get_list("Experiment Template", fields=["name", "template_name"])
+    templates = frappe.get_list("Lab Experiment Template", fields=["name", "template_name"])
     
     # Query experiment counts grouped by template (respects Experiment permissions)
     counts = frappe.get_list(

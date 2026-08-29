@@ -43,6 +43,7 @@
 .experiment-form-container > *:not(.modal-overlay),
 .sample-list-container > *:not(.modal-overlay),
 .sample-detail-container > *:not(.modal-overlay),
+.settings-container > *:not(.modal-overlay),
 .team-setup-container > *:not(.modal-overlay) {
   width: 100%;
   max-width: var(--page-max);

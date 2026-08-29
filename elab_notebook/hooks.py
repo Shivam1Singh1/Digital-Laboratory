@@ -45,7 +45,10 @@ app_license = "mit"
 # include js in doctype views
 # Prefills a new Stock Entry opened from a Lab Experiment run - see the file for
 # why the entry cannot simply be created for the user instead.
-doctype_js = {"Stock Entry": "public/js/stock_entry.js"}
+# Two files, one doctype. stock_entry.js prefills from this app's own Lab
+# Experiment; stock_entry_experiment.js prefills from the legacy Experiment. The
+# doctypes are unrelated, so keeping them apart keeps each readable.
+doctype_js = {"Stock Entry": ["public/js/stock_entry.js", "public/js/stock_entry_experiment.js"]}
 # doctype_js = {"doctype" : "public/js/doctype.js"}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -124,7 +127,7 @@ before_install = "elab_notebook.install.before_install"
 # one employee's templates from another's. Isolation is owner-based and applied
 # to both list/report queries and direct single-document access.
 permission_query_conditions = {
-	"Experiment Template": "elab_notebook.permissions.get_permission_query_conditions",
+	"Lab Experiment Template": "elab_notebook.permissions.get_permission_query_conditions",
 	# A team roster belongs to the Employee Function head who owns it.
 	"Experiment Team": "elab_notebook.permissions.get_team_permission_query_conditions",
 	"Lab Experiment": "elab_notebook.permissions.get_lab_experiment_permission_query_conditions",
@@ -135,7 +138,7 @@ permission_query_conditions = {
 }
 
 has_permission = {
-	"Experiment Template": "elab_notebook.permissions.has_permission",
+	"Lab Experiment Template": "elab_notebook.permissions.has_permission",
 	"Experiment Team": "elab_notebook.permissions.has_team_permission",
 	"Lab Experiment": "elab_notebook.permissions.has_lab_experiment_permission",
 	"Experiment": "elab_notebook.permissions.has_experiment_permission",
@@ -161,7 +164,12 @@ has_permission = {
 doc_events = {
 	"Experiment": {
 		"before_insert": "elab_notebook.experiment_access.validate_experiment_participant",
-		"validate": "elab_notebook.experiment_access.validate_experiment_fields",
+		"validate": [
+			"elab_notebook.experiment_access.validate_experiment_fields",
+			# Only bites on the way into an approval state - see the module. A
+			# Draft with no Material Required rows still saves.
+			"elab_notebook.legacy_stock_entry.validate_material_required",
+		],
 		"on_trash": "elab_notebook.experiment_access.validate_experiment_delete",
 	},
 }

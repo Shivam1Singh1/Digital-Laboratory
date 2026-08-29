@@ -19,8 +19,30 @@ export const useUserStore = defineStore('user', () => {
   const loading = ref(true)
   const error = ref(null)
 
-  const currentProject = ref(sessionStorage.getItem('active_project') || 'all')
+  // The project picker resets every session by design - most people work across
+  // projects and a stale one silently filters the whole app. Settings lets an
+  // individual opt out of that: with `rememberProject` on, the choice is also
+  // written to localStorage and seeds the next session. fetchEmployeeScope still
+  // validates whatever comes back, so a remembered project the user has since
+  // lost access to falls back to 'all' like any other invalid value.
+  const rememberProject = ref(localStorage.getItem('remember_project') === '1')
+
+  const currentProject = ref(
+    sessionStorage.getItem('active_project') ||
+    (rememberProject.value ? localStorage.getItem('last_project') : null) ||
+    'all'
+  )
   const employeeScope = ref({ function_names: [], scope: 'all', projects: [] })
+
+  const setRememberProject = (on) => {
+    rememberProject.value = !!on
+    localStorage.setItem('remember_project', on ? '1' : '0')
+    if (on) {
+      localStorage.setItem('last_project', currentProject.value)
+    } else {
+      localStorage.removeItem('last_project')
+    }
+  }
 
   const theme = ref(localStorage.getItem('theme') || 'dark')
 
@@ -67,7 +89,18 @@ export const useUserStore = defineStore('user', () => {
 
   watch(currentProject, (newVal) => {
     sessionStorage.setItem('active_project', newVal)
+    if (rememberProject.value) {
+      localStorage.setItem('last_project', newVal)
+    }
   })
+
+  // Written straight into the profile the sidebar and top bar already render,
+  // so a new photo appears everywhere the moment it is saved. Re-fetching the
+  // whole profile would work too, but it would blank the avatar for a beat while
+  // the request is in flight.
+  const setUserImage = (url) => {
+    user.value = { ...user.value, user_image: url || null }
+  }
 
   const fetchUserProfile = async () => {
     loading.value = true
@@ -115,6 +148,9 @@ export const useUserStore = defineStore('user', () => {
     employeeScope,
     theme,
     setTheme,
+    rememberProject,
+    setRememberProject,
+    setUserImage,
     createModalOpen,
     createModalProject,
     createModalProjectName,

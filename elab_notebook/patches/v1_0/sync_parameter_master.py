@@ -26,7 +26,7 @@ def execute():
 	rows = frappe.get_all(
 		"Template Parameter",
 		fields=["parameter_name"],
-		filters={"parenttype": "Experiment Template"},
+		filters={"parenttype": "Lab Experiment Template"},
 		limit_page_length=0,
 	)
 

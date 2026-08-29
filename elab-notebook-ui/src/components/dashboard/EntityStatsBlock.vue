@@ -165,6 +165,43 @@ const toggleSort = () => {
   sortAscending.value = !sortAscending.value
 }
 
+/**
+ * The twelve month buckets the trends chart plots, oldest first.
+ *
+ * The chart used to take its x-axis from the months that happen to be present in
+ * the data, so a doctype with records in one month drew one enormous bar and no
+ * timeline at all - which is not a trend, it is a total with an axis drawn round
+ * it. Twelve fixed buckets give the bar a scale to be read against, and a month
+ * with nothing in it is itself information.
+ *
+ * The window ends at the later of this month and the newest month in the data,
+ * so it always contains the most recent records even if the clock and the data
+ * disagree. Anything older than twelve months falls outside the chart; the Data
+ * Table still lists every month that has records.
+ */
+const TREND_MONTHS = 12
+
+const trendMonths = computed(() => {
+  const now = new Date()
+  let end = now.getFullYear() * 12 + now.getMonth()
+
+  for (const m of uniqueMonths.value) {
+    const match = /^(\d{4})-(\d{1,2})$/.exec(m)
+    if (!match) continue
+    const index = Number(match[1]) * 12 + (Number(match[2]) - 1)
+    if (index > end) end = index
+  }
+
+  const months = []
+  for (let i = TREND_MONTHS - 1; i >= 0; i--) {
+    const index = end - i
+    const year = Math.floor(index / 12)
+    const month = (index % 12) + 1
+    months.push(`${year}-${String(month).padStart(2, '0')}`)
+  }
+  return months
+})
+
 // Premium status color helper
 const getStatusColor = (status) => {
   const st = String(status).toLowerCase();
@@ -196,6 +233,30 @@ const viewMode = ref('chart') // 'chart' (Bar Graph) by default, toggle to 'tabl
 
 // Historical trends live in a modal so the tile itself stays inside one screen
 const showTrends = ref(false)
+
+// ---------------------------------------------------------------------------
+// Chart typography
+// ---------------------------------------------------------------------------
+// Chart.js paints to a canvas, so nothing in style.css reaches these labels.
+// Left alone they render in Chart.js's own defaults - Helvetica Neue at 12px -
+// which is both off the app's font stack and a step *larger* than the body text
+// around the tile, so the densest labels on the dashboard came out as the
+// biggest. Values are read off :root rather than written out here, so the axis
+// and legend keep tracking the scale in style.css instead of drifting from it,
+// and they are read at draw time rather than at import because a canvas is only
+// ever painted after the stylesheet has been applied.
+const chartFont = (sizeToken, weightToken) => {
+  const root = getComputedStyle(document.documentElement)
+  // The scale is authored in rem against the 14px root, but Chart.js wants a
+  // plain number of px - it does not resolve CSS units itself.
+  const rootPx = parseFloat(root.fontSize) || 14
+  const size = root.getPropertyValue(sizeToken).trim()
+  return {
+    family: root.getPropertyValue('--sans').trim(),
+    size: size.endsWith('rem') ? parseFloat(size) * rootPx : parseFloat(size),
+    weight: root.getPropertyValue(weightToken).trim()
+  }
+}
 
 const renderChart = () => {
   if (chartInstance) {
@@ -234,6 +295,8 @@ const renderChart = () => {
           display: false
         },
         tooltip: {
+          titleFont: chartFont('--fs-xs', '--fw-semibold'),
+          bodyFont: chartFont('--fs-xs', '--fw-regular'),
           callbacks: {
             label: (context) => {
               const val = context.raw || 0
@@ -256,12 +319,14 @@ const renderBarChart = () => {
 
   const isLight = userStore.theme === 'light'
 
-  // Sort chronological for left-to-right timeline (tableRows is sorted newest first, so reverse it)
-  const sortedRows = [...tableRows.value].reverse()
-  const months = sortedRows.map(r => r.month)
+  // Twelve fixed buckets, oldest first, rather than only the months present in
+  // the data - see trendMonths. Counts are looked up per month instead of read
+  // off tableRows in order, so a month with no records plots as a real zero.
+  const months = trendMonths.value
+  const byMonth = Object.fromEntries(tableRows.value.map(r => [r.month, r]))
 
   const datasets = statuses.value.map(st => {
-    const data = sortedRows.map(r => r.statusCounts[st] || 0)
+    const data = months.map(m => byMonth[m]?.statusCounts[st] || 0)
     const color = getStatusColor(st)
     return {
       label: st,
@@ -276,7 +341,9 @@ const renderBarChart = () => {
   barChartInstance = new Chart(barChartRef.value, {
     type: 'bar',
     data: {
-      labels: months,
+      // MM/YY, from the same formatter the rest of the app uses. Twelve
+      // spelled-out months would collide on this axis.
+      labels: months.map(formatMonth),
       datasets: datasets
     },
     options: {
@@ -286,22 +353,29 @@ const renderBarChart = () => {
         x: {
           stacked: true,
           grid: {
-            color: isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)'
+            display: false
           },
           ticks: {
             color: 'var(--text-muted)',
-            font: {
-              weight: 'bold'
-            }
+            // Semibold at the smallest step, matching the th rule in style.css:
+            // an axis label sits in the same role as a column header.
+            font: chartFont('--fs-3xs', '--fw-semibold')
           }
         },
         y: {
           stacked: true,
           grid: {
-            color: isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)'
+            display: false
           },
+          // These are record counts - there is no such thing as 1.4 templates.
+          // With a max of 2 the default tick generator produced 0.2, 0.4, 0.6 …;
+          // `precision: 0` rounds the computed step size to a whole number
+          // instead, so the axis goes 0, 1, 2 and stays integral at any scale.
+          beginAtZero: true,
           ticks: {
-            color: 'var(--text-muted)'
+            color: 'var(--text-muted)',
+            precision: 0,
+            font: chartFont('--fs-3xs', '--fw-semibold')
           }
         }
       },
@@ -312,14 +386,14 @@ const renderBarChart = () => {
           labels: {
             color: 'var(--text-primary)',
             boxWidth: 12,
-            font: {
-              weight: 'bold'
-            }
+            font: chartFont('--fs-2xs', '--fw-semibold')
           }
         },
         tooltip: {
           mode: 'index',
-          intersect: false
+          intersect: false,
+          titleFont: chartFont('--fs-xs', '--fw-semibold'),
+          bodyFont: chartFont('--fs-xs', '--fw-regular')
         }
       }
     }
@@ -352,7 +426,7 @@ const onKeydown = (e) => {
 // label is display text ("Team", "Experiments") that can be reworded without
 // anyone realising a route depends on it.
 const IN_APP_LISTS = {
-  'Experiment Template': '/templates',
+  'Lab Experiment Template': '/templates',
   'Experiment Team': '/elab-notebook',
   'Lab Experiment': '/experiments'
 }
@@ -556,7 +630,7 @@ onBeforeUnmount(() => {
                   @click="navigateToListView(row.month)"
                   title="Click to view list in Frappe Desk"
                 >
-                  <td><strong>{{ row.month }}</strong></td>
+                  <td><strong>{{ formatMonth(row.month) }}</strong></td>
                   <td><strong>{{ row.total }}</strong></td>
                   <td v-for="st in statuses" :key="st">
                     <span

@@ -82,7 +82,6 @@ onMounted(fetchSamples)
     <PageHeader
       :breadcrumbs="[{ label: 'Home', href: '/' }, { label: 'Samples' }]"
       title="Samples"
-      subtitle="Every output sample registered against a run you can see"
     />
 
     <div class="filters-row">
@@ -111,7 +110,6 @@ onMounted(fetchSamples)
       <div class="table-actions">
         <div>
           <h3 class="section-title no-margin">All Samples</h3>
-          <p class="section-sub">Samples registered against runs you can see.</p>
         </div>
         <span class="selected-pill">{{ samples.length }} total</span>
       </div>
@@ -168,7 +166,7 @@ onMounted(fetchSamples)
           <button class="btn btn-secondary btn-sm" :disabled="currentPage === 1" @click="currentPage--">
             Previous
           </button>
-          <span class="pagination-info" style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">
+          <span class="pagination-info" style="font-size: var(--fs-lg); color: var(--text-muted); font-weight: var(--fw-medium);">
             Page {{ currentPage }} of {{ totalPages }}
           </span>
           <button

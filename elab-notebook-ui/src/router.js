@@ -10,7 +10,9 @@ import ExperimentForm from './components/experiments/ExperimentForm.vue'
 import ExperimentDetail from './components/experiments/ExperimentDetail.vue'
 import SampleList from './components/samples/SampleList.vue'
 import SampleDetail from './components/samples/SampleDetail.vue'
+import Settings from './components/settings/Settings.vue'
 import { useUserStore } from './stores/user'
+import { loginUrl } from './utils/frappeUrl'
 
 const routes = [
   {
@@ -66,6 +68,11 @@ const routes = [
         path: 'samples/:id',
         name: 'SampleDetail',
         component: SampleDetail
+      },
+      {
+        path: 'settings',
+        name: 'Settings',
+        component: Settings
       }
     ]
   }
@@ -92,9 +99,10 @@ router.beforeEach(async (to, from) => {
     }
     return true
   } else {
-    // Redirect to Frappe built-in login via the secure redirect helper
-    const redirectUrl = '/api/method/elab_notebook.elab_notebook.api.user.login_redirect'
-    window.location.href = `http://localhost:8000/login?redirect-to=${encodeURIComponent(redirectUrl)}`
+    // Frappe's own login page, on whichever origin is serving the desk - see
+    // loginUrl(). Written inline here with a hardcoded localhost:8000 until now,
+    // which sent every logged-out visitor in production to their own machine.
+    window.location.href = loginUrl()
     return false
   }
 })

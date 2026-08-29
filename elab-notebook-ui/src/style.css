@@ -22,8 +22,79 @@
   --glass-bg: rgba(32, 34, 48, 0.72);
   --glass-blur: blur(14px) saturate(140%);
 
-  --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* -------------------------------------------------------------------------
+   * Typography scale
+   * -------------------------------------------------------------------------
+   * Every font-size in this app resolves to one of these eleven steps. Before
+   * this block there were thirty-six distinct sizes across the .vue/.css files
+   * - 0.62rem, 0.63rem, 0.65rem and 0.68rem all appearing within one screen of
+   * each other - which is a difference no one can see but everyone has to
+   * maintain. The steps below were chosen to sit on the clusters that were
+   * already there, so adopting them re-labels the app rather than resizing it.
+   *
+   * Sizes are rem against the 14px root set on <html> below, so the px column
+   * is what actually lands on screen:
+   *
+   *   --fs-3xs  0.65rem   9.1px   overline, chart axis, densest micro-labels
+   *   --fs-2xs  0.7rem    9.8px   badges, status pills, table headers
+   *   --fs-xs   0.75rem  10.5px   form labels, helper text, captions
+   *   --fs-sm   0.8rem   11.2px   secondary and meta text
+   *   --fs-md   0.85rem  11.9px   body copy, table cells, nav items  <- default
+   *   --fs-lg   0.9rem   12.6px   inputs, buttons, emphasised body
+   *   --fs-xl   1rem     14px     card titles
+   *   --fs-2xl  1.125rem 15.75px  subheadings
+   *   --fs-3xl  1.25rem  17.5px   section headings, dialog titles
+   *   --fs-4xl  1.5rem   21px     page titles
+   *   --fs-5xl  1.75rem  24.5px   hero figures and display numerals
+   */
+  --fs-3xs: 0.65rem;
+  --fs-2xs: 0.7rem;
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.8rem;
+  --fs-md: 0.85rem;
+  --fs-lg: 0.9rem;
+  --fs-xl: 1rem;
+  --fs-2xl: 1.125rem;
+  --fs-3xl: 1.25rem;
+  --fs-4xl: 1.5rem;
+  --fs-5xl: 1.75rem;
+
+  /* Four weights, matching the four @fontsource files main.js imports. Asking
+     for any other value makes the browser synthesise it from the nearest real
+     one, which is where the smeared faux-bold came from. 800 in particular had
+     no font file behind it and is deliberately absent here. */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Line height falls as size rises: a 24px title at 1.5 drifts apart, and
+     11px body copy at 1.2 closes up. */
+  --lh-none: 1;
+  --lh-tight: 1.2;
+  --lh-snug: 1.3;
+  --lh-heading: 1.35;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.6;
+
+  /* Optical tracking. Large text needs negative tracking to stop looking loose;
+     small uppercase needs positive tracking to stay readable. Expressed in em
+     so it tracks the font size - the -0.5px and -0.3px values these replace
+     stayed put while the text around them changed size. */
+  --ls-tighter: -0.02em;
+  --ls-tight: -0.01em;
+  --ls-normal: 0;
+  --ls-wide: 0.03em;
+  --ls-wider: 0.05em;
+  --ls-widest: 0.08em;
+
+  /* Tabular figures. Inter's default numerals are proportional, so a column of
+     IDs or counts fails to line up digit over digit. Applied to table cells and
+     stat readouts, not to prose, where proportional figures read better. */
+  --font-numeric: 'tnum' 1, 'lnum' 1;
   --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent-2) 6%, transparent));
 }
 
@@ -63,11 +134,27 @@ html, body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--sans);
+  /* The rem base for the whole scale above. Left at 14px on purpose: every step
+     in that scale was sized against it, so changing this resizes the app. */
   font-size: 14px;
-  line-height: 1.5;
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Inter ships its punctuation and quotes with contextual alternates; without
+     this they fall back to the flat default forms. */
+  font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1;
   overflow: hidden;
+}
+
+/* Controls do not inherit type from the document in any browser - each one
+   carries a UA default of ~13.33px Arial. Every form control in this app is
+   meant to read as body text, so the inheritance is granted explicitly here
+   rather than being re-declared inside each component's stylesheet. */
+input, select, textarea, button {
+  font-family: inherit;
+  letter-spacing: inherit;
 }
 
 .avatar-img {
@@ -138,26 +225,104 @@ html, body {
   overflow: hidden;
 }
 
-/* Typography */
+/* ---------------------------------------------------------------------------
+ * Typography — element defaults
+ * ---------------------------------------------------------------------------
+ * The heading ladder. Only h1 and h2 were defined before, which left h3-h6 at
+ * the browser's own sizes: h4 landed at 1em/bold and h5-h6 came out *smaller*
+ * than the body text they introduced, so a card title could read lighter than
+ * its own contents. All six are now on the scale and descend cleanly.
+ */
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
+  line-height: var(--lh-heading);
 }
 
+/* Page title */
 h1 {
-  font-size: 1.75rem;
-  letter-spacing: -0.02em;
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tighter);
 }
 
+/* Section heading */
 h2 {
-  font-size: 1.25rem;
-  letter-spacing: -0.01em;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-tighter);
+}
+
+/* Subheading */
+h3 {
+  font-size: var(--fs-2xl);
+  letter-spacing: var(--ls-tight);
+}
+
+/* Card title */
+h4 {
+  font-size: var(--fs-xl);
+  letter-spacing: var(--ls-tight);
+}
+
+/* Minor heading */
+h5 {
+  font-size: var(--fs-lg);
+}
+
+/* Overline — the smallest heading is a label, so it is tracked out and capped
+   rather than simply set small, which is what keeps it reading as a heading. */
+h6 {
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--ls-widest);
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 p {
   margin: 0;
+  font-size: var(--fs-md);
+  line-height: var(--lh-relaxed);
   color: var(--text-muted);
+}
+
+/* Helper text, captions and field hints. */
+small {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  color: var(--text-muted);
+}
+
+/* Form labels. Set as a label rather than as small body copy: semibold at a
+   small size with slight positive tracking reads as a field name and stops
+   competing with the value underneath it. */
+label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
+  letter-spacing: var(--ls-wide);
+  color: var(--text-muted);
+}
+
+/* Field values sit one step above labels so the data outweighs its own
+   chrome, and at regular weight so a filled field does not read as emphasis. */
+input, select, textarea {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-normal);
+}
+
+/* A placeholder is a hint, not a value - same size, lighter and never bold, so
+   an empty field is distinguishable from a filled one at a glance. */
+input::placeholder, textarea::placeholder {
+  font-weight: var(--fw-regular);
+  color: var(--text-muted);
+  opacity: 0.75;
 }
 
 a {
@@ -218,12 +383,17 @@ table {
   text-align: left;
 }
 
+/* Column headers are labels, not data: small, capped and tracked out, at
+   semibold so they hold the top of the column against the rows below. They were
+   medium before, which at 10.5px uppercase rendered thin enough to disappear
+   against the muted colour they also carry. */
 th {
   color: var(--text-muted);
-  font-weight: 500;
-  font-size: 0.75rem;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-2xs);
+  line-height: var(--lh-snug);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--border);
 }
@@ -232,7 +402,11 @@ td {
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
+  /* Tabular figures: sample counts and IDs have to line up digit over digit
+     down a column, which proportional numerals do not do. */
+  font-feature-settings: var(--font-numeric);
 }
 
 tr:last-child td {
@@ -245,10 +419,14 @@ tr:last-child td {
   align-items: center;
   justify-content: center;
   padding: 0.125rem 0.375rem;
-  font-size: 0.7rem;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   border-radius: 9999px;
-  line-height: 1;
+  line-height: var(--lh-none);
+  /* Slight positive tracking: at 9.8px semibold inside a pill, untracked text
+     reads as a single dense mass. */
+  letter-spacing: var(--ls-wide);
+  font-feature-settings: var(--font-numeric);
 }
 
 .badge-new {
@@ -295,8 +473,15 @@ tr:last-child td {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  font-weight: 500;
-  font-size: 0.875rem;
+  /* Semibold, not medium: a button label is an action and has to hold its own
+     against the filled surface behind it. Both variants below set weight again
+     for the same reason, so this is the one place it needs stating. */
+  font-weight: var(--fw-semibold);
+  /* One step above body, matching the inputs they sit beside in every form
+     footer and filter bar - a control reads as a control. */
+  font-size: var(--fs-lg);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-normal);
   padding: 0.5rem 1rem;
   border-radius: 6px;
   border: 1px solid transparent;
@@ -311,7 +496,7 @@ tr:last-child td {
 .btn-primary {
   background-color: var(--accent);
   color: var(--bg-primary);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .btn-primary:hover {
@@ -354,8 +539,8 @@ tr:last-child td {
   background-color: var(--bg-surface) !important;
   color: var(--text-primary) !important;
   padding: 0.65rem 1rem !important;
-  font-size: 0.9rem !important;
-  font-weight: 500 !important;
+  font-size: var(--fs-lg) !important;
+  font-weight: var(--fw-medium) !important;
   outline: none !important;
   cursor: pointer !important;
   transition: all 0.25s ease !important;

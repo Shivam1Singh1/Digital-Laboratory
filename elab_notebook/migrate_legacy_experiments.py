@@ -109,7 +109,7 @@ def _plan():
 				"dangling": [
 					f"{field}={value!r}"
 					for field, value in (("template", row.template), ("experiment_template", row.experiment_template))
-					if value and not frappe.db.exists("Experiment Template", value)
+					if value and not frappe.db.exists("Lab Experiment Template", value)
 				],
 			}
 		)

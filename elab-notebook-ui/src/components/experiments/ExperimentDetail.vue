@@ -357,8 +357,29 @@ const runWorkflowAction = async (action) => {
   }
 }
 
+/**
+ * Badge colour for a workflow state.
+ *
+ * Exact names first, substrings after. The substring pass used to be the whole
+ * function and is kept only for values written by the previous workflow, which
+ * still appear in version history: matching "Edit Completed" on `completed`
+ * would paint a run awaiting resubmission the same green as a finished one, and
+ * "Sent for Approval" contains neither `approved` nor `pending`, so it fell
+ * through to draft grey.
+ */
+const STATE_CLASSES = {
+  Start: 'state-draft',
+  'In Progress': 'state-running',
+  Completed: 'state-completed',
+  'Sent for Approval': 'state-pending',
+  'Edit Completed': 'state-saved',
+  Approved: 'state-approved',
+  Rejected: 'state-rejected'
+}
+
 const getWorkflowStateClass = (state) => {
   if (!state) return 'state-draft'
+  if (STATE_CLASSES[state]) return STATE_CLASSES[state]
   const s = state.toLowerCase()
   if (s.includes('approved')) return 'state-approved'
   if (s.includes('rejected')) return 'state-rejected'
@@ -383,15 +404,24 @@ const getWorkflowActionClass = (action) => {
 // scientific outcome and is deliberately left alone until the outcome is known
 // (LabExperiment.validate_terminal_outcome freezes it the moment it goes
 // Completed/Failed, which is why finishing must not be a side effect of saving).
-const runState = computed(() => experiment.value?.workflow_state || 'Draft')
-const isDraft = computed(() => runState.value === 'Draft')
-const isRunning = computed(() => runState.value === 'Running')
+// State names come from the "Lab Experiment Workflow" Workflow record, which
+// replaced "Lab Experiment Flow". Only Completed / Approved / Rejected carried
+// over; Draft, Saved, Running and "Pending Approval from System Manager" no
+// longer exist, and the states below are their successors:
+//     Draft   -> Start
+//     Running -> In Progress
+//     Pending Approval from System Manager -> Sent for Approval
+// A run whose stored state is not one of the workflow's own gets no transitions
+// back from get_transitions, so it would render with no buttons at all - which
+// is why the swap came with a data migration rather than just a rename here.
+const runState = computed(() => experiment.value?.workflow_state || 'Start')
+const isDraft = computed(() => runState.value === 'Start')
+const isRunning = computed(() => runState.value === 'In Progress')
 
 // Actions the run action bar drives explicitly. The header lists whatever else
-// the workflow offers (Approve / Reject / Edit & Resubmit) so there are never
-// two buttons for the same transition - and no raw "Save" action next to the
-// form's own Save.
-const DRIVEN_ACTIONS = ['Save', 'Start Running', 'Complete Experiment', 'Send For Approval']
+// the workflow offers (Approve / Reject / Complete Edits / Resubmit) so there
+// are never two buttons for the same transition.
+const DRIVEN_ACTIONS = ['Start Experiment', 'Complete Experiment', 'Send For Approval']
 const headerWorkflowActions = computed(() =>
   workflowActions.value.filter((a) => !DRIVEN_ACTIONS.includes(a.action))
 )
@@ -429,8 +459,12 @@ const applyWorkflowChain = async (actions, message) => {
   }
 }
 
+// A single hop now. The old flow had no Draft -> Running transition and needed
+// "Save" then "Start Running"; the new workflow goes Start -> In Progress in one
+// action, and has no "Save" transition at all - posting one would fail as an
+// invalid action for the state.
 const startRun = () =>
-  applyWorkflowChain(['Save', 'Start Running'], 'Run started - every tab is editable from here on.')
+  applyWorkflowChain(['Start Experiment'], 'Run started - every tab is editable from here on.')
 
 const completeAndSendForApproval = () => {
   if (
@@ -446,12 +480,35 @@ const completeAndSendForApproval = () => {
   )
 }
 
-// Check if workflow state is locked (Approved or Rejected)
+/**
+ * The single edit gate. Read at ~50 sites as `isWorkflowLocked() && !isSystemManager`,
+ * so a state added here freezes every field, child-table row and rich-text
+ * editor on the page at once.
+ *
+ *   Start             not yet editable. The run has been created but not begun;
+ *                     the only thing to do with it is Start it. The header hint
+ *                     has always said "start the run to edit them" - until now
+ *                     nothing enforced it.
+ *   Sent for Approval under review. Editing here means the approver is not
+ *                     looking at what they were sent.
+ *   Approved          finished and immutable.
+ *   Rejected          corrections belong to a System Manager - the workflow
+ *                     gives "Complete Edits" to System Manager, not Employee -
+ *                     and !isSystemManager is exactly what lets them through.
+ *
+ * Editable: In Progress, Completed, Edit Completed.
+ */
+const LOCKED_STATES = ['Start', 'Sent for Approval', 'Approved', 'Rejected']
+
 const isWorkflowLocked = () => {
   if (!experiment.value) return false
   const state = experiment.value.workflow_state || ''
+  if (LOCKED_STATES.includes(state)) return true
+  // Kept for values written by the previous workflow, which still sit on runs
+  // that have not moved since - "Pending Approval from System Manager" among
+  // them, which the exact list above cannot name.
   const s = state.toLowerCase()
-  return s.includes('approved') || s.includes('rejected')
+  return s.includes('approved') || s.includes('rejected') || s.includes('pending')
 }
 
 // Check if current user is System Manager
@@ -854,11 +911,15 @@ const loadGenerationContext = async () => {
 // `experiment_status` and lived in api/generation; this is the Sample doctype's
 // own rule about its parent run's `workflow_state`, and it is still enforced
 // server-side. A run in Draft has to be Started before it can carry samples.
-const SAMPLE_ALLOWED_RUN_STATES = [
-  'Running',
-  'Completed',
-  'Pending Approval from System Manager'
-]
+// Must stay identical to allowed_states in sample/sample.py - that is the half
+// that enforces, and any state listed here but not there is a button that looks
+// pressable and then throws.
+//
+// "Sent for Approval" is deliberately absent from both: the run is frozen while
+// an approver has it, and a sample appearing under it would change what is being
+// reviewed. "Edit Completed" is present because it is the state a rejected run
+// sits in while the corrections are made.
+const SAMPLE_ALLOWED_RUN_STATES = ['In Progress', 'Completed', 'Edit Completed']
 
 const runAcceptsSamples = () =>
   SAMPLE_ALLOWED_RUN_STATES.includes(experiment.value?.workflow_state || '')
@@ -868,6 +929,19 @@ const showSampleModal = ref(false)
 const savingSample = ref(false)
 const sampleFormError = ref('')
 const newSample = ref({ item: '', qty: 1, name_of_sample: '', comments: '', uom: '' })
+const SAMPLE_EXTRA_FIELDS = [
+  'sample',
+  'batch_no',
+  'sample_detailsstage',
+  'test_to_be_performed',
+  'sample_vol',
+  'warehouse',
+  'location',
+  'sampling_date',
+  'date_of_analysis',
+  'results',
+  'remarks'
+]
 
 // FUTURE STATUS GATE: `c.is_concluded` used to be a term here, and dropping it
 // is what makes this button live at any Experiment Status. Put it back here and
@@ -887,11 +961,11 @@ const addSampleReason = () => {
   const c = generationCtx.value
   if (!c) return 'Loading…'
   if (!runAcceptsSamples()) {
-    const state = experiment.value?.workflow_state || 'Draft'
-    // Draft is a step away from working; Approved is a door that has shut. The
+    const state = experiment.value?.workflow_state || 'Start'
+    // Start is a step away from working; Approved is a door that has shut. The
     // two need different sentences because one of them has something to do.
-    if (state === 'Draft' || state === 'Saved') {
-      return `This run is ${state}. Start the run first — samples can be added from Running onwards.`
+    if (state === 'Start') {
+      return 'This run has not started. Start the run first — samples can be added from In Progress onwards.'
     }
     return `This run is ${state}, and samples can no longer be written against it. `
       + 'Samples must be added before it is approved.'
@@ -900,9 +974,34 @@ const addSampleReason = () => {
   return 'Add as many samples as this run produced — there is no limit.'
 }
 
+// Every field the dialog offers, in one place, so opening it twice cannot leave
+// the previous sample's details behind. The keys after `comments` are the ones
+// generation._SAMPLE_EXTRA_FIELDS accepts - the two lists have to agree, or a
+// box filled in here is silently dropped there.
+const emptySample = () => ({
+  item: '',
+  qty: 1,
+  uom: '',
+  name_of_sample: '',
+  comments: '',
+  sample: '',
+  batch_no: '',
+  sample_detailsstage: '',
+  test_to_be_performed: '',
+  sample_vol: '',
+  warehouse: '',
+  location: '',
+  sampling_date: '',
+  date_of_analysis: '',
+  results: '',
+  remarks: ''
+})
+
 const openSampleModal = () => {
   sampleFormError.value = ''
-  newSample.value = { item: '', qty: 1, name_of_sample: '', comments: '', uom: '' }
+  newSample.value = emptySample()
+  sampleItemSearch.value = ''
+  sampleNameMirrored.value = false
   showSampleModal.value = true
 }
 
@@ -913,33 +1012,54 @@ const onSampleItem = (opt) => {
   if (opt && !newSample.value.name_of_sample) newSample.value.name_of_sample = opt.item_name || ''
 }
 
-// What was typed into the item picker, kept so "Create the Item" can carry it
-// over as the new item's name. The picker itself only ever reports a committed
-// link, and a name that matched nothing is exactly the case this is for.
+// What was typed into the item picker. LinkField reports a committed link
+// through v-model and the raw text through `search`, and a name that matched no
+// Item is exactly the case this is for: the link stays empty and the text
+// becomes the sample's name.
+//
+// This replaces a "Create the Item" link that used to sit under the field. A run
+// that produces a new substance should not have to put an Item in the master
+// first - that record needs an HSN/SAC code and four Item Group
+// classifications, tax and reporting decisions nobody can make from a sample
+// dialog, and nothing would ever stock or cost the result.
 const sampleItemSearch = ref('')
+
+// Set while Sample Name is holding text that came from the item box rather than
+// from someone typing in the name field. Only that text is ours to overwrite as
+// the search changes; a name the user wrote is left alone.
+const sampleNameMirrored = ref(false)
+
 const onSampleItemSearch = (text) => {
+  const typed = (text || '').trim()
   sampleItemSearch.value = text || ''
+
+  // Mirrored into Sample Name as it is typed, because LinkField resets its own
+  // input to the committed value on blur - so a name matching no Item vanished
+  // from the box the moment focus left it. The text was still being saved, but
+  // nothing on screen said so, which read as the dialog refusing it.
+  if (newSample.value.item) return
+  if (!newSample.value.name_of_sample || sampleNameMirrored.value) {
+    newSample.value.name_of_sample = typed
+    sampleNameMirrored.value = Boolean(typed)
+  }
 }
 
-const newItemHintTail = computed(() =>
-  sampleItemSearch.value.trim()
-    ? `— opens prefilled as “${sampleItemSearch.value.trim()}”, then search for it here.`
-    : '— fill in its classification there, then search for it here.'
+// Typing in the Sample Name field makes it the user's, not the mirror's.
+const onSampleNameInput = () => {
+  sampleNameMirrored.value = false
+}
+
+// The name the sample is saved under: what was typed in the Name field if
+// anything, otherwise what was typed into the Item box.
+const effectiveSampleName = computed(
+  () => (newSample.value.name_of_sample || '').trim() || sampleItemSearch.value.trim()
 )
 
-// The Item form, not a mini-form in this dialog. Item here is mandatory on
-// stock_uom, four separate Item Group fields and an HSN/SAC code; inventing
-// defaults for a GST classification from a sample dialog would put wrong tax
-// data in the item master. Only the name is carried over, because the name is
-// the only part this dialog actually knows.
-const openNewItemForm = () => {
-  const typed = sampleItemSearch.value.trim()
-  window.open(
-    deskUrl('/app/item/new', typed ? { item_name: typed } : {}),
-    '_blank',
-    'noopener'
-  )
-}
+// An Item, or a name - mirrors the rule generation.add_sample enforces, so the
+// button never offers a save the server will refuse.
+const canSubmitSample = computed(
+  () => Boolean(newSample.value.item || effectiveSampleName.value) && newSample.value.qty > 0
+)
 
 const submitSampleForm = async () => {
   if (!newSample.value.item) {
@@ -955,10 +1075,20 @@ const submitSampleForm = async () => {
   try {
     await axios.post(`/api/method/${GENERATION_API}.add_sample`, {
       experiment_name: route.params.id,
-      item: newSample.value.item,
+      // Empty when nothing was picked. The typed text goes across as the name
+      // instead, which is what lets a substance with no Item be recorded.
+      item: newSample.value.item || null,
       qty: newSample.value.qty,
-      name_of_sample: newSample.value.name_of_sample || null,
-      comments: newSample.value.comments || null
+      name_of_sample: effectiveSampleName.value || null,
+      uom: newSample.value.uom || null,
+      comments: newSample.value.comments || null,
+      // One blob rather than eleven more arguments; the server copies only the
+      // keys it allowlists.
+      extra: JSON.stringify(
+        Object.fromEntries(
+          SAMPLE_EXTRA_FIELDS.map((f) => [f, newSample.value[f] || null]).filter(([, v]) => v)
+        )
+      )
     })
     showSampleModal.value = false
     await Promise.all([loadSamples(), loadGenerationContext()])
@@ -1179,7 +1309,7 @@ onMounted(() => {
             class="workflow-state-badge" 
             :class="getWorkflowStateClass(experiment.workflow_state)"
           >
-            {{ experiment.workflow_state || 'Draft' }}
+            {{ experiment.workflow_state || 'Start' }}
           </span>
           <span 
             v-if="experiment.experiment_status"
@@ -1509,7 +1639,7 @@ onMounted(() => {
              run's setup alone. Observation lives here now rather than in a tab of
              its own - it is the other half of what Aim asked. -->
         <div v-if="activeTab === 'details'" class="tab-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: var(--fs-md); color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit observations in this state.
           </div>
           <div class="pane-grid">
@@ -1755,7 +1885,7 @@ onMounted(() => {
 
         <!-- MATERIALS TAB (EDITABLE with delete) -->
         <div v-if="activeTab === 'materials'" class="tab-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: var(--fs-md); color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit materials in this state.
           </div>
           <div class="pane-header-row">
@@ -1816,7 +1946,7 @@ onMounted(() => {
              rather than being folded into that pane's markup: the banner and
              table below are untouched, only what reveals them changed. -->
         <div v-if="activeTab === 'materials'" class="tab-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: var(--fs-md); color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit equipment in this state.
           </div>
           <div class="pane-header-row">
@@ -1861,7 +1991,7 @@ onMounted(() => {
              at every level, and without it a Master Experiment would start
              carrying a Methodology table it has no use for. -->
         <div v-if="activeTab === 'details' && usesTemplate" class="tab-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: var(--fs-md); color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit fields in this state.
           </div>
           <div class="pane-header-row">
@@ -1916,11 +2046,11 @@ onMounted(() => {
 
                 <!-- Workflow state changes highlighted -->
                 <div v-if="ver.isWorkflowChange" style="padding: 0.5rem 0.75rem; background-color: var(--bg-surface); border-radius: 4px; margin: 0.25rem 0;">
-                  <span style="font-weight: 600; color: var(--accent);">⚡ Workflow State Changed:</span>
+                  <span style="font-weight: var(--fw-semibold); color: var(--accent);">⚡ Workflow State Changed:</span>
                   <br />
                   <span style="color: var(--text-muted);">{{ ver.workflowStateChange[1] || 'Draft' }}</span>
                   <span style="color: var(--text-muted);">→</span>
-                  <span style="color: var(--success); font-weight: 600;">{{ ver.workflowStateChange[2] }}</span>
+                  <span style="color: var(--success); font-weight: var(--fw-semibold);">{{ ver.workflowStateChange[2] }}</span>
                 </div>
 
                 <!-- If fields changed (exclude workflow_state) -->
@@ -1969,7 +2099,7 @@ onMounted(() => {
           </p>
 
           <!-- Lock Warning -->
-          <div v-if="isSampleLocked()" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+          <div v-if="isSampleLocked()" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: var(--fs-md); color: #F59E0B;">
             ⚠️ Sample is locked. Only System Managers can modify samples in {{ experiment.workflow_state }} state.
           </div>
 
@@ -2032,7 +2162,7 @@ onMounted(() => {
                         :disabled="submittingSampleId === sample.name || (isSampleLocked() && !isSystemManager)"
                         :title="isSampleLocked() && !isSystemManager ? 'Sample is locked in this workflow state' : 'Submit sample'"
                         @click.stop="submitSample(sample)"
-                        style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                        style="padding: 0.25rem 0.5rem; font-size: var(--fs-xs);"
                       >
                         {{ submittingSampleId === sample.name ? 'Submitting...' : 'Submit' }}
                       </button>
@@ -2042,7 +2172,7 @@ onMounted(() => {
                         :disabled="cancellingSampleId === sample.name || (isSampleLocked() && !isSystemManager)"
                         :title="isSampleLocked() && !isSystemManager ? 'Sample is locked in this workflow state' : 'Cancel sample'"
                         @click.stop="cancelSample(sample)"
-                        style="padding: 0.25rem 0.5rem; font-size: 0.75rem;"
+                        style="padding: 0.25rem 0.5rem; font-size: var(--fs-xs);"
                       >
                         {{ cancellingSampleId === sample.name ? 'Cancelling...' : 'Cancel' }}
                       </button>
@@ -2145,7 +2275,7 @@ onMounted(() => {
           <section v-if="showsCuratedChildren" class="meta-card" style="margin-top: 1.25rem">
             <h3 class="pane-subtitle" style="margin-bottom: 0.75rem">Experiment Table</h3>
 
-            <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem; color: #F59E0B;">
+            <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: var(--fs-md); color: #F59E0B;">
               ⚠️ This experiment is locked. Only System Managers can change this list.
             </div>
 
@@ -2232,7 +2362,7 @@ onMounted(() => {
              these four need no wiring of their own. The three write-ups are
              descriptive prose, empty until someone fills them in. -->
         <div v-if="activeTab === 'result'" class="tab-pane result-pane">
-          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; font-size: 0.85rem; color: #F59E0B;">
+          <div v-if="isWorkflowLocked() && !isSystemManager" class="info-banner" style="background-color: rgba(245, 158, 11, 0.12); border: 1px solid #F59E0B; border-radius: 6px; padding: 0.75rem 1rem; font-size: var(--fs-md); color: #F59E0B;">
             ⚠️ This experiment is locked. Only System Managers can edit the result in this state.
           </div>
 
@@ -2309,7 +2439,7 @@ onMounted(() => {
          fields are item and qty; name and comments are optional and uom is
          read_only, fetched from the item server-side. -->
     <div v-if="showSampleModal && experiment" class="modal-overlay" @click.self="showSampleModal = false">
-      <div class="modal-content">
+      <div class="modal-content sample-modal">
         <div class="modal-header">
           <h3>Add Sample</h3>
           <button class="modal-close-btn" @click="showSampleModal = false">×</button>
@@ -2322,29 +2452,32 @@ onMounted(() => {
           </div>
 
           <div class="form-group">
-            <label class="form-label">Item *</label>
+            <label class="form-label">Item</label>
             <LinkField
               v-model="newSample.item"
               doctype="Item"
               :fields="['item_name', 'stock_uom']"
               :search-fields="['name', 'item_name']"
               description-field="item_name"
-              placeholder="Search items…"
+              placeholder="Search items, or type a new name…"
               input-class="form-control"
+              keep-typed-text
               @select="onSampleItem"
               @search="onSampleItemSearch"
             />
-            <!-- For a substance this run just produced that has no Item yet.
-                 Opens the real Item form rather than asking for the item here:
-                 an Item on this site needs an HSN/SAC code and four Item Group
-                 classifications, and those are tax and reporting decisions that
-                 should not be guessed at from a sample dialog. -->
+            <!-- No "create the Item" route on purpose: a substance this run just
+                 made is not an item master record, and forcing one would mean
+                 inventing an HSN/SAC code and four Item Group classifications
+                 from a sample dialog. -->
             <span class="field-hint">
-              New substance with no Item yet?
-              <a href="#" class="inline-link" @click.prevent="openNewItemForm">
-                Create the Item
-              </a>
-              {{ newItemHintTail }}
+              <template v-if="!newSample.item && sampleItemSearch.trim()">
+                No Item matches “{{ sampleItemSearch.trim() }}” — it will be kept as
+                the sample's name. Nothing is added to the item master.
+              </template>
+              <template v-else>
+                Pick an Item if this substance has one. If it does not, just type the
+                name — no Item is created.
+              </template>
             </span>
           </div>
 
@@ -2353,16 +2486,108 @@ onMounted(() => {
               <label class="form-label">Quantity *</label>
               <input v-model.number="newSample.qty" type="number" min="0" step="any" class="form-control" />
             </div>
+            <!-- Read-only only while an Item is picked, since the Item's stock
+                 UOM is the right answer and typing over it would disagree with
+                 the master. With no Item there is nothing to read it from, so it
+                 becomes an ordinary field. -->
             <div class="form-group">
               <label class="form-label">UOM</label>
-              <input type="text" :value="newSample.uom || '—'" class="form-control readonly" readonly />
-              <span class="field-hint">Comes from the item.</span>
+              <input
+                v-model="newSample.uom"
+                type="text"
+                class="form-control"
+                :class="{ readonly: !!newSample.item }"
+                :readonly="!!newSample.item"
+                placeholder="e.g. Nos, ml"
+              />
+              <span class="field-hint">
+                {{ newSample.item ? 'Comes from the item.' : 'No item picked — type the unit.' }}
+              </span>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Sample Name</label>
-            <input v-model="newSample.name_of_sample" type="text" class="form-control" placeholder="e.g. Aliquot 1" />
+            <label class="form-label">Sample Name{{ newSample.item ? '' : ' *' }}</label>
+            <input
+              v-model="newSample.name_of_sample"
+              type="text"
+              class="form-control"
+              placeholder="e.g. Aliquot 1"
+              @input="onSampleNameInput"
+            />
+            <span v-if="!newSample.item" class="field-hint">
+              Required when no Item is linked — this is what identifies the substance.
+            </span>
+          </div>
+
+          <!-- The rest of the Sample record. Present here rather than left to a
+               second trip through the desk form: everything below is known at the
+               moment the sample is taken, and a dialog that captures four fields
+               out of fifteen only moves the work. -->
+          <h4 class="modal-subheading">Sample Details</h4>
+
+          <div class="form-group-row two-columns">
+            <div class="form-group">
+              <label class="form-label">Sample ID</label>
+              <input v-model="newSample.sample" type="text" class="form-control" placeholder="Lab's own identifier" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Batch No.</label>
+              <input v-model="newSample.batch_no" type="text" class="form-control" />
+            </div>
+          </div>
+
+          <div class="form-group-row two-columns">
+            <div class="form-group">
+              <label class="form-label">Sample Details / Stage</label>
+              <input v-model="newSample.sample_detailsstage" type="text" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Sample Vol.</label>
+              <input v-model="newSample.sample_vol" type="text" class="form-control" placeholder="(μl) X Vials (Nos)." />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Test to be Performed</label>
+            <input v-model="newSample.test_to_be_performed" type="text" class="form-control" />
+          </div>
+
+          <div class="form-group-row two-columns">
+            <div class="form-group">
+              <label class="form-label">Warehouse</label>
+              <LinkField
+                v-model="newSample.warehouse"
+                doctype="Warehouse"
+                placeholder="Search warehouses…"
+                input-class="form-control"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Location</label>
+              <input v-model="newSample.location" type="text" class="form-control" placeholder="Freezer, shelf, box…" />
+            </div>
+          </div>
+
+          <div class="form-group-row two-columns">
+            <div class="form-group">
+              <label class="form-label">Sampling Date</label>
+              <input v-model="newSample.sampling_date" type="date" class="form-control" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date of Analysis</label>
+              <input v-model="newSample.date_of_analysis" type="date" class="form-control" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Results</label>
+            <input v-model="newSample.results" type="text" class="form-control" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Remarks</label>
+            <input v-model="newSample.remarks" type="text" class="form-control" />
           </div>
 
           <div class="form-group">
@@ -2376,7 +2601,7 @@ onMounted(() => {
           <button class="btn btn-secondary" @click="showSampleModal = false" :disabled="savingSample">Cancel</button>
           <button
             class="btn btn-primary"
-            :disabled="savingSample || !newSample.item || !(newSample.qty > 0)"
+            :disabled="savingSample || !canSubmitSample"
             @click="submitSampleForm"
           >
             {{ savingSample ? 'Adding…' : 'Add Sample' }}

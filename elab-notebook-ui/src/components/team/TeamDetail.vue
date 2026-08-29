@@ -117,15 +117,92 @@ const fetchExperimentCount = async () => {
   }
 }
 
+// Archiving closes a team for new work without deleting it. Spelled out beside
+// each option because the consequences reach past this page - the team leaves
+// every participant's list and stops authorising new runs - and none of that is
+// guessable from the word "Archived" alone.
+const TEAM_STATUSES = [
+  { value: 'Active', hint: 'Open for new experiments.' },
+  {
+    value: 'Archived',
+    hint: 'Closed for new experiments and hidden from participants. Existing runs are untouched, and you can reopen it here.',
+  },
+]
+
+const isArchived = computed(() => team.value?.status === 'Archived')
+
+const statusSaving = ref(false)
+
+/**
+ * Flip the team between Active and Archived, without entering edit mode.
+ *
+ * Goes through update_team like every other change, so validate_head() is what
+ * refuses it for a non-head - there is no separate status endpoint and no
+ * separate permission check.
+ *
+ * The roster has to be sent even though this call is not changing it:
+ * update_team replaces `participants` with whatever it receives, so omitting it
+ * would empty the team. `participants` is the loaded roster here, not the
+ * edit-mode `selected` set, because this button is only shown outside edit mode.
+ */
+const setStatus = async (next) => {
+  if (!team.value || statusSaving.value) return
+
+  if (
+    next === 'Archived' &&
+    !window.confirm(
+      `Archive "${team.value.team_name}"?\n\n` +
+        'It will stop accepting new experiments and disappear from its participants\' ' +
+        'team lists. Existing experiments are not affected, and you can reactivate it ' +
+        'from this page.'
+    )
+  ) {
+    return
+  }
+
+  error.value = ''
+  notice.value = ''
+  statusSaving.value = true
+  try {
+    const res = await axios.post(`/api/method/${API}.update_team`, {
+      team_id: team.value.name,
+      team_name: team.value.team_name,
+      participants: participants.value.map((p) => ({ user: p.user })),
+      segment: team.value.segment,
+      cost_center: team.value.cost_center,
+      status: next
+    })
+    const msg = res.data.message || {}
+    notice.value =
+      msg.status === 'Archived'
+        ? 'Team archived — it no longer accepts new experiments and is hidden from its participants.'
+        : 'Team reactivated — it accepts new experiments again.'
+    await load()
+  } catch (err) {
+    console.error('Failed to change team status', err)
+    error.value = extractFrappeError(err)
+  } finally {
+    statusSaving.value = false
+  }
+}
+
+// `status` is edited in place on `team`, like segment and cost_center. Cancelling
+// therefore has to put the loaded value back, which the other two never needed:
+// they are only ever changed by a select the user can see, whereas an abandoned
+// archive would otherwise sit there looking applied until the next reload.
+const statusBeforeEdit = ref('')
+
 const startEdit = () => {
   selected.value = new Set(participants.value.map((p) => p.user))
   search.value = ''
   notice.value = ''
+  statusBeforeEdit.value = team.value?.status || 'Active'
   editing.value = true
 }
 
 const cancelEdit = () => {
   selected.value = new Set(participants.value.map((p) => p.user))
+  if (team.value) team.value.status = statusBeforeEdit.value
   editing.value = false
 }
 
@@ -147,10 +224,14 @@ const save = async () => {
       team_name: team.value.team_name,
       participants: Array.from(selected.value).map((user) => ({ user })),
       segment: team.value.segment,
-      cost_center: team.value.cost_center
+      cost_center: team.value.cost_center,
+      status: team.value.status
     })
     const msg = res.data.message || {}
     notice.value = `Saved — "${msg.team_name}" with ${msg.count} participant${msg.count === 1 ? '' : 's'}.`
+    if (msg.status === 'Archived') {
+      notice.value += ' This team is Archived: it no longer accepts new experiments and is hidden from its participants.'
+    }
     editing.value = false
     await load()
   } catch (err) {
@@ -202,11 +283,11 @@ onMounted(async () => {
         <p class="page-subtitle" v-if="team" style="display: flex; align-items: center; gap: 0.5rem;">
           <span
             class="status-badge status-draft"
-            style="padding: 0.15rem 0.5rem; font-size: 0.75rem; border-radius: 50px; font-weight: 600;"
+            style="padding: 0.15rem 0.5rem; font-size: var(--fs-xs); border-radius: 50px; font-weight: var(--fw-semibold);"
           >
             Saved
           </span>
-          <span class="badge badge-count" style="background-color: var(--bg-elevated); color: var(--accent); border: 1px solid var(--border); font-size: 0.75rem; font-weight: 500; padding: 0.15rem 0.5rem; border-radius: 50px;">
+          <span class="badge badge-count" style="background-color: var(--bg-elevated); color: var(--accent); border: 1px solid var(--border); font-size: var(--fs-xs); font-weight: var(--fw-medium); padding: 0.15rem 0.5rem; border-radius: 50px;">
             {{ experimentCount }} Experiments · {{ experimentCount }} Samples
           </span>
         </p>
@@ -253,7 +334,30 @@ onMounted(async () => {
     <div v-else class="team-layout">
       <!-- EDITABLE / READ-ONLY SCOPE -->
       <section class="meta-card">
-        <h3 class="section-title">Scope</h3>
+        <!-- Archiving gets its own button rather than living only in the radio
+             pair below: the radios are inside edit mode, which is entered from a
+             button in the Participants section further down the page, and
+             "archive this team" is not a thing anyone thinks to look for under
+             editing the roster. The radios stay for the case where it is changed
+             alongside other edits; this is the direct route. -->
+        <div class="table-actions">
+          <h3 class="section-title no-margin">Scope</h3>
+          <div class="header-actions" v-if="team.can_edit && !editing">
+            <button
+              class="btn btn-sm"
+              :class="isArchived ? 'btn-primary' : 'btn-secondary'"
+              :disabled="statusSaving"
+              @click="setStatus(isArchived ? 'Active' : 'Archived')"
+            >
+              <span v-if="statusSaving" class="spinner btn-spinner"></span>
+              {{ statusSaving ? 'Saving…' : (isArchived ? 'Reactivate team' : 'Archive team') }}
+            </button>
+          </div>
+        </div>
+        <p v-if="isArchived" class="field-hint warn archived-note">
+          This team is <strong>Archived</strong>. It accepts no new experiments and is
+          hidden from its participants. Existing experiments are unaffected.
+        </p>
         <div class="scope-grid">
           <div class="form-group">
             <label class="form-label">Team Name *</label>
@@ -325,12 +429,39 @@ onMounted(async () => {
               <option value="">Select Cost Centre...</option>
               <option v-for="cc in costCenters" :key="cc" :value="cc">{{ cc }}</option>
             </select>
-            <input 
-              v-else 
-              type="text" 
-              :value="team.cost_center || 'None'" 
-              class="form-control readonly" 
-              readonly 
+            <input
+              v-else
+              type="text"
+              :value="team.cost_center || 'None'"
+              class="form-control readonly"
+              readonly
+            />
+          </div>
+          <!-- Status. Editable only in edit mode, and edit mode is only offered
+               when `can_edit` - the server's own is_head answer - so there is no
+               second permission flag for this one field. A participant never
+               reaches this in an editable state, and update_team would refuse
+               the write anyway. -->
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <div v-if="editing && team.can_edit" class="team-status-options">
+              <label
+                v-for="option in TEAM_STATUSES"
+                :key="option.value"
+                class="team-status-option"
+                :class="{ active: team.status === option.value }"
+              >
+                <input type="radio" v-model="team.status" :value="option.value" name="team-status" />
+                <span class="team-status-label">{{ option.value }}</span>
+                <span class="team-status-hint">{{ option.hint }}</span>
+              </label>
+            </div>
+            <input
+              v-else
+              type="text"
+              :value="team.status || 'Active'"
+              class="form-control readonly"
+              readonly
             />
           </div>
         </div>
@@ -362,8 +493,11 @@ onMounted(async () => {
           <div class="header-actions" v-if="canEditTeam">
           === DYNAMIC-PERMS-END === -->
           <div class="header-actions" v-if="team.can_edit">
+            <!-- "team", not "participants": this one button opens edit mode for
+                 the whole form - team name, segment, cost centre and status all
+                 live in Scope above and are editable from here too. -->
             <button v-if="!editing" class="btn btn-secondary btn-sm" @click="startEdit">
-              Edit participants
+              Edit team
             </button>
             <template v-else>
               <span class="selected-pill">{{ selected.size }} selected</span>

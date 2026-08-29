@@ -47,7 +47,7 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.85rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   border-radius: 6px;
   height: 32px;
   box-sizing: border-box;
@@ -66,7 +66,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
@@ -100,17 +100,17 @@
 
 .breadcrumb-current {
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
 }
 
 .page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--ls-tighter);
   margin: 0;
   display: flex;
   align-items: center;
@@ -133,8 +133,8 @@
 }
 
 .company-name-text {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
 }
 
@@ -159,8 +159,8 @@
   gap: 0.5rem;
   padding: 0.55rem 1rem;
   border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid transparent;
@@ -189,7 +189,7 @@
 
 .btn-sm {
   padding: 0.35rem 0.75rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   border-radius: 4px;
 }
 
@@ -205,7 +205,7 @@
   background-color: rgba(248, 113, 113, 0.12);
   border: 1px solid rgba(248, 113, 113, 0.35);
   color: var(--danger);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
 }
 
 .form-error-text {
@@ -218,8 +218,8 @@
   background: transparent;
   border: none;
   color: var(--danger);
-  font-size: 1.25rem;
-  line-height: 1;
+  font-size: var(--fs-3xl);
+  line-height: var(--lh-none);
   cursor: pointer;
   padding: 0;
 }
@@ -250,12 +250,12 @@
 }
 
 .section-title {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin: 0 0 1.25rem 0;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
 }
 
 .section-title.no-margin {
@@ -284,15 +284,15 @@
 }
 
 .form-label {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
 }
 
 .field-hint {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-style: italic;
 }
@@ -304,7 +304,7 @@
   border-radius: 6px;
   padding: 0.55rem 0.75rem;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
@@ -358,7 +358,7 @@ select.form-control:focus {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   padding-top: 0.5rem;
   cursor: pointer;
@@ -437,11 +437,11 @@ select.form-control:focus {
 
 .grid-header-cell {
   padding: 0.7rem 0.75rem;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   white-space: nowrap;
   display: flex;
   align-items: center;
@@ -509,7 +509,7 @@ select.form-control:focus {
   text-align: center;
   padding: 2rem;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   font-style: italic;
   border-bottom: 1px solid var(--border);
 }
@@ -522,7 +522,7 @@ select.form-control:focus {
   border-radius: 4px;
   padding: 0.4rem 0.6rem;
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
@@ -547,7 +547,7 @@ select.form-control:focus {
   height: 28px;
   padding: 0.4rem 0.6rem;
   resize: vertical;
-  line-height: 1;
+  line-height: var(--lh-none);
   overflow: hidden;
   margin: 0;
 }
@@ -562,10 +562,10 @@ select.form-control:focus {
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-muted);
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
-  line-height: 1;
+  line-height: var(--lh-none);
   padding: 0;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -592,10 +592,10 @@ select.form-control:focus {
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-muted);
-  font-size: 1.25rem;
-  font-weight: 600;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
-  line-height: 1;
+  line-height: var(--lh-none);
   padding: 0;
   transition: all 0.2s;
   flex-shrink: 0;
@@ -624,21 +624,21 @@ select.form-control:focus {
 }
 
 .total-duration-label {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
 }
 
 .total-duration-value {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   color: var(--accent);
 }
 
 .total-duration-note {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-style: italic;
 }
@@ -646,13 +646,13 @@ select.form-control:focus {
 .field-hint.warn {
   color: var(--warning);
   font-style: normal;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .total-duration-note.unsaved {
   color: var(--warning);
   font-style: normal;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 /* ------------------------------------------------------------------ LinkField
@@ -687,8 +687,8 @@ select.form-control:focus {
   border-radius: 50%;
   background-color: var(--bg-elevated);
   color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-none);
   cursor: pointer;
   transition: color 0.15s, background-color 0.15s;
 }
@@ -728,16 +728,16 @@ select.form-control:focus {
 }
 
 .link-option-name {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  line-height: 1.25;
+  line-height: var(--lh-tight);
 }
 
 .link-option-desc {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
-  line-height: 1.3;
+  line-height: var(--lh-snug);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -747,7 +747,7 @@ select.form-control:focus {
 
 .link-option-muted {
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
   font-style: italic;
   cursor: default;
 }
@@ -770,8 +770,8 @@ select.form-control:focus {
 }
 
 .minutes-unit {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -801,7 +801,7 @@ select.form-control:focus {
   border-radius: 4px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -815,8 +815,8 @@ select.form-control:focus {
   min-height: 140px;
   padding: 0.75rem;
   color: var(--text-primary);
-  font-size: 0.875rem;
-  line-height: 1.6;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-relaxed);
   outline: none;
   overflow-y: auto;
 }
@@ -885,10 +885,10 @@ select.form-control:focus {
 
   .grid-table td::before {
     content: attr(data-label);
-    font-size: 0.68rem;
-    font-weight: 700;
+    font-size: var(--fs-2xs);
+    font-weight: var(--fw-bold);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--ls-wider);
     color: var(--text-muted);
   }
 
@@ -1005,7 +1005,7 @@ select.form-control:focus {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .timeline-author {
@@ -1017,7 +1017,7 @@ select.form-control:focus {
 }
 
 .timeline-desc {
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   margin: 0;
 }
@@ -1025,7 +1025,7 @@ select.form-control:focus {
 .timeline-changes {
   margin: 0;
   padding-left: 1.25rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
@@ -1042,7 +1042,7 @@ select.form-control:focus {
 }
 
 .empty-history-text {
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   font-style: italic;
 }
@@ -1051,13 +1051,13 @@ select.form-control:focus {
 .workflow-state-badge {
   display: inline-flex;
   align-items: center;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   padding: 0.25rem 0.6rem;
   border-radius: 50px;
   text-transform: uppercase;
   margin-left: 0.75rem;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   vertical-align: middle;
 }
 
@@ -1110,8 +1110,8 @@ select.form-control:focus {
 
 /* Workflow Actions Buttons */
 .btn-workflow {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   padding: 0.45rem 0.85rem;
   border-radius: 6px;
   cursor: pointer;
@@ -1209,8 +1209,8 @@ fieldset[disabled] .minutes-input-wrapper {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   padding: 0.75rem 1.25rem;
   cursor: pointer;
   white-space: nowrap;

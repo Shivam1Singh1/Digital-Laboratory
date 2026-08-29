@@ -25,13 +25,13 @@
 
 .section-sub {
   margin: 0.3rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
 }
 
 .team-ref {
   font-family: var(--mono);
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
   background-color: var(--bg-elevated);
@@ -49,8 +49,8 @@
 }
 
 .selected-pill {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   padding: 0.25rem 0.6rem;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -74,7 +74,7 @@
   background-color: var(--bg-surface);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -143,8 +143,8 @@
 }
 
 .candidate-name {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -152,7 +152,7 @@
 }
 
 .candidate-user {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -161,7 +161,7 @@
 
 .candidate-emp {
   font-family: var(--mono);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -175,9 +175,9 @@
 }
 
 .save-notice {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--success);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .grid-empty.standalone {
@@ -186,7 +186,7 @@
   text-align: center;
   padding: 3rem 2rem;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   font-style: italic;
   display: flex;
   flex-direction: column;
@@ -204,22 +204,53 @@
 
 .empty-state-text {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
   font-style: normal;
 }
 
 .empty-state-subtext {
   margin: 0;
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   color: var(--text-muted);
   font-style: italic;
 }
 
 .btn-lg {
   padding: 0.625rem 1.5rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
+}
+
+/* Section-header actions: Archive/Reactivate team on Scope, and Edit team /
+   Cancel / Save on Participants.
+   These already carry .btn-sm, but .btn-sm (TemplateDetail.css) and .btn
+   (ExperimentForm.css) have equal specificity and live in different files, so
+   which one wins is decided by import order - and .btn was winning, rendering
+   all three at full size beside a section title. Compounded with .btn here to
+   settle it by specificity instead, and scoped to these toolbars so no other
+   .btn-sm in the app changes size as a side effect. Same fix, same reason, as
+   the block in ExperimentTree.css. */
+.header-actions .btn.btn-sm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.8rem;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  height: 30px;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+/* The spinner sits inside these buttons while saving; at 30px tall the default
+   size pushes the label out of the way. */
+.header-actions .btn.btn-sm .btn-spinner {
+  width: 12px;
+  height: 12px;
+  margin-bottom: 0;
 }
 
 .save-notice.standalone {
@@ -235,19 +266,19 @@
 .teams-table th {
   background-color: rgba(255, 255, 255, 0.02);
   padding: 0.85rem 1.25rem;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
-  font-weight: 700;
+  font-weight: var(--fw-bold);
 }
 
 .teams-table td {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border);
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   vertical-align: middle;
 }
 
@@ -274,8 +305,8 @@
   border-radius: 4px;
   background-color: color-mix(in srgb, var(--accent) 18%, transparent);
   color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
 }
 
 .team-row {
@@ -315,8 +346,8 @@
 }
 
 .team-row-name {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -324,8 +355,8 @@
 }
 
 .team-row-project {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -333,7 +364,7 @@
 }
 
 .team-row-meta {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -349,8 +380,8 @@
 
 .count-pill {
   flex-shrink: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   padding: 0.22rem 0.6rem;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--success) 18%, transparent);
@@ -406,14 +437,14 @@
   border-radius: 50%;
   background-color: color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-wide);
 }
 
 .team-row-id {
   font-family: var(--mono);
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   padding: 0.05rem 0.35rem;
   border-radius: 4px;
   background-color: var(--bg-elevated);
@@ -475,8 +506,8 @@
 }
 
 .modal-header h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -484,7 +515,7 @@
 .modal-close-btn {
   background: transparent;
   border: none;
-  font-size: 1.5rem;
+  font-size: var(--fs-4xl);
   color: var(--text-muted);
   cursor: pointer;
   padding: 0;
@@ -523,10 +554,10 @@
   margin-left: 0.5rem;
   padding: 0.1rem 0.42rem;
   border-radius: 4px;
-  font-size: 0.62rem;
-  font-weight: 700;
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   vertical-align: middle;
 }
 
@@ -537,6 +568,73 @@
 
 .role-tag.participant {
   background-color: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+/* Archived. Amber rather than a second grey: it sits next to the role tag, and
+   a participant-grey badge beside a participant-grey badge says nothing. This
+   marks a team that is closed for new work, which is worth noticing. */
+.role-tag.archived {
+  background-color: color-mix(in srgb, var(--warning) 20%, transparent);
+  color: var(--warning);
+}
+
+/* The banner on an archived team's detail page. An archived team looks exactly
+   like an active one apart from one read-only field, and the consequences reach
+   past this page, so it is said outright rather than left to be noticed. */
+.archived-note {
+  margin: 0 0 1rem;
+}
+
+/* Team status radios (TeamDetail, edit mode, head only).
+   Cards rather than bare radios: each option carries a line explaining what it
+   does, and archiving reaches past this page - the team leaves its participants'
+   lists and stops authorising new runs - so the consequence belongs next to the
+   control, not in a tooltip. */
+.team-status-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.team-status-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.55rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--bg-surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.team-status-option:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.team-status-option.active {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+}
+
+.team-status-option input[type='radio'] {
+  grid-row: 1 / span 2;
+  accent-color: var(--accent);
+  margin: 0;
+}
+
+.team-status-label {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--text-primary);
+}
+
+.team-status-hint {
+  grid-column: 2;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-heading);
   color: var(--text-muted);
 }
 
@@ -561,7 +659,7 @@
 .hint-card {
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   font-style: italic;
 }
 
@@ -589,16 +687,16 @@
 
 .team-setup-container .empty-state h3 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--fs-xl);
   color: var(--text-primary);
 }
 
 .team-setup-container .empty-state p {
   margin: 0;
   max-width: 460px;
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: var(--lh-relaxed);
 }
 
 /* Utility classes */

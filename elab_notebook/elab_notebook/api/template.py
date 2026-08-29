@@ -6,7 +6,7 @@ from frappe.utils import cint
 
 from elab_notebook.permissions import is_function_head
 
-TEMPLATE_DOCTYPE = "Experiment Template"
+TEMPLATE_DOCTYPE = "Lab Experiment Template"
 
 # Review actions the Employee Function head may run in addition to the System Manager.
 # "Send For Approval" is deliberately absent: moving a Draft into review stays with the
@@ -144,7 +144,7 @@ def get_experiment_templates(filters=None):
         frappe.logger().info(f"[get_experiment_templates] Querying with filters: {filters}")
 
         templates = frappe.get_list(
-           "Experiment Template",
+           "Lab Experiment Template",
            fields=["name", "template_name", "title", "category", "version", "status", "workflow_state", "employee_function", "modified", "owner", "project"],
            filters=filters,
            order_by="modified desc",
@@ -166,7 +166,17 @@ def get_experiment_templates(filters=None):
 
 @frappe.whitelist()
 def get_template_detail(template_name):
-    doc = frappe.get_doc("Experiment Template", template_name)
+    """One template, in full, for the detail page.
+
+    `frappe.get_doc` loads a document; it does not consult the `has_permission`
+    hook - only `check_permission`, `frappe.has_permission` and the desk's own
+    `frappe.client.get` do. So without the check below this endpoint returned any
+    template to any logged-in user by name, which is precisely the cross-function
+    read that elab_notebook.permissions.has_permission exists to refuse. The list
+    view was scoped and the detail fetch was not.
+    """
+    doc = frappe.get_doc(TEMPLATE_DOCTYPE, template_name)
+    doc.check_permission("read")
     return doc.as_dict()
 
 # ---------------------------------------------------------------------------
@@ -235,7 +245,7 @@ def get_template_clone(template_name):
     The create form calls this instead of mapping the tables itself, so the UI
     and the server agree on what "cloned from a template" means.
     """
-    temp_doc = frappe.get_doc("Experiment Template", template_name)
+    temp_doc = frappe.get_doc("Lab Experiment Template", template_name)
 
     return {
         "header": {
@@ -278,13 +288,20 @@ def create_experiment_from_template(template_name, overrides=None):
     goes through _clone_template_children, so a run created here is identical to
     one created through the form - including the from_template flags, which
     previously it never set at all.
+
+    Being whitelisted for callers outside the UI is not the same as being open to
+    all of them: the template is permission-checked before it is read, and the run
+    is inserted under the caller's own rights. Without the first check this was a
+    second route to the contents of any template in any Employee Function - clone
+    it and read the copy - which is the same disclosure get_template_detail had.
     """
     if isinstance(overrides, str):
         overrides = json.loads(overrides)
     if not overrides:
         overrides = {}
 
-    temp_doc = frappe.get_doc("Experiment Template", template_name)
+    temp_doc = frappe.get_doc(TEMPLATE_DOCTYPE, template_name)
+    temp_doc.check_permission("read")
 
     # Resolve top-level values
     aim = overrides.get("experiment_name") or overrides.get("title") or overrides.get("aim") or temp_doc.objective_hypothesis or temp_doc.aim or f"Run: {temp_doc.template_name or temp_doc.name}"
@@ -316,25 +333,68 @@ def create_experiment_from_template(template_name, overrides=None):
     exp_dict.update(_clone_template_children(temp_doc))
 
     new_exp = frappe.get_doc(exp_dict)
-    new_exp.insert(ignore_permissions=True)
+    # Under the caller's own rights. LabExperiment's before_insert gate (see
+    # experiment_access.is_authorized_for_project) runs either way - validate and
+    # before_insert are not what ignore_permissions skips - but the flag did waive
+    # the create right on Lab Experiment itself, so a user who may not create runs
+    # could still get one made for them by naming a template.
+    new_exp.insert()
     frappe.db.commit()
 
     return new_exp.name
 
 
+# Fields a payload is never allowed to carry into a template.
+#
+# Two groups. The framework's own bookkeeping (`owner`, `docstatus`, the
+# modified/creation stamps) identifies who did what and must come from the
+# session and the server clock, not from the request. `workflow_state` is the
+# approval chain's business: it moves through frappe.model.workflow, and a plain
+# save that sets it directly is how a Pending template gets quietly bounced back
+# to Draft. The creator-identity quartet is already frozen by
+# LabExperimentTemplate.validate_creator_identity_locked; they are stripped here
+# as well so an honest read-modify-write round-trip - which sends the whole
+# document back, unchanged fields included - does not trip that check.
+_TEMPLATE_PROTECTED_FIELDS = frozenset({
+    "doctype", "name", "owner", "docstatus", "idx",
+    "creation", "modified", "modified_by",
+    "workflow_state",
+    "created_by", "created_on", "employee_code", "employee_name",
+})
+
+
 @frappe.whitelist()
 def save_experiment_template(template_data):
+    """Create or update a template on behalf of the session user.
+
+    Previously this ran `doc.update(<raw payload>)` and saved with
+    `ignore_permissions=True`, which meant any logged-in user could rewrite any
+    template by name - including templates belonging to an Employee Function they
+    have no access to, the exact isolation elab_notebook.permissions is there to
+    enforce. Permissions are now left on, so the doctype's own rules and the
+    has_permission hook both apply, and the payload is filtered so it can only
+    carry template content rather than framework or workflow state.
+    """
     if isinstance(template_data, str):
         template_data = json.loads(template_data)
-        
-    if template_data.get("name"):
-        doc = frappe.get_doc("Experiment Template", template_data["name"])
-        doc.update(template_data)
-        doc.save(ignore_permissions=True)
+
+    if not isinstance(template_data, dict):
+        frappe.throw(_("Template data must be an object."))
+
+    fields = {k: v for k, v in template_data.items() if k not in _TEMPLATE_PROTECTED_FIELDS}
+
+    name = template_data.get("name")
+    if name:
+        doc = frappe.get_doc(TEMPLATE_DOCTYPE, name)
+        # Explicit, so an unauthorised caller is refused before `update` mutates
+        # the in-memory doc rather than at save time.
+        doc.check_permission("write")
+        doc.update(fields)
+        doc.save()
     else:
-        template_data["doctype"] = "Experiment Template"
-        doc = frappe.get_doc(template_data)
-        doc.insert(ignore_permissions=True)
-        
+        fields["doctype"] = TEMPLATE_DOCTYPE
+        doc = frappe.get_doc(fields)
+        doc.insert()
+
     frappe.db.commit()
     return doc.name

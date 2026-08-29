@@ -96,23 +96,26 @@ onMounted(() => {
         </nav>
         <h1 class="page-title">Good morning, {{ userStore.user.first_name || 'Scientist' }}</h1>
       </div>
-      <div class="page-header-right">
-        <p class="page-subtitle">Unified research statistics</p>
-      </div>
     </div>
 
     <!-- Restructured Entity Blocks -->
     <div class="dashboard-blocks-container">
       <EntityStatsBlock 
         entityName="Experiment Templates" 
-        doctype="Experiment Template" 
+        doctype="Lab Experiment Template" 
         statusField="status" 
       />
       
-      <EntityStatsBlock 
-        entityName="Team" 
-        doctype="Experiment Team" 
-        statusField="docstatus" 
+      <!-- `status`, not `docstatus`: Experiment Team is not submittable, so the
+           docstatus buckets read Draft / Submitted / Cancelled with every team
+           filed under Draft forever. Active / Archived is the distinction this
+           doctype actually has. get_entity_stats reads the buckets off the
+           Select field's own options, so there is nothing to configure here
+           beyond the field name. -->
+      <EntityStatsBlock
+        entityName="Team"
+        doctype="Experiment Team"
+        statusField="status"
       />
       
       <EntityStatsBlock 

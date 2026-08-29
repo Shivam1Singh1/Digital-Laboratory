@@ -54,7 +54,7 @@ def sync_parameter_master(rows) -> list[str]:
 	return created
 
 
-class ExperimentTemplate(Document):
+class LabExperimentTemplate(Document):
 	def before_naming(self):
 		# autoname is `format:ET-{project_id}-{######}`, and set_new_name() runs before
 		# fetch_from is applied, so project_id must be resolved here or names come out
@@ -92,7 +92,7 @@ class ExperimentTemplate(Document):
 	def next_name_suffix(self):
 		"""Highest existing (letter, number) for this Project, incremented."""
 		existing = frappe.db.get_all(
-			"Experiment Template", filters={"project": self.project}, pluck="name"
+			"Lab Experiment Template", filters={"project": self.project}, pluck="name"
 		)
 
 		highest = None
@@ -111,6 +111,20 @@ class ExperimentTemplate(Document):
 
 		letter, number = highest
 		if number >= 9999:
+			# Past Z9999 there is no next letter: chr(ord("Z") + 1) is "[", which
+			# is not a valid suffix, so has_project_name_format rejects the name
+			# it produces and the *next* insert scans, ignores "[0001" as
+			# malformed, and generates "[0001" again - a duplicate primary key
+			# surfacing as an opaque database error rather than as the capacity
+			# limit it actually is. Say so instead.
+			if letter >= "Z":
+				frappe.throw(
+					_(
+						"Project {0} has used every template number available "
+						"(A0001 to Z9999)."
+					).format(frappe.bold(self.project)),
+					title=_("Numbering Exhausted"),
+				)
 			return f"{chr(ord(letter) + 1)}0001"
 
 		return f"{letter}{number + 1:04d}"
@@ -200,7 +214,7 @@ class ExperimentTemplate(Document):
 			return
 
 		stored = frappe.db.get_value(
-			"Experiment Template",
+			"Lab Experiment Template",
 			self.name,
 			["employee_code", "employee_name", "created_by", "created_on"],
 			as_dict=True,
@@ -229,9 +243,9 @@ class ExperimentTemplate(Document):
 	def validate_approval_locks(self):
 		from elab_notebook.permissions import has_bypass
 		if not self.is_new():
-			db_state = frappe.db.get_value("Experiment Template", self.name, "workflow_state")
+			db_state = frappe.db.get_value("Lab Experiment Template", self.name, "workflow_state")
 			if db_state == "Approved":
-				db_doc = frappe.get_doc("Experiment Template", self.name)
+				db_doc = frappe.get_doc("Lab Experiment Template", self.name)
 				
 				# Convert to dict and compare ignoring metadata and volatile fields
 				db_dict = db_doc.as_dict()

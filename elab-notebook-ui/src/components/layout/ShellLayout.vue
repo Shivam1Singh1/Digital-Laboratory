@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
+import { loginUrl } from '../../utils/frappeUrl'
 import axios from 'axios'
 import './ShellLayout.css'
 
@@ -65,7 +66,7 @@ const onSearchInput = () => {
 
 const groupedResults = computed(() => {
   const groups = {
-    'Experiment Template': { label: 'Templates', items: [] },
+    'Lab Experiment Template': { label: 'Templates', items: [] },
     'Lab Experiment': { label: 'Experiments', items: [] },
     'Experiment Team': { label: 'Teams', items: [] }
   }
@@ -139,9 +140,10 @@ const logout = async () => {
   } catch (err) {
     console.error('Logout failed', err)
   }
-  // Redirect to Frappe built-in login
-  const redirectUrl = '/api/method/elab_notebook.elab_notebook.api.user.login_redirect'
-  window.location.href = `http://localhost:8000/login?redirect-to=${encodeURIComponent(redirectUrl)}`
+  // Frappe's own login page, on whichever origin is serving the desk - see
+  // loginUrl(). This was a hardcoded localhost:8000, so signing out in
+  // production sent the user to their own machine rather than to the login page.
+  window.location.href = loginUrl()
 }
 
 onMounted(async () => {
@@ -171,7 +173,9 @@ watch(() => userStore.user.name, async (newVal) => {
   <div class="dashboard-container" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
     <!-- Left Sidebar -->
     <aside class="left-sidebar">
-      <div class="sidebar-header">
+      <!-- The masthead doubles as the way home, the way a logo does in every
+           other app. `to="/"` is the Dashboard route. -->
+      <router-link to="/" class="sidebar-header" aria-label="Elab Notebook — go to the dashboard">
         <div class="logo-box">
           <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <path d="M4.5 16.5c-1.5 1.26-2.5 3.19-2.5 5.5h20c0-2.31-1-4.24-2.5-5.5" />
@@ -182,7 +186,7 @@ watch(() => userStore.user.name, async (newVal) => {
           <span class="app-name">Elab Notebook</span>
           <span class="app-subtitle">Enterprise Lab OS</span>
         </div>
-      </div>
+      </router-link>
 
       <nav class="sidebar-nav">
         <!-- GROUP 1 -->
@@ -232,10 +236,10 @@ watch(() => userStore.user.name, async (newVal) => {
 
       <!-- Sidebar Pinned Bottom -->
       <div class="sidebar-bottom">
-        <a href="#" class="nav-item border-top-nav">
+        <router-link to="/settings" class="nav-item border-top-nav" active-class="active">
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.5 1z"/></svg>
           Settings
-        </a>
+        </router-link>
         
         <!-- Pinned User Card -->
         <div class="user-card">

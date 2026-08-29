@@ -63,18 +63,18 @@
 }
 
 .experiment-detail-container .page-header .breadcrumb-nav {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   margin-bottom: 0.2rem;
 }
 
 .experiment-detail-container .page-header .page-title {
-  font-size: 1.15rem;
-  line-height: 1.3;
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-snug);
 }
 
 .experiment-detail-container .page-header .page-subtitle {
   margin: 0.35rem 0 0 0;
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
 }
 
 /* Run actions, merged into the header card as its own full-width row.
@@ -100,8 +100,8 @@
   /* Shrinkable so the buttons keep the row instead of wrapping under it. */
   flex: 1 1 16rem;
   min-width: 0;
-  font-size: 0.78rem;
-  line-height: 1.35;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-heading);
   color: var(--text-muted);
 }
 
@@ -115,8 +115,8 @@
 
 .experiment-detail-container .run-actions .btn {
   padding: 0.35rem 0.8rem;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   border-radius: 6px;
   white-space: nowrap;
 }
@@ -141,13 +141,46 @@
   align-items: center;
   gap: 0.35rem;
   padding: 0.45rem 0.85rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   border-radius: 6px;
   /* Fixed height so the primary and secondary buttons line up regardless of
      whether one of them carries an icon. */
   height: 32px;
   box-sizing: border-box;
   white-space: nowrap;
+}
+
+/* ------------------------------------------------------------- Add Sample
+   The dialog carries the whole Sample record now - fifteen fields rather than
+   four - so its body has to scroll instead of pushing the footer off screen.
+   Capped against the viewport, not a fixed height, so a short screen still
+   reaches the buttons. Scoped to this dialog: the app's other modals are short
+   and the shared .modal-body rules are theirs. */
+.sample-modal {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.sample-modal .modal-body {
+  overflow-y: auto;
+  /* The scroll container, so header and footer stay put while it moves. */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Divides the record's own details from the four fields that identify it. Not a
+   <legend> or a card: the dialog is one column of fields and a heavier break
+   would read as a separate form. */
+.sample-modal .modal-subheading {
+  margin: 0.5rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 /* Success Banner */
@@ -160,8 +193,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
 }
 
 /* Read-only variables */
@@ -171,9 +204,9 @@
   border-radius: 6px;
   color: var(--text-muted);
   padding: 0.5rem 0.75rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   min-height: 80px;
-  line-height: 1.5;
+  line-height: var(--lh-normal);
   white-space: pre-wrap;
 }
 
@@ -280,7 +313,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .timeline-author {
@@ -292,7 +325,7 @@
 }
 
 .timeline-desc {
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   margin: 0;
 }
@@ -300,7 +333,7 @@
 .timeline-changes {
   margin: 0;
   padding-left: 1.25rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
@@ -325,8 +358,8 @@
 }
 
 .pane-section-title {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -346,12 +379,12 @@
   padding: 0.75rem 1rem;
   text-align: left;
   border-bottom: 1px solid var(--border);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
 }
 
 .samples-table th {
   background-color: var(--bg-elevated);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 
@@ -387,7 +420,7 @@
   background-color: var(--bg-elevated);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
@@ -395,8 +428,8 @@
   display: inline-block;
   padding: 0.2rem 0.6rem;
   border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
 }
 
@@ -420,9 +453,9 @@
 .qty-uom-suffix {
   position: absolute;
   right: 0.75rem;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   background-color: var(--bg-elevated);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
@@ -433,10 +466,10 @@
   display: inline-block;
   padding: 0.3rem 0.75rem;
   border-radius: 50px;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--ls-wide);
   border: 1px solid;
 }
 
@@ -484,10 +517,10 @@
 
 /* Workflow Action Buttons */
 .btn-workflow {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   border-radius: 6px;
   padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
 }
 
 .workflow-loading-spinner {
@@ -518,7 +551,7 @@
   gap: 0.5rem;
   background-color: var(--bg-elevated);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   text-decoration: none;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -580,16 +613,16 @@
 }
 
 .status-label {
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--ls-wide);
 }
 
 .status-value {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -609,8 +642,8 @@
   justify-content: center;
   width: 28px;
   height: 28px;
-  font-size: 0.8rem;
-  line-height: 1;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-none);
   opacity: 0.45;
   cursor: help;
   user-select: none;
@@ -651,7 +684,7 @@
 .sample-comments-notice {
   padding: 0.6rem 0.85rem;
   border-radius: 8px;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   background-color: color-mix(in srgb, var(--success) 12%, transparent);
   border: 1px solid var(--success);
   color: var(--success);
@@ -674,8 +707,8 @@
 
 .sample-comments-title {
   margin: 0;
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
   display: flex;
   align-items: baseline;
@@ -683,17 +716,17 @@
 }
 
 .sample-comments-for {
-  font-size: 0.76rem;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
   color: var(--text-muted);
 }
 
 /* Matches the warning colour the pane's existing lock banner uses. */
 .sample-comments-lock {
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--warning) 18%, transparent);

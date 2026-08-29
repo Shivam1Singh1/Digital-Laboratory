@@ -6,7 +6,12 @@ from elab_notebook.elab_notebook.api.employee_function import (
 	get_employee_users_for_function,
 	get_projects_for_employee_function,
 )
-from elab_notebook.permissions import has_bypass
+from elab_notebook.permissions import (
+	STATUS_ACTIVE,
+	STATUS_ARCHIVED,
+	TEAM_STATUSES,
+	has_bypass,
+)
 
 
 class ExperimentTeam(Document):
@@ -33,10 +38,36 @@ class ExperimentTeam(Document):
 			frappe.throw(_("Segment is a mandatory field."))
 		if not self.cost_center:
 			frappe.throw(_("Cost Center is a mandatory field."))
+		self.validate_status()
 		self.validate_roster_lock()
 		self.validate_head()
 		self.validate_project_mapping()
 		self.validate_participants()
+
+	def validate_status(self):
+		"""Keep `status` to Active/Archived, and never blank.
+
+		Runs before check_mandatory, so a row that predates the field - or a REST
+		caller that omits it - is filled in rather than rejected. The default on
+		the field covers the desk; this covers everything else.
+
+		Deliberately *not* a permission check. Changing status is head-only, but
+		validate_head() below already refuses every non-head write to this
+		doctype, so a second gate here would be a second place for the rule to
+		live and drift.
+		"""
+		if not self.status:
+			self.status = STATUS_ACTIVE
+			return
+
+		self.status = self.status.strip()
+		if self.status not in TEAM_STATUSES:
+			frappe.throw(
+				_("{0} is not a valid Status. Use {1} or {2}.").format(
+					frappe.bold(self.status), frappe.bold(STATUS_ACTIVE), frappe.bold(STATUS_ARCHIVED)
+				),
+				title=_("Invalid Status"),
+			)
 
 	def validate_roster_lock(self):
 		"""Prevent changes to identity-defining fields (project, employee_function).
@@ -86,9 +117,19 @@ class ExperimentTeam(Document):
 	def has_permission(self, perm_type="read", user=None):
 		"""
 		Permission logic for Experiment Team:
-		- Head: Full read/write access to all teams under their function
-		- Participant: Read-only access to teams they are listed on; cannot see other teams
+		- Head: Full read/write access to all teams under their function, archived included
+		- Participant: Read-only access to the ACTIVE teams they are listed on
 		- System Manager: Full access
+
+		This overrides Document.has_permission, so it - not the `has_permission`
+		hook in permissions.py - is what `doc.check_permission()` runs. Both
+		exist and both are reachable (the hook still guards frappe.has_permission
+		and the REST layer), so the status rule is applied in both. They are left
+		as two functions rather than merged because they do not agree on who gets
+		full access: this one says the function's head, permissions.py says the
+		record's owner. Reconciling that is a separate change with its own blast
+		radius - archiving should not be the thing that quietly redefines who can
+		write to a team.
 		"""
 		user = user or frappe.session.user
 
@@ -100,9 +141,17 @@ class ExperimentTeam(Document):
 		head = frappe.db.get_value("Employee Function", self.employee_function, "function_head")
 		is_head = head == user
 
-		# HEAD: full access to read and write
+		# HEAD: full access to read and write, whatever the status. Archiving is
+		# reversible and the head is who reverses it.
 		if is_head:
 			return True
+
+		# ARCHIVED: closed to everyone below the head, including by direct URL.
+		# Checked before participation so the answer is the same as it is for an
+		# outsider - "no access" - rather than a different refusal that would
+		# confirm the team exists and that they are on it.
+		if (self.status or STATUS_ACTIVE) != STATUS_ACTIVE:
+			return False
 
 		# For non-heads, check if they are a participant on this team
 		is_participant = frappe.db.exists(
@@ -187,9 +236,15 @@ class ExperimentTeam(Document):
 def permission_query_conditions(user):
 	"""
 	List view permission filtering:
-	- Heads see all teams under their function(s)
-	- Participants see only teams they are explicitly listed on
+	- Heads see all teams under their function(s), archived included
+	- Participants see only the ACTIVE teams they are explicitly listed on
 	- System Managers see all teams
+
+	NOT REGISTERED. hooks.py points Experiment Team at
+	permissions.get_team_permission_query_conditions, so nothing calls this. It
+	is kept in step with the status rule anyway rather than left to rot: a stale
+	copy of a permission filter is the kind of thing that gets wired up years
+	later on the assumption that it was current.
 	"""
 	if has_bypass(user):
 		return None  # System Manager sees all
@@ -213,7 +268,11 @@ def permission_query_conditions(user):
 	)
 
 	if participated_teams:
-		return f"`tabExperiment Team`.`name` IN ({','.join([frappe.db.escape(t) for t in participated_teams])})"
+		joined = ",".join([frappe.db.escape(t) for t in participated_teams])
+		return (
+			f"(`tabExperiment Team`.`name` IN ({joined})"
+			f" AND `tabExperiment Team`.`status` = {frappe.db.escape(STATUS_ACTIVE)})"
+		)
 
 	# User is neither a head nor a participant anywhere — see nothing
 	return "`tabExperiment Team`.`name` = 'IMPOSSIBLE'"

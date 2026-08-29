@@ -97,16 +97,29 @@ function applyPrefill(frm, prefill) {
 	// Parent fields first: stock_entry_type drives purpose, and the items grid
 	// behaves differently depending on it, so setting rows before it would have
 	// them re-evaluated against the wrong purpose.
+	// Guarded on fields_dict throughout: employee_function and the two dimension
+	// fields are custom fields owned elsewhere, so a site without them prefills
+	// what it has instead of throwing.
 	const parentFields = [
 		'stock_entry_type',
 		'company',
 		'project',
 		'custom_line_of_business',
 		'custom_cost_centre',
+		'custom_employee_functions',
+		'remarks',
 	];
 	parentFields.forEach((f) => {
 		if (prefill[f] && frm.fields_dict[f]) frm.set_value(f, prefill[f]);
 	});
+
+	// The row's own employee_function, not just the header's: it is an inventory
+	// dimension on Stock Entry Detail, so this is the value that reaches the
+	// ledger. Set after item_code, which triggers ERPNext's own row fetch and
+	// would otherwise overwrite it.
+	const hasRowFunction = Boolean(
+		frm.fields_dict.items && frm.fields_dict.items.grid.get_field('employee_function')
+	);
 
 	frm.clear_table('items');
 	(prefill.items || []).forEach((row) => {
@@ -114,6 +127,9 @@ function applyPrefill(frm, prefill) {
 		child.item_code = row.item_code;
 		child.qty = row.qty;
 		if (row.uom) child.uom = row.uom;
+		if (hasRowFunction && row.employee_function) {
+			child.employee_function = row.employee_function;
+		}
 	});
 	frm.refresh_field('items');
 

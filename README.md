@@ -2,7 +2,7 @@
 
 An enterprise-grade laboratory experiment management platform for planning, executing, tracking, and analyzing experiments — built on top of the [Frappe Framework](https://github.com/frappe/frappe).
 
----
+---                                  
 
 ## 🚀 What Has Been Built So Far
 
@@ -13,7 +13,11 @@ We have developed both the Frappe-based backend infrastructure and a high-perfor
   - Custom child DocTypes: `Template Ingredient`, `Template Parameter`, and `Template Protocol Step`.
   - Extensions to the core `Experiment Template` DocType (e.g., adding `template_name`, `category`, `version`, `status`, `objective_hypothesis`, and ingredient/parameter/step tables).
   - Extensions to the core `Experiment` DocType (e.g., linking it to a template and injecting template child tables).
-- **Authentication & User Management:** Custom session APIs to fetch user profile cards, initials, and designation values (`get_current_user_profile()`), along with development-redirect hooks (`login_redirect()`).
+  - ⚠️ *Historical.* `setup_db()` is a one-time bootstrap run from the console, **not**
+    an API — it was un-whitelisted after it was found to rewrite DocType permission
+    rows for any caller. `Lab Experiment` supersedes the `Experiment` extensions
+    above and takes its schema from versioned JSON plus patches. See **API Hardening**.
+- **Authentication & User Management:** Custom session APIs to fetch user profile cards, initials, and designation values (`get_current_user_profile()`), plus profile-photo endpoints (`set_profile_photo()` / `remove_profile_photo()`) and the post-login hop (`login_redirect()`, now driven by the `elab_spa_url` site config key).
 - **Template APIs ([template.py](file:///wsl.localhost/Ubuntu/home/shivam/frappe-bench/frappe-bench/apps/elab_notebook/elab_notebook/elab_notebook/api/template.py)):** Endpoints to query, save, retrieve detail, and instantiate new draft `Experiment` records directly from template models.
 - **Analytics APIs ([dashboard.py](file:///wsl.localhost/Ubuntu/home/shivam/frappe-bench/frappe-bench/apps/elab_notebook/elab_notebook/elab_notebook/api/dashboard.py)):** Standard whitelist endpoints exposing lab summary numbers, monthly throughput trends, success rate distributions, chemical volume metrics, active logs, and pending tasks.
 
@@ -39,15 +43,22 @@ bench install-app elab_notebook
 ```
 
 ### 2. Bootstrap Database Schema
-Run the database setup script via bench console or call the API endpoint once to ensure all child DocTypes and field customisations are created:
+Run the one-time setup from a trusted console to create the legacy child DocTypes
+and field customisations:
 
-```python
-# In bench console:
-frappe.init(site="your-site-name")
-frappe.connect()
-from elab_notebook.elab_notebook.api.user import setup_db
-setup_db()
+```bash
+bench --site <your-site> execute elab_notebook.elab_notebook.api.user.setup_db
 ```
+
+> ⚠️ **`setup_db()` is not an API and must not be given one.** It was formerly
+> whitelisted, which meant any authenticated user could POST to it — and it
+> rewrites *DocType permission rows* (granting the `All` role submit/cancel/amend
+> on Experiment Team, granting `Employee` full rights on Sample). That is a
+> privilege escalation dressed as a setup script. The `@frappe.whitelist()`
+> decorator was removed; see **API Hardening** below.
+>
+> New schema belongs in doctype JSON plus a patch under `elab_notebook/patches/`,
+> the way `Lab Experiment` is already done — not in this function.
 
 ### 3. Run Frontend Dev Server
 Navigate to the UI folder, install node dependencies, and boot Vite:
@@ -533,6 +544,13 @@ Each primary database entity (Experiment Templates, Team, Experiments, and Instr
 ### 3. Secure Backend API (`get_entity_stats`)
 - **Whitelisted Endpoint**: Exposes stats under the `elab_notebook.api.dashboard.get_entity_stats` route.
 - **Strict Validation**: The API validates that the input `doctype` exists in the system and that the requested `status_field` is defined on it to prevent injection vulnerabilities.
+- **DocType Allowlist** *(added later — see API Hardening)*: The endpoint now accepts
+  only the four doctypes the dashboard actually draws (`ENTITY_STATS_DOCTYPES`) and
+  requires `frappe.has_permission(doctype, "read")`. The validation above stops SQL
+  injection but was never an authorisation check: the scoping below only applies to
+  doctypes carrying a `project` field or a registered `permission_query_conditions`
+  hook, so any *other* doctype on the bench returned unfiltered counts grouped by
+  status and month.
 - **Project Filtering**: Standardizes scope filtering across all widgets. If the DocType has a `project` field, the API restricts statistics to the active project selection or allowed project scope.
 - **Dynamic Status List**: Extracts status values directly from DocType Select metadata options or queries distinct values in the database, ensuring zero hardcoding.
 
@@ -576,6 +594,211 @@ To enforce data consistency across all parent-child linked doctypes, parent docu
    * **Guard**: `on_trash` event hook registered under `doc_events` in [hooks.py](file:///wsl.localhost/Ubuntu/home/shivam/frappe-bench/frappe-bench/apps/elab_notebook/elab_notebook/hooks.py) and handled in [experiment_access.py](file:///wsl.localhost/Ubuntu/home/shivam/frappe-bench/frappe-bench/apps/elab_notebook/elab_notebook/experiment_access.py)
    * **Check**: Ensures no `Sample` exists linking to this experiment name.
    * **Error**: `frappe.throw("Cannot delete: Sample record(s) exist for this Experiment.")`
+
+---
+
+## 🔠 Typography — Self-Hosted Inter and One Type Scale
+
+Before this pass there were **36 distinct font sizes** across the `.vue`/`.css`
+files — `0.62rem`, `0.63rem`, `0.65rem` and `0.68rem` all appearing within one
+screen of each other, a difference nobody can see but everyone has to maintain.
+
+### 1. The font
+Inter, self-hosted through `@fontsource/inter` rather than the Google Fonts CDN:
+this app runs on an internal lab network, where an external font request either
+stalls first paint or fails outright and drops every screen to the fallback.
+Only the latin subset and the four weights the scale uses are imported in
+`main.js` — importing the package root would ship nine weights across five
+subsets for no visible gain.
+
+### 2. The scale (`src/style.css`)
+Eleven steps in rem against a 14px root, plus four weights (matching the four
+font files — asking for any other value makes the browser synthesise it, which
+is where the smeared faux-bold came from), six line-heights, six tracking steps,
+and tabular figures for columns of numbers.
+
+The steps were chosen to sit on the clusters that were already there, so
+adopting them **re-labelled the app rather than resizing it**.
+
+### 3. Coverage
+Every `font-size`, `font-weight` and `letter-spacing` in `src/` now resolves to a
+token — verified: zero raw declarations remain, every token used is defined, and
+no token is dead. Element defaults (`h1`–`h6`, `p`, `label`, `input`, `th`, `td`,
+`.btn`, `.badge`) carry the scale, so most components inherit rather than declare.
+
+### 4. The two places CSS could not reach
+- **Chart.js** paints to a canvas, so no stylesheet applies. It was rendering in
+  its own defaults — Helvetica Neue at 12px, *larger* than the body text around
+  the tile, making the densest labels on the dashboard the biggest text on it. A
+  `chartFont()` helper in `EntityStatsBlock.vue` now reads the tokens off `:root`
+  at draw time, so the axis and legend track the scale instead of drifting.
+- **Quill** hard-codes `14px/500` on `.ql-picker` (the editor's size dropdown)
+  and one flat 14px across quill-better-table's context menu. Both are now on the
+  scale in `RichTextEditor.css`.
+
+---
+
+## 🔐 API Hardening — Endpoints That Routed Around the Permission Model
+
+An audit of all **62 whitelisted endpoints**. The permission architecture itself is
+sound — `permission_query_conditions` *and* `has_permission` hooks on five
+doctypes, enforced on both the list path and the single-document path. The holes
+were endpoints that went around it.
+
+| # | Endpoint | Was | Now |
+|---|---|---|---|
+| 1 | `user.setup_db` | Whitelisted, no role check, rewrote DocType **permission rows** with `ignore_permissions` and committed | `@frappe.whitelist()` removed — console only |
+| 2 | `template.save_experiment_template` | No auth check; `doc.update(<raw payload>)` then `save(ignore_permissions=True)` — any user could rewrite any template in any Employee Function | Permissions on, explicit `check_permission("write")`, payload filtered through `_TEMPLATE_PROTECTED_FIELDS` |
+| 3 | `template.get_template_detail` | `frappe.get_doc(...).as_dict()` — `get_doc` does **not** consult the `has_permission` hook, so any template was readable by name | `doc.check_permission("read")` |
+| 4 | `template.create_experiment_from_template` | Second route to any template's contents (clone it, read the copy); inserted with `ignore_permissions` | Read check on the template; inserts under the caller's own rights |
+| 5 | `dashboard.get_entity_stats` | Accepted any doctype; scoping only applied to some | Allowlist of the four dashboard doctypes + `has_permission` |
+| 6 | `experiment_team.get_team_financials` | No check; returned Segment/Cost Center for any project+function pair | Gated on `is_authorized_for_project` |
+| 7 | `workflow.get_workflow_actions` | Confirmed a document existed and named its state to anyone guessing an ID | `doc.check_permission("read")` |
+
+### `login_redirect` — made configurable
+It redirected to a hardcoded `http://localhost:5173/`, so a production login sent
+every user to a machine that is not the server. Now read from site config:
+
+```bash
+bench --site <site> set-config elab_spa_url "https://lab.example.com/elab"
+```
+
+Falls back to `/elab`. See `DEPLOYMENT.md`.
+
+### Two useful facts this audit established
+- **`frappe.get_doc()` does not run the `has_permission` hook.** Only
+  `check_permission()`, `frappe.has_permission()` and the desk's `frappe.client.get`
+  do. A whitelisted method that loads a document must check explicitly.
+- **`ignore_permissions=True` does not skip `validate()` or `before_insert`.** The
+  approval locks and creator-identity freezes in the doctype controllers held
+  throughout, which is why none of the above was an approval bypass.
+
+---
+
+## ⚙️ Settings Module (`components/settings/`)
+
+The sidebar's Settings entry was `href="#"`. It is now a real route (`/settings`).
+
+- **Profile photo** — upload, change, remove. Two endpoints in `api/user.py`
+  (`set_profile_photo`, `remove_profile_photo`) that **take no user argument**:
+  the only photo they can change is the caller's own, so there is no parameter to
+  forget to check. The file URL is validated against a real `File` record, so the
+  field cannot be pointed at an off-site address.
+- **Client-side resize** — the browser centre-crops to a square and re-encodes to
+  512px JPEG *before* upload. A phone photo is 4–12 megapixels and several MB;
+  the avatar is drawn at 96px here and 30–32px in the shell. What reaches the
+  server is ~40–80 KB. The previous 2 MB limit simply *rejected* normal photos.
+- **Theme** — Day/Night pickers driving the existing `setTheme`.
+- **Preferences** — opt-in "remember my selected project" (the picker otherwise
+  resets each session).
+- **Account** — sign out.
+
+Identity fields (name, role, employee ID, department) are deliberately read-only:
+they come from the HR record, and a field that looks editable but is overwritten
+by the next sync is worse than one plainly locked.
+
+---
+
+## 🐛 Cross-Cutting Fixes
+
+### The 40px spinner (`App.vue`)
+`App.vue`'s `<style>` block is global and bundles *after* `styles/list-page.css`.
+It declared a **bare `.spinner`** at 40px with a hardcoded blue and a 1rem bottom
+margin for its splash screen — which, on source order at equal specificity, beat
+`.btn-spinner` (14px). **Every button spinner in the app** was rendering at 40px
+and bursting its button: Settings, Team Setup, Team Detail, Template Detail.
+
+Fixed by scoping it to `.loading-screen .spinner`, which is the only place it
+appears. This is exactly what the header comment in `list-page.css` asks for: a
+page that needs to differ scopes its override to its own container rather than
+redeclaring the bare class.
+
+### Template numbering exhaustion
+Past `Z9999`, `next_name_suffix()` returned `chr(ord("Z") + 1)` → `"[0001"`. That
+is not a valid suffix, so the next insert ignored it as malformed and regenerated
+the same string — surfacing as an opaque duplicate primary key rather than the
+capacity limit it is. Now throws a clear message.
+
+### `"" in "AEIOU"` is `True`
+In `hierarchy._a()`, the indefinite-article helper used a **substring** test, and
+every string contains the empty string — so a blank category rendered as `"an "`.
+Changed to a tuple. *Found by the new test suite.*
+
+### Sidebar masthead links home
+"Elab Notebook / Enterprise Lab OS" is now a `router-link` to the Dashboard, with
+`color: inherit` reset explicitly — the global `a` rule paints links accent-violet
+and re-tints them on hover, which would have recoloured the product name.
+
+---
+
+## ✅ Test Infrastructure
+
+**Starting point: zero executing coverage.** Three of the four doctype test files
+were 9-line Frappe boilerplate with no test methods, and all 10 tests in
+`test_sample.py` *skip* for want of seed data.
+
+Added **55 tests that run and pass**, with no new dependencies:
+
+```bash
+# 25 tests — category ladder, template numbering, suffix parsing. No site needed.
+python3 -m unittest discover -s tests -t .
+
+# 30 tests — date formatting, durations, tab visibility rules.
+cd elab-notebook-ui && npm test
+```
+
+- `tests/frappe_stub.py` — a minimal `frappe` stand-in so pure logic can be
+  imported without booting a site. Deliberately **not** a mock framework: anything
+  it does not implement raises loudly rather than returning a Mock that makes an
+  assertion pass for the wrong reason.
+- `elab-notebook-ui/tests/` uses **Node's built-in test runner** — no vitest or
+  jest, so the suite stays runnable on a bench with no network to install from.
+- These live *outside* the `elab_notebook/` package so `bench run-tests` does not
+  pick them up and boot a site for each.
+
+### Running the doctype tests
+```bash
+bench --site <site> run-tests --app elab_notebook --skip-test-records
+```
+`--skip-test-records` is **not optional** on this bench: the fixture chain tries
+to build ERPNext's `_Test Supplier`, which has no `default_currency` here, and the
+run aborts before a single elab_notebook test executes.
+
+> ⚠️ A green doctype run currently proves nothing — it reports `10 skipped,
+> 0 failed`.
+
+---
+
+## 🚦 Production Readiness
+
+See **`DEPLOYMENT.md`** for the full checklist. Summary as of this pass:
+
+**Cleared**
+- Login no longer hardcodes `http://localhost:8000`. `loginUrl()` in
+  `utils/frappeUrl.js` builds it from `frappeOrigin()`; all three call sites
+  (router guard, shell Sign out, Settings Sign out) use it.
+- `elab_spa_url` documented and set on the dev site.
+- Production config requirements written down.
+
+**Outstanding — the real blocker**
+- **The business rules have no automated coverage.** Permissions, workflow locks,
+  the four-level hierarchy validators, and sample/stock generation are all
+  untested. For an ELN whose value is a record an auditor can trust, this is the
+  gap that matters. Best starting point: un-skip `test_sample.py` — those 10 tests
+  are well written and only need seed data.
+
+**Known issues, not yet fixed**
+- Dashboard chart *colours* don't render — `color: 'var(--text-muted)'` is passed
+  to Chart.js, and canvas cannot resolve CSS custom properties.
+- `frappe.get_all` (72) vs `frappe.get_list` (24). `get_all` bypasses permissions;
+  the set has not been audited end to end.
+- Six explicit `frappe.db.commit()` calls in whitelisted endpoints make partial
+  writes durable if a later step fails.
+- quill-better-table's context menu theming likely loses on source order (its CSS
+  is dynamically imported and lands after the app's).
+- Profile photos are stored as **public** files.
+- *AI Predictions* and *Reports & Analytics* are `href="#"` placeholders — and the
+  first carries a **New** badge.
 
 ---
 

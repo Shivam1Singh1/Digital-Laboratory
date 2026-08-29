@@ -10,7 +10,7 @@ MIN_QUERY_LENGTH = 3
 # no such field, so it has none and the UI falls through to the record id.
 SEARCH_DOCTYPES = [
 	{
-		"doctype": "Experiment Template",
+		"doctype": "Lab Experiment Template",
 		"title_field": "title",
 		"subtitle_field": "aim",
 		"route_prefix": "/templates",

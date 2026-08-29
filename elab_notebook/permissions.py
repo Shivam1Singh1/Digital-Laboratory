@@ -102,7 +102,7 @@ def get_permission_query_conditions(user: str | None = None) -> str:
 		return "1 = 0"  # No function membership → no access
 
 	joined_funcs = ", ".join(frappe.db.escape(f) for f in functions)
-	return f"`tabExperiment Template`.`employee_function` IN ({joined_funcs})"
+	return f"`tabLab Experiment Template`.`employee_function` IN ({joined_funcs})"
 
 
 def has_permission(doc, ptype=None, user=None) -> bool:
@@ -145,6 +145,19 @@ def has_permission(doc, ptype=None, user=None) -> bool:
 # Anything not listed here (write, create, delete, submit, …) stays head-only.
 PARTICIPANT_READ_PTYPES = {"read", "print", "email", "share", "select", "report", "export"}
 
+# Experiment Team.status. Archiving closes a team for new work without deleting
+# it: it leaves the pickers, stops authorising new Lab Experiments, and drops off
+# its participants' team lists. The owner/head keeps seeing it, because somebody
+# has to be able to reopen it.
+#
+# They live here rather than on the doctype controller because permissions.py is
+# the one module every consumer of the rule already imports - the controller,
+# experiment_access and the team API all depend on it, and none of them depend on
+# each other. Defining them the other way round would be a cycle.
+STATUS_ACTIVE = "Active"
+STATUS_ARCHIVED = "Archived"
+TEAM_STATUSES = (STATUS_ACTIVE, STATUS_ARCHIVED)
+
 
 def _teams_where_participant(user: str) -> list[str]:
 	return frappe.get_all(
@@ -156,8 +169,19 @@ def _teams_where_participant(user: str) -> list[str]:
 
 
 def get_team_permission_query_conditions(user: str | None = None) -> str:
-	"""Experiment Team lists show the teams the user created, plus the teams
-	they are a participant of.
+	"""Experiment Team lists show the teams the user created, plus the *active*
+	teams they are a participant of.
+
+	The two clauses are treated differently on purpose. A team you own stays
+	visible whatever its status - archiving is reversible, and the person who can
+	reverse it has to be able to find it. A team you merely participate on
+	disappears when it is archived, which is what archiving is for.
+
+	Note this clause is `owner`, not "head of the function". The two are the same
+	person for every team created through the app - save_team() is head-only - but
+	they can part company if an Employee Function's head is reassigned. That
+	predates this change and is left as it was; see get_my_teams(), which builds
+	the head's list from the function rather than from ownership.
 	"""
 	user = user or frappe.session.user
 
@@ -169,7 +193,10 @@ def get_team_permission_query_conditions(user: str | None = None) -> str:
 	clauses = [f"`tabExperiment Team`.`owner` = {frappe.db.escape(user)}"]
 	if teams:
 		joined = ", ".join(frappe.db.escape(t) for t in teams)
-		clauses.append(f"`tabExperiment Team`.`name` in ({joined})")
+		clauses.append(
+			f"(`tabExperiment Team`.`name` in ({joined})"
+			f" and `tabExperiment Team`.`status` = {frappe.db.escape(STATUS_ACTIVE)})"
+		)
 
 	return f"({' or '.join(clauses)})"
 
@@ -181,6 +208,17 @@ def is_team_head(doc, user: str) -> bool:
 
 	head = frappe.db.get_value("Employee Function", employee_function, "function_head")
 	return head == user
+
+
+def is_team_active(doc) -> bool:
+	"""Whether a team is open for business.
+
+	A doc that predates the field, or a bare reference that was loaded without
+	it, reads as Active - the backfill patch fills those in, and treating an
+	unknown status as Archived would lock people out of teams nobody archived.
+	"""
+	status = doc.get("status") if hasattr(doc, "get") else None
+	return (status or STATUS_ACTIVE) == STATUS_ACTIVE
 
 
 def is_team_participant(doc, user: str) -> bool:
@@ -203,7 +241,14 @@ def is_team_participant(doc, user: str) -> bool:
 
 
 def has_team_permission(doc, ptype=None, user=None) -> bool:
-	"""Creator has full access; a participant may read but not modify."""
+	"""Creator has full access; a participant may read an *active* team.
+
+	The single-document counterpart of get_team_permission_query_conditions, and
+	it draws the status line in the same place: the owner is unaffected by
+	archiving, a participant loses the team entirely. Without the second half a
+	participant could still open an archived team by URL after it had vanished
+	from every list they can see.
+	"""
 	user = user or frappe.session.user
 
 	if has_bypass(user):
@@ -214,7 +259,7 @@ def has_team_permission(doc, ptype=None, user=None) -> bool:
 
 	# `ptype` is None on some generic checks — treat that as a read.
 	if (ptype or "read") in PARTICIPANT_READ_PTYPES and ptype not in ("write", "save", "delete"):
-		return is_team_participant(doc, user)
+		return is_team_active(doc) and is_team_participant(doc, user)
 
 	return False
 

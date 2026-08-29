@@ -28,9 +28,10 @@ validate() re-checks the same invariants on any write that touches
 `parent_experiment` or `experiment_category`.
 """
 
+import re
+
 import frappe
 from frappe import _
-from frappe.utils import cint
 
 # Ordered top to bottom. Index in this tuple *is* the depth.
 CATEGORIES = (
@@ -87,7 +88,10 @@ def _a(category: str | None) -> str:
 	would otherwise say.
 	"""
 	category = category or ""
-	article = "an" if category[:1].upper() in "AEIOU" else "a"
+	# A tuple, not the string "AEIOU": `x in "AEIOU"` is a *substring* test, and
+	# every string contains the empty string - so a blank category came out as
+	# "an " rather than "a ". Membership in a tuple has no such edge.
+	article = "an" if category[:1].upper() in ("A", "E", "I", "O", "U") else "a"
 	return f"{article} {category}"
 
 
@@ -734,73 +738,111 @@ def _count_nodes(node: dict) -> int:
 	return 1 + sum(_count_nodes(c) for c in node.get("children") or [])
 
 
+# The levels that own a programme, and so the only ones a full-subtree report
+# can be asked for. Read off CATEGORIES rather than spelled out, so adding a
+# level above the Master moves this with it. The frontend mirrors the same rule
+# in utils/reportTab.js to decide whether the tab appears at all; this copy is
+# the one that is enforced -- the endpoint is reachable without the SPA.
+REPORT_CATEGORIES = CATEGORIES[:2]
+
 # The scientific content the Report tab rolls up, deliberately separate from
 # _NODE_FIELDS: the tree tab ships one row per node and has no use for Text
 # Editor columns, so loading them there would make every tree render pay for a
 # view it does not have. Only the report asks for them.
+#
+# `observation` is the run's observation write-up. It is what Lab Experiment
+# carries in place of an `observation_comments` field of its own -- the doctype
+# fetches it from `template.observation_comments` and the SPA edits it from
+# there on. See `_template_comments` for the other half.
 _REPORT_FIELDS = (
 	"name",
 	"title",
+	"experiment_category",
+	"parent_experiment",
+	"workflow_state",
 	"aim",
 	"sub_aim",
 	"rationale",
 	"observation",
-	"observation_and_conclusion",
-	"results",
-	# Added when the Result tab gained them; the report predates both and was
-	# silently omitting a run's conclusion and its Pass/Fail verdict.
 	"conclusion",
-	"result",
-	"is_successful",
-	"procedure",
-	"precaution",
-	"sample_details",
-	"experiment_status",
-	"workflow_state",
-	"experiment_start_date",
-	"experiment_end_date",
-	"employee_code",
-	"employee_name",
 	"template",
 )
 
+# fieldname -> (child doctype, columns). One entry per table the report prints,
+# in no particular order -- the reading order is the frontend's, and putting it
+# here as well would give two places to disagree about it.
+_REPORT_TABLES = {
+	"material_required": ("Material Required CT", ("item_code", "item_name", "uom", "qty")),
+	"methodology": ("Methodology CT", ("method", "time_to_complete")),
+	"observations": (
+		"Lab Experiment Observation CT",
+		("parameter", "unit", "expected_range", "remarks", "observation", "observed_by", "observed_on"),
+	),
+}
+
 
 @frappe.whitelist()
-def get_experiment_report(experiment: str, successful_only: int | str | bool = 0) -> dict:
-	"""`experiment` and its descendants, each carrying its scientific content.
+def get_full_subtree_report(experiment_name: str) -> dict:
+	"""`experiment_name` and every readable run beneath it, flat, in full.
 
-	Shape and traversal come from `get_experiment_subtree` unchanged -- this call
-	does not walk the tree itself. What it adds is the second half of the answer:
-	the subtree ships identity fields only, and a report needs the aim, rationale,
-	observations and results hanging off each node.
+	The "full info" view: unlike the tree tab, which ships identity fields only,
+	every node here carries its aim, rationale, its three child tables and its
+	conclusion, with no row limit on any of them.
 
-	`successful_only` swaps the traversal for `get_successful_subtree` and changes
-	nothing else: the same enrichment runs over whatever node set comes back, so
-	the curated report is the full report minus pruned branches, never a
-	differently-shaped document. Default off - every existing caller keeps the
-	whole tree without passing anything. It arrives over HTTP as "0"/"1", hence
-	cint rather than a bare truth test, which would read the string "0" as true.
+	Restricted to Master Experiment and Experiment. The report is a run plus
+	everything under it, and at Sub Experiment the roll-up is one level deep while
+	at Sub Sub Experiment there is nothing below at all -- both render a card
+	describing the run you already have open. Enforced here rather than only in
+	the UI because this endpoint is reachable directly.
 
-	Enrichment is one `frappe.get_list` over the whole node set rather than a read
-	per node, so a fifty-node tree costs two queries, not fifty-one. Going through
-	`get_list` a second time is not redundant: it means the report can only ever
-	widen fields on rows the permission query already allowed, never reintroduce a
-	row the subtree walk dropped. Anything the enrichment does not return keeps
-	its identity fields and renders with empty content, which is the honest
-	rendering of a row the user may see but whose body they may not.
+	Traversal is `_descendants`, the same permission-filtered walk the Experiment
+	Hierarchy tab uses, so a node the user cannot read is pruned together with its
+	descendants in exactly the same way and there is one subtree implementation to
+	keep correct, not two. The nesting it returns is flattened depth-first here --
+	each node carries its own `parent_experiment` and a `depth` (root = 0), so the
+	hierarchy survives the flattening without the frontend re-deriving it.
 
-	Eager, in one round trip, matching the Experiment Hierarchy tab it sits beside
-	-- see `_descendants`, which collects the full subtree with no page limit.
+	Cost is four queries plus a constant, whatever the size of the tree: at most
+	`_MAX_DEPTH` for the walk, one for the field enrichment, one per child table
+	over the whole node set, and one for the templates.
 	"""
-	scoped = bool(cint(successful_only))
-	tree = get_successful_subtree(experiment) if scoped else get_experiment_subtree(experiment)
-	root = tree.get("node")
+	if not frappe.has_permission("Lab Experiment", "read", doc=experiment_name):
+		frappe.throw(
+			_("You are not permitted to view {0}.").format(frappe.bold(experiment_name)),
+			frappe.PermissionError,
+			title=_("Not Authorized"),
+		)
+
+	root = frappe.db.get_value("Lab Experiment", experiment_name, list(_NODE_FIELDS), as_dict=True)
 	if not root:
-		return {"node": None, "ancestors": [], "node_count": 0, "successful_only": scoped}
+		frappe.throw(_("Experiment {0} not found.").format(frappe.bold(experiment_name)))
 
-	names = []
-	_collect_names(root, names)
+	category = root.get("experiment_category")
+	if category not in REPORT_CATEGORIES:
+		frappe.throw(
+			_(
+				"A full report can only be built for {0} or {1}. {2} is {3}, which has no "
+				"programme beneath it to roll up."
+			).format(
+				frappe.bold(REPORT_CATEGORIES[0]),
+				frappe.bold(REPORT_CATEGORIES[1]),
+				frappe.bold(experiment_name),
+				_a(category) if category else _("uncategorised"),
+			),
+			title=_("Not a Reportable Level"),
+		)
 
+	tree = dict(root)
+	tree["children"] = _descendants(experiment_name)
+
+	nodes = list(_flatten_with_depth(tree))
+	names = [node["name"] for node in nodes]
+
+	# Going through `get_list` a second time is not redundant: the report can
+	# only ever widen fields on rows the permission query already allowed, never
+	# reintroduce a row the walk dropped. A row it does not return keeps its
+	# identity fields and renders empty, which is the honest rendering of a run
+	# the user may see but whose body they may not.
 	content = {
 		row["name"]: row
 		for row in frappe.get_list(
@@ -811,38 +853,144 @@ def get_experiment_report(experiment: str, successful_only: int | str | bool = 0
 		)
 	}
 
-	_merge_content(root, content)
+	# Keyed off `content`, not `names`: a run whose body was filtered out does not
+	# get its child tables read either.
+	tables = _report_child_tables(list(content))
+	comments = _template_comments(content.values())
+
+	out = []
+	for node in nodes:
+		row = dict(content.get(node["name"]) or {"name": node["name"], "title": node.get("title")})
+		# From the walk, never from the enrichment: `parent_experiment` is what
+		# rebuilds the hierarchy on the other end, and depth is only meaningful
+		# relative to the root that was actually asked for.
+		row["parent_experiment"] = node["parent_experiment"]
+		row["depth"] = node["depth"]
+		row["experiment_category"] = node.get("experiment_category")
+		row["workflow_state"] = node.get("workflow_state")
+
+		for fieldname in _REPORT_TABLES:
+			row[fieldname] = tables.get(fieldname, {}).get(node["name"], [])
+
+		template_comments = comments.get(row.get("template")) or {}
+		# Blank markup is normalised to "" on the way out, both here and below, so
+		# the frontend never has to tell "<p><br></p>" from a comment: an emptied
+		# editor reads as the empty field it is, and the provenance note below
+		# cannot end up labelling a dash.
+		row["methodology_comments"] = _text_or_blank(template_comments.get("methodology_comments"))
+		# The run's own observation wins; the template's is the fallback for a run
+		# that has not been written up yet. Flagged when it is the template's,
+		# because that text is identical on every run sharing the template and a
+		# reader has to be able to tell it from an observation somebody made.
+		own_observation = _text_or_blank(row.get("observation"))
+		if own_observation:
+			row["observation_comments"] = own_observation
+			row["observation_comments_from_template"] = False
+		else:
+			row["observation_comments"] = _text_or_blank(template_comments.get("observation_comments"))
+			row["observation_comments_from_template"] = bool(row["observation_comments"])
+
+		out.append(row)
+
+	return {"root": experiment_name, "nodes": out, "node_count": len(out)}
+
+
+def _flatten_with_depth(node: dict, depth: int = 0):
+	"""A built tree as a flat sequence, parent immediately before its children.
+
+	Depth-first rather than level-by-level, even though `_descendants` collects
+	breadth-first: the report is read top to bottom, and a level-ordered list
+	would separate a run from the runs it explains by everything else on its own
+	level.
+	"""
+	yield {
+		"name": node["name"],
+		"title": node.get("title"),
+		"experiment_category": node.get("experiment_category"),
+		"workflow_state": node.get("workflow_state"),
+		"parent_experiment": node.get("parent_experiment"),
+		"depth": depth,
+	}
+	for child in node.get("children") or []:
+		yield from _flatten_with_depth(child, depth + 1)
+
+
+def _has_text(value: str | None) -> bool:
+	"""Whether a Text Editor field holds anything. Blank markup does not count.
+
+	An emptied Quill editor stores "<p><br></p>" -- a non-empty string describing
+	nothing, which a bare truth test reads as content and which would then win
+	over the template text it is supposed to fall back to.
+	"""
+	if not value:
+		return False
+	text = re.sub(r"<[^>]*>", "", value).replace("&nbsp;", " ").strip()
+	# A field holding only an image or a table has no text but is not empty.
+	return bool(text) or bool(re.search(r"<(img|table)\b", value, re.IGNORECASE))
+
+
+def _text_or_blank(value: str | None) -> str:
+	"""`value` if it holds anything, "" if it is blank or blank markup."""
+	return value if _has_text(value) else ""
+
+
+def _report_child_tables(names: list[str]) -> dict[str, dict[str, list[dict]]]:
+	"""Every report child-table row for `names`, as {fieldname: {parent: rows}}.
+
+	One query per table over the whole node set rather than one per node: a
+	fifty-node report costs three reads here, not a hundred and fifty.
+
+	`frappe.get_all` rather than `get_list` because a child doctype carries no
+	permissions of its own -- rows are reached through their parent, and the
+	parents in `names` are the ones the permission-filtered walk *and* the field
+	enrichment already allowed. `parenttype` is filtered as well as `parent`:
+	docnames are unique per doctype, not globally.
+	"""
+	if not names:
+		return {}
+
+	out: dict[str, dict[str, list[dict]]] = {}
+	for fieldname, (doctype, columns) in _REPORT_TABLES.items():
+		by_parent: dict[str, list[dict]] = {}
+		for row in frappe.get_all(
+			doctype,
+			filters={"parent": ("in", names), "parenttype": "Lab Experiment", "parentfield": fieldname},
+			fields=["parent", "idx", *columns],
+			# The order the rows were entered in. A methodology read out of order
+			# is a different methodology.
+			order_by="parent asc, idx asc",
+			limit_page_length=0,
+		):
+			by_parent.setdefault(row["parent"], []).append(row)
+		out[fieldname] = by_parent
+
+	return out
+
+
+def _template_comments(rows) -> dict[str, dict]:
+	"""`methodology_comments` / `observation_comments` per Experiment Template.
+
+	Lab Experiment has neither field. The template a run was built from does, and
+	they are the commentary that belongs beside the methodology and observation
+	tables -- so the report reads them from there and says so.
+
+	Permission-filtered like every other read here: a template the user cannot see
+	contributes nothing rather than throwing, and its runs render without the
+	commentary.
+	"""
+	templates = {row.get("template") for row in rows if row.get("template")}
+	if not templates:
+		return {}
 
 	return {
-		"node": root,
-		"ancestors": tree.get("ancestors") or [],
-		"node_count": len(names),
-		# Echoed back so the view can label what it is showing. A curated report
-		# that looks identical to a full one is the failure mode worth guarding
-		# against - the reader cannot tell that branches are missing by eye.
-		"successful_only": scoped,
+		row["name"]: row
+		for row in frappe.get_list(
+			"Lab Experiment Template",
+			filters={"name": ("in", list(templates))},
+			fields=["name", "methodology_comments", "observation_comments"],
+			limit_page_length=0,
+		)
 	}
-
-
-def _collect_names(node: dict, out: list[str]) -> None:
-	out.append(node["name"])
-	for child in node.get("children") or []:
-		_collect_names(child, out)
-
-
-def _merge_content(node: dict, content: dict) -> None:
-	"""Widen each node in place with its report fields, children included.
-
-	`children` is set last from what the node already holds, so a row missing
-	from `content` keeps its subtree instead of losing it to a bare update().
-	"""
-	row = content.get(node["name"])
-	if row:
-		children = node.get("children") or []
-		node.update(row)
-		node["children"] = children
-	for child in node.get("children") or []:
-		_merge_content(child, content)
 
 
 def _walk(node: dict):

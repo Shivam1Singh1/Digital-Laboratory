@@ -1,6 +1,17 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import axios from 'axios'
+// Inter, self-hosted through @fontsource rather than the Google Fonts CDN: this
+// app runs on an internal lab network, where an external font request either
+// stalls first paint or fails outright and drops every screen to the fallback.
+// Only the latin subset and the four weights the type scale actually uses are
+// pulled in - importing the package root would ship nine weights across five
+// subsets for no visible gain. Imported before style.css so the @font-face rules
+// are registered by the time --font-sans is resolved.
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-500.css'
+import '@fontsource/inter/latin-600.css'
+import '@fontsource/inter/latin-700.css'
 import './style.css'
 // Shared list-page furniture (filter bar, table shell, status pills,
 // pagination, loading/empty states). Imported once here rather than per page:

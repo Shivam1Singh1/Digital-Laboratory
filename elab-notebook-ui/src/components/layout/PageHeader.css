@@ -29,10 +29,15 @@
      without this the header compresses instead of the page scrolling. Owned
      here so no page has to know about it. */
   flex-shrink: 0;
-  /* Spec: 24px below the header before the content/table. Carried by the header
-     rather than by the subtitle so the gap is identical on a page without one
-     (Samples). Pages must not add a flex `gap` on top of this. */
-  margin-bottom: 24px;
+  /* Gap below the header, before the content/table. Carried by the header rather
+     than by the subtitle so it is identical on a page without one (Samples).
+     Pages must not add a flex `gap` on top of this.
+
+     Was the spec's 24px. Reduced with the title below: the header is the same
+     three lines on every list page and says nothing the page has not already
+     said in its breadcrumb, so every pixel it takes is a table row the reader
+     has to scroll for. */
+  margin-bottom: 14px;
 }
 
 .app-page-header__left {
@@ -57,8 +62,8 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: var(--fs-md);
+  line-height: var(--lh-snug);
 }
 
 .app-page-header__crumb-link {
@@ -81,22 +86,28 @@
 
 /* --- Title & subtitle ---------------------------------------------------- */
 
+/* Was the spec's 28px/4px. A list page's title is the least informative thing on
+   it - the breadcrumb above and the table below both already say where you are -
+   so it was the largest type on the page carrying the least. 22px still reads as
+   the page heading against the 13px crumb and 13px subtitle around it, and the
+   tightened margin closes the gap the old size needed to breathe. */
 .app-page-header__title {
-  font-size: 28px;
-  font-weight: 700;
-  line-height: 1.2;
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
   color: var(--text-primary);
-  letter-spacing: -0.02em;
-  margin: 4px 0;
+  letter-spacing: var(--ls-tighter);
+  margin: 2px 0 0;
 }
 
 .app-page-header__subtitle {
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.45;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-heading);
   color: var(--text-muted);
-  /* The 24px sits on .app-page-header so it applies with or without a subtitle. */
-  margin: 0;
+  /* The gap below sits on .app-page-header so it applies with or without a
+     subtitle. Only the 2px separating this from the title is set here. */
+  margin: 2px 0 0;
 }
 
 /* --- Action button ------------------------------------------------------- */
@@ -120,9 +131,9 @@
   border-radius: 6px;
   border: 1px solid transparent;
   font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-none);
   white-space: nowrap;
   cursor: pointer;
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;

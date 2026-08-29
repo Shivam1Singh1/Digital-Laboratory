@@ -28,6 +28,13 @@
 
 /* Kept in lockstep with .top-bar's height - the logo block and the search row
    sit side by side, so they share a baseline. */
+/* A router-link, not a div: the masthead is the way back to the Dashboard.
+ *
+ * `color` and `text-decoration` are reset explicitly because style.css paints
+ * every bare <a> in accent violet and re-tints it on :hover - which on this
+ * element would recolour the product name the moment the pointer crossed it.
+ * The children set their own colours, so inherit here simply means "leave them
+ * alone". */
 .sidebar-header {
   height: 46px;
   min-height: 46px;
@@ -37,6 +44,26 @@
   align-items: center;
   gap: 0.75rem;
   border-bottom: 1px solid var(--border);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
+}
+
+.sidebar-header:hover {
+  background-color: var(--bg-elevated);
+}
+
+/* Enough of a change to read as clickable without the masthead flashing a
+   different colour every time the pointer passes over it on its way to the nav. */
+.sidebar-header:hover .app-name {
+  color: var(--accent);
+}
+
+/* Inset, because the header sits flush against the sidebar's own edge and an
+   outward ring would be clipped by it. */
+.sidebar-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .logo-box {
@@ -61,15 +88,15 @@
 }
 
 .app-name {
-  font-weight: 700;
-  font-size: 1.1rem;
-  letter-spacing: -0.02em;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-2xl);
+  letter-spacing: var(--ls-tighter);
   color: var(--text-primary);
-  line-height: 1.2;
+  line-height: var(--lh-tight);
 }
 
 .app-subtitle {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
@@ -89,10 +116,10 @@
 }
 
 .group-label {
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--ls-widest);
   color: var(--text-muted);
   padding: 0 0.75rem 0.5rem;
 }
@@ -104,9 +131,9 @@
   padding: 0.55rem 0.75rem;
   border-radius: 6px;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   transition: all 0.2s ease;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   text-decoration: none;
 }
 
@@ -118,7 +145,7 @@
 .nav-item.active {
   background-color: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   border-left: 3px solid var(--accent);
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
@@ -145,8 +172,8 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 1.25rem;
-  font-weight: 400;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-regular);
   width: 28px;
   height: 28px;
   border-radius: 4px;
@@ -157,7 +184,7 @@
   position: absolute;
   right: 6px;
   transition: all 0.2s ease;
-  line-height: 1;
+  line-height: var(--lh-none);
 }
 
 .sidebar-action-btn:hover {
@@ -208,10 +235,10 @@
 }
 
 .avatar-fallback {
-  font-size: 0.85rem;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.02em;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-none);
+  letter-spacing: var(--ls-wide);
   text-transform: uppercase;
   user-select: none;
   color: var(--bg-primary);
@@ -224,8 +251,8 @@
 }
 
 .user-name {
-  font-weight: 600;
-  font-size: 0.85rem;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -233,7 +260,7 @@
 }
 
 .user-role {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -317,11 +344,11 @@
 }
 
 .global-search-dropdown-header {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   color: var(--accent);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   padding: 0.4rem 0.75rem;
   background-color: var(--bg-elevated);
   border-top: 1px solid var(--border);
@@ -333,7 +360,7 @@
 
 .global-search-dropdown-item {
   padding: 0.5rem 0.75rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-primary);
   cursor: pointer;
   display: flex;
@@ -347,17 +374,17 @@
 }
 
 .global-search-dropdown-item-title {
-  font-weight: 500;
+  font-weight: var(--fw-medium);
 }
 
 .global-search-dropdown-item-name {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
 .global-search-dropdown-status {
   padding: 0.75rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   text-align: center;
   display: flex;
@@ -394,12 +421,12 @@
   border: none;
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   outline: none;
   flex: 1 1 auto;
   min-width: 0;
   align-self: stretch;
-  line-height: 1;
+  line-height: var(--lh-none);
   padding: 0;
   margin: 0;
 }
@@ -408,8 +435,8 @@
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  font-size: 0.75rem;
-  line-height: 1;
+  font-size: var(--fs-xs);
+  line-height: var(--lh-none);
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -434,8 +461,8 @@
 }
 
 .project-label {
-  font-size: 0.8rem;
-  line-height: 1;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-none);
   white-space: nowrap;
   color: var(--text-muted);
 }
@@ -451,7 +478,7 @@
   padding: 0 0.75rem;
   outline: none;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   max-width: 200px;
 }
 
@@ -507,7 +534,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: 1;
+  line-height: var(--lh-none);
   border: none;
   background: transparent;
   cursor: pointer;
@@ -566,14 +593,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
   color: var(--accent);
 }
 
 .avatar-initials {
-  line-height: 1;
-  letter-spacing: 0.02em;
+  line-height: var(--lh-none);
+  letter-spacing: var(--ls-wide);
   text-transform: uppercase;
   user-select: none;
 }
@@ -586,9 +613,9 @@
 }
 
 .top-user-name {
-  font-weight: 600;
-  font-size: 0.85rem;
-  line-height: 1.2;
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  line-height: var(--lh-tight);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -596,7 +623,7 @@
 }
 
 .top-user-lab {
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -629,7 +656,7 @@
 
 .dropdown-item {
   padding: 0.5rem 1rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -651,11 +678,11 @@
 
 .dropdown-item.header-item strong {
   color: var(--text-primary);
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .dropdown-item.header-item span {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
@@ -669,8 +696,8 @@
   background: rgba(76, 141, 255, 0.12);
   color: var(--accent);
   border: 1px solid rgba(76, 141, 255, 0.25);
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   padding: 0.25rem 0.6rem;
   border-radius: 4px;
   max-width: 180px;

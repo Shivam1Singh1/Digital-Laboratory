@@ -173,12 +173,6 @@ watch(() => userStore.currentProject, () => {
   currentPage.value = 1
 })
 
-const formatDate = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-}
-
 // A team is identified by its ID, since the same function/project/member set
 // can legitimately exist many times over.
 const memberPreview = (t) => {
@@ -410,6 +404,11 @@ onMounted(async () => {
                 <td>
                   {{ t.team_name }}
                   <span class="role-tag" :class="t.role">{{ t.role }}</span>
+                  <!-- Only ever appears on a head's row: get_my_teams drops an
+                       archived team from a participant's list entirely, so
+                       nobody else has one to mark. Same tag convention as the
+                       role beside it. -->
+                  <span v-if="t.is_archived" class="role-tag archived">archived</span>
                 </td>
                 <td>{{ t.project_id || t.project }}</td>
                 <td class="count-col">
@@ -432,7 +431,7 @@ onMounted(async () => {
           >
             Previous
           </button>
-          <span class="pagination-info" style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">
+          <span class="pagination-info" style="font-size: var(--fs-lg); color: var(--text-muted); font-weight: var(--fw-medium);">
             Page {{ currentPage }} of {{ totalPages }}
           </span>
           <button 

@@ -9,8 +9,13 @@ def get_workflow_actions(doctype, docname):
     """
     if not doctype or not docname:
         frappe.throw("Doctype and Docname are required parameters")
-        
+
     doc = frappe.get_doc(doctype, docname)
+    # get_transitions filters by role, so the *actions* were never over-shared -
+    # but frappe.get_doc does not consult the has_permission hook, so answering at
+    # all confirmed a document exists and named its workflow state to anyone who
+    # guessed an ID. The read check makes the reply match what the caller may see.
+    doc.check_permission("read")
     transitions = get_transitions(doc)
     
     return [

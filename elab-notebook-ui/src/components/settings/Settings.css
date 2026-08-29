@@ -1,0 +1,361 @@
+/* Settings.
+ *
+ * .btn, .avatar-img and the type scale come from style.css; .spinner and its
+ * .btn-spinner modifier from styles/list-page.css. Only what is specific to this
+ * page is defined here, and every colour is a theme token so the page follows
+ * the day/night switch it itself operates.
+ */
+
+/* .main-workspace is overflow:hidden, so the page has to scroll itself or it is
+   clipped with no scrollbar - the same note SampleList.css and SampleDetail.css
+   carry. */
+.settings-container {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* A column flex container makes its children shrinkable by default, so the cards
+   would compress to fit rather than let the page scroll. Pin them at their
+   natural height. */
+.settings-container > * {
+  flex-shrink: 0;
+}
+
+/* ExperimentForm.css defines a global .btn at 0.875rem/1.75rem with a 1rem font,
+   which on this page makes an ordinary "Change photo" read like a call to
+   action. Compacted the same way TemplateDetail.css and SampleDetail.css do,
+   scoped here and compounded so it outranks that global. */
+.settings-container .btn.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: var(--fs-lg);
+  border-radius: 6px;
+}
+
+.settings-container .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------------------------- cards */
+
+.settings-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.settings-card-title {
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-widest);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 1.25rem;
+}
+
+.settings-card-note {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  color: var(--text-muted);
+  margin: -0.85rem 0 1.25rem;
+}
+
+/* ------------------------------------------------------------------ identity */
+
+.settings-identity {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.settings-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background-color: var(--bg-elevated);
+  /* A ring rather than a border: it reads as a frame around the photo instead of
+     a hairline that the round crop keeps cutting. */
+  box-shadow: 0 0 0 3px var(--bg-surface), 0 0 0 4px var(--border);
+}
+
+/* Belt and braces. The round crop relies on .avatar-img (style.css) being on the
+   photo; if that class is ever dropped, an unstyled <img> renders at its natural
+   pixel size and bursts the card. Pinning the size on the element itself means
+   the frame holds whatever the markup does. */
+.settings-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  object-fit: cover;
+}
+
+.settings-avatar-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent);
+  color: var(--bg-primary);
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--ls-tight);
+}
+
+.settings-identity-body {
+  flex: 1;
+  min-width: min(15rem, 100%);
+}
+
+/* h3 inherits the global heading ladder; the name is the loudest thing in the
+   card, so it takes the page-title step rather than the subheading one. */
+.settings-name {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-tighter);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-role {
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  margin: 0.2rem 0 0;
+}
+
+/* The real control is the styled button beside it. Kept in the DOM rather than
+   display:none, which some browsers treat as unfocusable and skip. */
+.settings-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.settings-hint,
+.settings-msg {
+  font-size: var(--fs-xs);
+  line-height: var(--lh-normal);
+  margin: 0.6rem 0 0;
+  /* All three states occupy the same line, so the card does not jump height as
+     a save succeeds or fails. */
+  min-height: 1.2em;
+}
+
+.settings-hint { color: var(--text-muted); }
+.settings-msg { font-weight: var(--fw-semibold); }
+.settings-msg--error { color: var(--danger); }
+.settings-msg--ok { color: var(--success); }
+
+/* --------------------------------------------------------------------- facts */
+
+.settings-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1.15rem 1.5rem;
+  margin: 1.5rem 0 0;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.settings-facts > div { min-width: 0; }
+
+.settings-facts dt {
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-wider);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+}
+
+.settings-facts dd {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text-primary);
+  /* Emails and IDs are long and carry no spaces to break at. */
+  overflow-wrap: anywhere;
+  font-feature-settings: var(--font-numeric);
+}
+
+/* --------------------------------------------------------------------- theme */
+
+.settings-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+
+.settings-theme {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.settings-theme:hover { border-color: var(--accent); }
+
+.settings-theme:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-theme.active {
+  border-color: var(--accent);
+  background-color: var(--bg-elevated);
+}
+
+.settings-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Fixed colours, not tokens: these two chips are a picture of each theme, so
+   they must keep showing both whichever theme the page is currently in. */
+.settings-swatch--day {
+  background: linear-gradient(135deg, #ffffff 0 50%, #6d28d9 50% 100%);
+}
+
+.settings-swatch--night {
+  background: linear-gradient(135deg, #202230 0 50%, #9f84f1 50% 100%);
+}
+
+.settings-theme-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-theme-name {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-tight);
+}
+
+.settings-theme-desc {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* Reserves its space in both states, so selecting a theme does not shuffle the
+   text beside it. */
+.settings-tick {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.settings-theme.active .settings-tick { opacity: 1; }
+
+.settings-tick svg { width: 100%; height: 100%; display: block; }
+
+/* -------------------------------------------------------------------- toggle */
+
+.settings-toggle {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  cursor: pointer;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  /* label inherits the global label rule - small, semibold, tracked out and
+     uppercase-adjacent - which is right for a field name and wrong for a
+     sentence. Reset to body copy. */
+  font-size: var(--fs-md);
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--ls-normal);
+  line-height: var(--lh-normal);
+  color: var(--text-primary);
+  text-transform: none;
+}
+
+.settings-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0.1rem 0 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-toggle-text { display: flex; flex-direction: column; min-width: 0; }
+
+.settings-toggle-name {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+}
+
+.settings-toggle-desc {
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+  max-width: 52ch;
+}
+
+/* ------------------------------------------------------------------- sign out */
+
+.settings-signout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* The note sits inline with the button here rather than above the section. */
+.settings-signout .settings-card-note {
+  margin: 0;
+  flex: 1;
+  min-width: min(14rem, 100%);
+}
+
+.settings-signout .settings-card-note strong {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+/* Signing out is not destructive, but it is the one action on this page that
+   ends what you were doing - so it carries the warning colour on hover rather
+   than the accent every other control uses. */
+.settings-container .btn.settings-signout-btn:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}

@@ -26,13 +26,13 @@
 
 /* Table Specific Text Styles */
 .exp-title-cell {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
 }
 
 .exp-aim-cell {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   margin-top: 0.15rem;
 }

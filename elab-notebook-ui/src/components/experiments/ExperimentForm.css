@@ -30,8 +30,8 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   /* Never compressed to fit: a squeezed label is harder to read than a wrap. */
   flex-shrink: 0;
   padding: 1rem 1.5rem;
@@ -40,7 +40,7 @@
   position: relative;
   transition: all 0.2s ease;
   border-radius: 8px 8px 0 0;
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
 }
 
 .tab-btn:hover {
@@ -162,8 +162,8 @@
 }
 
 .pane-subtitle {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -186,8 +186,8 @@
 }
 
 .step-num {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   color: var(--accent);
 }
 
@@ -205,12 +205,12 @@
 }
 
 .step-heading {
-  font-size: 0.95rem;
+  font-size: var(--fs-xl);
   color: var(--text-primary);
 }
 
 .step-duration {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   background-color: var(--bg-surface);
   padding: 0.15rem 0.5rem;
@@ -219,14 +219,14 @@
 }
 
 .step-desc {
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   color: var(--text-muted);
-  line-height: 1.4;
+  line-height: var(--lh-heading);
   margin: 0;
 }
 
 .step-meta {
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   margin-top: 0.25rem;
   display: flex;
@@ -245,17 +245,17 @@
 /* Table inputs */
 .table-input {
   padding: 0.35rem 0.5rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .delete-row-btn {
   background: transparent;
   border: none;
   color: var(--danger);
-  font-size: 1.4rem;
+  font-size: var(--fs-4xl);
   cursor: pointer;
   padding: 0 0.5rem;
-  line-height: 1;
+  line-height: var(--lh-none);
   transition: transform 0.15s ease;
 }
 
@@ -273,8 +273,8 @@
   padding: 0.75rem !important;
   background-color: var(--bg-elevated);
   color: var(--text-muted);
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
   text-align: center;
   white-space: nowrap;
   border-radius: 4px;
@@ -318,13 +318,13 @@
 
 .dropdown-item strong {
   display: block;
-  font-size: 0.95rem;
+  font-size: var(--fs-xl);
   color: var(--text-primary);
 }
 
 .dropdown-item small {
   display: block;
-  font-size: 0.8rem;
+  font-size: var(--fs-sm);
   color: var(--text-muted);
   margin-top: 0.25rem;
 }
@@ -357,11 +357,11 @@
 .history-cell {
   padding: 0.4rem 1rem !important;
   text-align: left;
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-style: italic;
-  font-weight: 400;
-  letter-spacing: 0.3px;
+  font-weight: var(--fw-regular);
+  letter-spacing: var(--ls-wide);
 }
 
 
@@ -373,14 +373,14 @@
 }
 
 .form-label {
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
 }
 
 .form-control {
-  font-size: 1rem;
+  font-size: var(--fs-xl);
   padding: 0.875rem 1.125rem;
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -412,8 +412,8 @@
 textarea.form-control {
   resize: vertical;
   font-family: inherit;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  font-size: var(--fs-xl);
+  line-height: var(--lh-normal);
 }
 
 textarea.form-control.readonly {
@@ -454,7 +454,7 @@ textarea.form-control.readonly:focus {
   display: flex;
   gap: 0.5rem;
   margin-bottom: 0.35rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .breadcrumb-link {
@@ -478,15 +478,16 @@ textarea.form-control.readonly:focus {
 }
 
 .page-title {
-  font-size: 1.75rem;
-  font-weight: 800;
+  font-size: var(--fs-4xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
   color: var(--text-primary);
   margin: 0 0 0.25rem 0;
-  letter-spacing: -0.5px;
+  letter-spacing: var(--ls-tighter);
 }
 
 .page-subtitle {
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   margin: 0;
 }
@@ -509,11 +510,11 @@ textarea.form-control.readonly:focus {
   padding: 0.875rem 1.75rem;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   transition: all 0.2s ease;
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
   font-family: inherit;
 }
 
@@ -553,7 +554,7 @@ textarea.form-control.readonly:focus {
 .field-hint-error {
   color: var(--danger);
   font-style: normal;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 /* Recovery actions shown under the ELab Notebook field when the team-flow block
@@ -587,8 +588,8 @@ textarea.form-control.readonly:focus {
   border: 1px dashed var(--border);
   border-radius: 8px;
   color: var(--text-muted);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-normal);
 }
 
 .hierarchy-picker-head {
@@ -602,13 +603,13 @@ textarea.form-control.readonly:focus {
   flex: 1 1 auto;
   min-width: 0;
   padding: 0.55rem 0.85rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .hierarchy-pill {
   flex: 0 0 auto;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   padding: 0.25rem 0.6rem;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -657,13 +658,13 @@ textarea.form-control.readonly:focus {
 }
 
 .hierarchy-candidate-id {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 
 .hierarchy-candidate-sub {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;

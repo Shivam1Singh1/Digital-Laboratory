@@ -243,7 +243,7 @@ onMounted(() => {
           >
             Previous
           </button>
-          <span class="pagination-info" style="font-size: 0.875rem; color: var(--text-muted); font-weight: 500;">
+          <span class="pagination-info" style="font-size: var(--fs-lg); color: var(--text-muted); font-weight: var(--fw-medium);">
             Page {{ currentPage }} of {{ totalPages }}
           </span>
           <button 

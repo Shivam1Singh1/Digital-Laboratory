@@ -1,4 +1,8 @@
 import frappe
+from frappe import _
+
+from elab_notebook.permissions import has_bypass
+
 
 @frappe.whitelist()
 def get_current_user_profile():
@@ -52,6 +56,68 @@ def get_current_user_profile():
         "employee_name": (employee.employee_name if employee else None) or user_doc.full_name,
         "role": user_doc.get("designation") or "Laboratory Director"
     }
+
+# ---------------------------------------------------------------------------
+# Profile photo
+# ---------------------------------------------------------------------------
+#
+# Both endpoints below act on `frappe.session.user` and take no user argument.
+# That is the point: an endpoint that edits a profile is the classic place to
+# find a `user` parameter nobody checks, and the safest way not to have that bug
+# is to have no parameter to check. Changing somebody else's photo is not a
+# permission this app grants anyone, including a System Manager - the desk
+# already does that job properly.
+
+
+def _session_user_or_throw() -> str:
+	user = frappe.session.user
+	if not user or user == "Guest":
+		frappe.throw(_("You must be signed in to change your profile."), frappe.PermissionError)
+	return user
+
+
+@frappe.whitelist()
+def set_profile_photo(file_url):
+	"""Point the signed-in user's avatar at an image already uploaded to this site.
+
+	Two steps rather than one - the browser uploads through Frappe's own
+	`upload_file`, then names the result here - because uploading straight onto
+	the User record would need write access to User, which an Employee does not
+	have and should not be given just to change a picture.
+	"""
+	user = _session_user_or_throw()
+
+	file_url = (file_url or "").strip()
+	if not file_url:
+		frappe.throw(_("No image was supplied."))
+
+	# The field has to name a file this site actually holds. Left unchecked it
+	# would accept any string, including an address on someone else's server -
+	# which would turn every page that renders the avatar into a callback to it.
+	owner = frappe.db.get_value("File", {"file_url": file_url}, "owner")
+	if not owner:
+		frappe.throw(_("That image is not on file. Please upload it again."))
+
+	if owner != user and not has_bypass(user):
+		frappe.throw(
+			_("That image was uploaded by someone else."), frappe.PermissionError
+		)
+
+	frappe.db.set_value("User", user, "user_image", file_url)
+	return {"user_image": file_url}
+
+
+@frappe.whitelist()
+def remove_profile_photo():
+	"""Clear the signed-in user's avatar, falling the UI back to their initials.
+
+	The File record itself is left alone. It may be attached elsewhere, and a
+	profile page is not the right place to be deleting uploads from.
+	"""
+	user = _session_user_or_throw()
+	frappe.db.set_value("User", user, "user_image", None)
+	return {"user_image": None}
+
 
 @frappe.whitelist()
 def get_employee_scope(user=None):
@@ -131,13 +197,54 @@ def get_server_now():
     }
 
 
+# Where a user lands once Frappe's login page hands control back. Frappe's
+# `/login?redirect-to=` only accepts a same-site path, so this endpoint is the
+# hop that forwards on to the SPA.
+#
+# The destination used to be the literal `http://localhost:5173/` - the Vite dev
+# server - which meant a production login sent every user to a machine that is
+# not the server. It is read from site config so each site names its own, and
+# falls back to the app's own route rather than to somebody's laptop.
+SPA_URL_KEY = "elab_spa_url"
+SPA_URL_DEFAULT = "/elab"
+
+
 @frappe.whitelist(allow_guest=True)
 def login_redirect():
-    frappe.local.response.type = "redirect"
-    frappe.local.response.location = "http://localhost:5173/"
+    """Forward a freshly-logged-in user to the SPA.
 
-@frappe.whitelist()
+    Stays `allow_guest` because it is reachable in the window around login, where
+    refusing a guest would replace the redirect with a 403 page. It reads nothing
+    and writes nothing; the only thing it discloses is the destination, which is
+    site configuration rather than data.
+    """
+    frappe.local.response.type = "redirect"
+    frappe.local.response.location = frappe.conf.get(SPA_URL_KEY) or SPA_URL_DEFAULT
+
+
 def setup_db():
+    """One-time bootstrap of the doctypes this app grew out of.
+
+    DELIBERATELY NOT WHITELISTED. Do not put `@frappe.whitelist()` back on it.
+
+    Everything below runs with `ignore_permissions=True` and ends in an explicit
+    commit, and a good deal of it rewrites *permission rows* rather than data: it
+    grants the `All` role submit/cancel/amend on Experiment Team, grants
+    `Employee` full rights on Sample, and strips submit/cancel/amend off Lab
+    Experiment Template. While it was whitelisted, any authenticated user could
+    invoke that with a single POST and hand themselves rights the doctypes do not
+    otherwise give them - a privilege escalation dressed up as a setup script.
+
+    It is a bootstrap, not an API: nothing in the app calls it, and its remaining
+    use is a one-off from a trusted console -
+
+        bench --site <site> execute \\
+            elab_notebook.elab_notebook.api.user.setup_db
+
+    which runs as Administrator and needs no HTTP surface. New schema belongs in
+    the doctype JSON and a patch (see patches/v1_0/), the way Lab Experiment is
+    already done - note block 3 below, which was retired for exactly that reason.
+    """
     print("1. Creating Child DocTypes...")
 
     # 1. Template Ingredient
@@ -209,7 +316,7 @@ def setup_db():
 
     print("\n2. Updating Experiment Template...")
     # Ensure fields exist on Experiment Template and make it non-submittable
-    parent_temp = frappe.get_doc("DocType", "Experiment Template")
+    parent_temp = frappe.get_doc("DocType", "Lab Experiment Template")
     parent_temp.is_submittable = 0
     
     # Ensure no submit/cancel/amend permissions exist for both roles

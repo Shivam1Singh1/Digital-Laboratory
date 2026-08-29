@@ -31,8 +31,8 @@
   gap: 0.5rem;
   padding: 0.55rem 1rem;
   border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid transparent;
@@ -93,9 +93,9 @@
 .templates-table .workflow-state-badge {
   margin-left: 0;
   white-space: nowrap;
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   padding: 0.2rem 0.5rem;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--ls-wide);
 }
 
 
@@ -105,13 +105,13 @@
 }
 
 .template-main-name {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
 }
 
 .template-id {
-  font-size: 0.75rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   font-family: var(--mono);
   margin-top: 0.15rem;
@@ -123,18 +123,18 @@
   border-radius: 4px;
   background-color: rgba(76, 141, 255, 0.1);
   color: var(--accent);
-  font-size: 0.75rem;
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
 }
 
 .status-badge {
   display: inline-block;
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--ls-wide);
 }
 
 .status-badge.active {
@@ -154,8 +154,8 @@
 
 .use-count,
 .experiment-count {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-xl);
   color: var(--text-primary);
 }
 
@@ -177,8 +177,8 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -253,8 +253,8 @@
 }
 
 .modal-header h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -262,7 +262,7 @@
 .modal-close-btn {
   background: transparent;
   border: none;
-  font-size: 1.5rem;
+  font-size: var(--fs-4xl);
   color: var(--text-muted);
   cursor: pointer;
 }
@@ -286,7 +286,7 @@
   background-color: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
 }
 
 .summary-label {
@@ -299,8 +299,8 @@
 
 .summary-version {
   color: var(--accent);
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
 }
 
 /* Forms styling */
@@ -320,10 +320,10 @@
 }
 
 .form-label {
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
 }
 
@@ -333,7 +333,7 @@
   border-radius: 6px;
   padding: 0.55rem 0.75rem;
   color: var(--text-primary);
-  font-size: 0.875rem;
+  font-size: var(--fs-lg);
   outline: none;
   transition: border-color 0.2s;
   width: 100%;
@@ -362,12 +362,12 @@
 .workflow-state-badge {
   display: inline-flex;
   align-items: center;
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   padding: 0.2rem 0.6rem;
   border-radius: 50px;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--ls-wide);
   border: 1px solid transparent;
 }
 

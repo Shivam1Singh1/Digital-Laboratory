@@ -31,14 +31,14 @@
 .tree-status {
   padding: 1.25rem;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
 }
 
 .tree-alert {
   padding: 0.7rem 0.95rem;
   border-radius: 8px;
-  font-size: 0.85rem;
-  line-height: 1.45;
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
 }
 
 .tree-alert-error {
@@ -71,7 +71,7 @@
   margin: 0;
   flex: 1 1 auto;
   min-width: 12rem;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
 }
 
@@ -100,8 +100,8 @@
   gap: 0.35rem;
   padding: 0.3rem 0.55rem;
   font-family: inherit;
-  font-size: 0.78rem;
-  font-weight: 500;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
   white-space: nowrap;
   border: none;
   border-radius: 5px;
@@ -143,7 +143,7 @@
    .btn-sm in the app changes size as a side effect. */
 .tree-toolbar-actions .btn.btn-sm {
   padding: 0.3rem 0.7rem;
-  font-size: 0.78rem;
+  font-size: var(--fs-sm);
   border-radius: 5px;
   white-space: nowrap;
 }
@@ -175,14 +175,14 @@
 
 .tree-picker-title {
   margin: 0;
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 
 .tree-selected-pill {
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
   padding: 0.22rem 0.6rem;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--accent) 18%, transparent);
@@ -192,9 +192,9 @@
 
 .tree-hint {
   margin: 0 0 0.7rem;
-  font-size: 0.76rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
-  line-height: 1.45;
+  line-height: var(--lh-normal);
 }
 
 .tree-filter {
@@ -209,7 +209,7 @@
   background-color: var(--bg-surface);
   color: var(--text-primary);
   font-family: inherit;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -228,7 +228,7 @@
   border: 1px dashed var(--border);
   border-radius: 8px;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   text-align: center;
 }
 
@@ -274,13 +274,13 @@
 }
 
 .tree-candidate-id {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 
 .tree-candidate-sub {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -461,7 +461,7 @@ a.tree-node:focus-visible {
 }
 
 .tree-node-current .tree-row-id {
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   color: var(--accent);
 }
 
@@ -499,8 +499,8 @@ a.tree-node:focus-visible {
 /* What a collapsed branch is hiding, so the row is worth reopening. */
 .tree-child-count {
   flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -509,18 +509,18 @@ a.tree-node:focus-visible {
    secondary to the row's id and title, and neither should read as a status. */
 .tree-sample-count {
   flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   white-space: nowrap;
 }
 
 .tree-cat-badge {
   flex: 0 0 auto;
-  font-size: 0.63rem;
-  font-weight: 700;
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--ls-wider);
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
   border: 1px solid var(--border);
@@ -542,13 +542,13 @@ a.tree-node:focus-visible {
 }
 
 .tree-row-id {
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
 }
 
 .tree-row-title {
-  font-size: 0.74rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -557,10 +557,10 @@ a.tree-node:focus-visible {
 
 .tree-you-are-here {
   flex: 0 0 auto;
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--accent);
 }
 
@@ -570,8 +570,8 @@ a.tree-node:focus-visible {
   align-self: center;
   margin-right: 0.7rem;
   font-family: inherit;
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   padding: 0.24rem 0.55rem;
   border-radius: 5px;
   border: 1px solid var(--border);
@@ -595,10 +595,10 @@ a.tree-node:focus-visible {
 
 .tree-state {
   flex: 0 0 auto;
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--ls-wider);
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   white-space: nowrap;
@@ -646,15 +646,15 @@ a.tree-node:focus-visible {
   border: 1px solid var(--border);
   border-radius: 8px;
   background-color: var(--bg-primary);
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
 }
 
 .tree-legend-label {
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 700;
-  font-size: 0.65rem;
+  letter-spacing: var(--ls-wider);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-3xs);
 }
 
 .tree-legend-item {

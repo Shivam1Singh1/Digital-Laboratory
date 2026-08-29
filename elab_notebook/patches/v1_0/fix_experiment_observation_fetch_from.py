@@ -29,7 +29,7 @@ def execute():
 
 	target = frappe.db.get_value(
 		"DocField",
-		{"parent": "Experiment Template", "fieldname": "observation_comments"},
+		{"parent": "Lab Experiment Template", "fieldname": "observation_comments"},
 		"name",
 	)
 	if not target:

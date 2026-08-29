@@ -18,13 +18,23 @@ Authorisation passes on either condition:
 import frappe
 from frappe import _
 
-from elab_notebook.permissions import has_bypass
+from elab_notebook.permissions import STATUS_ACTIVE, has_bypass
 
 
 def is_authorized_for_project(user: str, project: str, employee_function: str | None = None) -> bool:
 	"""True when `user` may create Experiments for `project`.
 
 	Shared with the UI so the button state and the server gate cannot drift.
+
+	Archived teams authorise nobody - not their participants and not their head.
+	An archived team is closed for new work, and a rule that only removed it from
+	the picker would be a rule the REST API could walk straight past, which is not
+	how any other scoping rule in this app works. It is applied to the team lookup
+	rather than to either branch below, so both routes to authorisation - being a
+	participant, and heading the function - are narrowed by the same filter.
+
+	Only new work is affected: the gate runs on before_insert, so experiments
+	already filed under a team stay readable and editable after it is archived.
 	"""
 	if not project:
 		return False
@@ -32,7 +42,7 @@ def is_authorized_for_project(user: str, project: str, employee_function: str | 
 	if has_bypass(user):
 		return True
 
-	filters = {"project": project}
+	filters = {"project": project, "status": STATUS_ACTIVE}
 	if employee_function:
 		filters["employee_function"] = employee_function
 
@@ -93,6 +103,20 @@ def validate_experiment_participant(doc, method=None):
 			title=_("Not Authorized"),
 		)
 
+	# There are teams, but none of them is open. Said separately, because the
+	# generic message below tells the user to ask to be added to a team - and
+	# being added to an archived team would not help them.
+	if not frappe.get_all(
+		"Experiment Team", filters={"project": project, "status": STATUS_ACTIVE}, limit=1
+	):
+		frappe.throw(
+			_("Every Experiment Team for project {0}{1} is Archived, so no new experiments "
+			  "can be created under it. Ask the Employee Function head to reopen a team."
+			  ).format(frappe.bold(project), scope),
+			frappe.PermissionError,
+			title=_("Team Archived"),
+		)
+
 	frappe.throw(
 		_("You are not authorized to create experiments for this project. "
 		  "Ask the Employee Function head to add you to the team for {0}."
@@ -115,7 +139,7 @@ def validate_experiment_fields(doc, method=None):
 	if template_name:
 		if not doc.get("employee_function") or not doc.get("project"):
 			tmpl_fields = frappe.db.get_value(
-				"Experiment Template", 
+				"Lab Experiment Template", 
 				template_name, 
 				["employee_function", "project"], 
 				as_dict=True

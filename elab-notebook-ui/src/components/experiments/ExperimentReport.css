@@ -2,27 +2,47 @@
  *
  * Every class here is `rep-`-prefixed and defined in this file, for the reason
  * spelled out in ExperimentTree.css: component CSS is bundled globally in this
- * app, so a shared name picks up whichever definition landed last. Only `.btn*`
- * and `.font-mono` are borrowed from style.css, which is always loaded.
+ * app, so a shared name picks up whichever definition landed last. Only
+ * `.font-mono` is borrowed from style.css, which is always loaded.
  */
 
 .experiment-report {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+
+  /* One colour per level of hierarchy.py CATEGORIES, in that order - the same
+     palette ExperimentTree.css gives its dots, so a level is the same colour in
+     both views.
+   *
+     Restated rather than shared: the tree's block is scoped to
+     `.experiment-tree`, and the only ways to reach it from here are to widen
+     that selector, which would leak every tree variable into every component, or
+     to lift the palette to :root, which would put five names into the global
+     namespace for two consumers. Two mirrored blocks is the smaller cost - and
+     the light-theme line below is the reason the mirror has to be exact. */
+  --tree-dot-master: var(--warning);
+  --tree-dot-experiment: #60a5fa;
+  --tree-dot-sub: var(--success);
+  --tree-dot-subsub: var(--accent-2);
+  --tree-dot-other: var(--text-muted);
+}
+
+:root.light-theme .experiment-report {
+  --tree-dot-experiment: #2563eb; /* darkened for contrast on white surfaces */
 }
 
 .rep-status {
   padding: 1.25rem;
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
 }
 
 .rep-alert {
   padding: 0.7rem 0.95rem;
   border-radius: 8px;
-  font-size: 0.85rem;
-  line-height: 1.45;
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
   background-color: color-mix(in srgb, var(--danger) 12%, transparent);
   border: 1px solid var(--danger);
   color: var(--danger);
@@ -42,25 +62,83 @@
 
 .rep-title {
   margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
 }
 
 .rep-sub {
   margin: 0.25rem 0 0;
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
 }
 
-.rep-ancestry {
-  margin: 0;
-  font-size: 0.78rem;
-  color: var(--text-muted);
+/* Hierarchy -------------------------------------------------------------- */
+
+/* One flat, scrollable column of cards. Depth is drawn rather than nested: the
+   nodes arrive flat from get_full_subtree_report, already in reading order, and
+   each carries the `depth` that positions it.
+
+   The step and the rail offset are ExperimentTree.css's values, so a level sits
+   at the same x in the report as it does in the hierarchy tab. Depth is clamped
+   at 4 in the template - past that the deepest indent repeats rather than
+   marching off the right edge. */
+.rep-nodes {
+  --rep-indent: 1.5rem;
+  --rep-rail: 0.75rem; /* the rail's x inside its column: half of the indent */
+  --rep-line: color-mix(in srgb, var(--accent) 38%, var(--border));
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
 }
 
-.rep-ancestor {
-  margin-left: 0.35rem;
+.rep-node {
+  position: relative;
+  padding-left: calc(var(--rep-depth, 0) * var(--rep-indent));
+}
+
+/* One rail per level above this node. It runs up through the gap to the card
+   before it, so a run of siblings reads as one branch; nothing extends below,
+   so the last child of a branch ends where its card ends. */
+.rep-guide {
+  position: absolute;
+  left: calc(var(--rep-guide-index) * var(--rep-indent) + var(--rep-rail));
+  top: -0.6rem;
+  bottom: 0;
+  border-left: 1px solid var(--rep-line);
+}
+
+/* Category colour + texture ----------------------------------------------- */
+
+/* One --rep-cat per level, set on the node and used twice: by the card's left
+   rail and by its category badge. Defining it once is what stops the two from
+   drifting - a level is one colour, in one place.
+ *
+ * Colour alone, and every rail solid. An earlier pass also gave each level a
+ * pattern - hatched, dashed, dotted - so the level stayed readable without
+ * colour. It read as a broken border rather than as an encoding, which is worse
+ * than the problem it solved: the level is already named in full on the badge
+ * beside it, so nothing depends on telling the rails apart by eye. */
+.rep-cat-master {
+  --rep-cat: var(--tree-dot-master);
+}
+
+.rep-cat-experiment {
+  --rep-cat: var(--tree-dot-experiment);
+}
+
+.rep-cat-sub {
+  --rep-cat: var(--tree-dot-sub);
+}
+
+.rep-cat-subsub {
+  --rep-cat: var(--tree-dot-subsub);
+}
+
+/* A run with no category, or one this app does not know. Muted: it is not a
+   fifth level, it is a level that is missing. */
+.rep-cat-other {
+  --rep-cat: var(--tree-dot-other);
 }
 
 /* Cards ------------------------------------------------------------------ */
@@ -68,60 +146,39 @@
 .rep-card {
   padding: 0.9rem 1.05rem;
   border: 1px solid var(--border);
-  border-left-width: 3px;
+  /* The level rail: one unbroken line in the level's own colour, running the
+     full height of the card. */
+  border-left-width: 4px;
+  border-left-color: var(--rep-cat);
   border-radius: 10px;
   background-color: var(--bg-surface);
 }
 
-/* Depth shading, now on the node wrapper rather than the card: the card is
-   nested inside its parent's children container, so the depth class has to sit
-   on the thing that contains both the card and its children. Clamped at d4 in
-   the template - past that the deepest style repeats rather than fading out. */
-/* The root is the run whose page this is, so it is given a border on all four
-   sides and a lift off the page rather than the single accent rail the levels
-   below it carry. In a deep report every card looks alike, and the one you
-   navigated from is the one worth being able to find without reading ids. */
+/* Depth now shades the card's *fill* only. The left rail used to fade with
+   depth as well, which made it a second, weaker encoding of the same thing the
+   indent already says - and it left nothing to say which level a card is. That
+   job moved to the category rail above, which is the more useful of the two: in
+   a tree where levels nest in order they agree anyway, and where a branch skips
+   a level the rail is right and a depth fade would not be.
+
+   The root is the run whose page this is, so it keeps its ring and its lift off
+   the page. In a deep report every card looks alike, and the one you navigated
+   from is worth finding without reading ids. `border-left-color` is restated
+   because the shorthand `border-color` above it would otherwise repaint the
+   level rail in the ring's accent. */
 .rep-node-d0 > .rep-card {
   border-color: var(--accent);
+  border-left-color: var(--rep-cat);
   border-width: 2px;
-  border-left-width: 3px;
+  border-left-width: 4px;
   background-color: color-mix(in srgb, var(--accent) 7%, var(--bg-surface));
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-.rep-node-d1 > .rep-card {
-  border-left-color: color-mix(in srgb, var(--accent) 70%, transparent);
-}
-
-.rep-node-d2 > .rep-card {
-  border-left-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  background-color: var(--bg-primary);
-}
-
-.rep-node-d3 > .rep-card {
-  border-left-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  background-color: var(--bg-primary);
-}
-
+.rep-node-d2 > .rep-card,
+.rep-node-d3 > .rep-card,
 .rep-node-d4 > .rep-card {
-  border-left-color: color-mix(in srgb, var(--accent) 22%, transparent);
   background-color: var(--bg-primary);
-}
-
-/* Nesting. The indent is a margin on the children container, not a computed
-   per-card offset - each level indents relative to its own parent, so depth
-   comes out of the structure instead of being recalculated from a number. */
-.rep-children {
-  margin: 0.55rem 0 0 1.25rem;
-  padding-left: 0.9rem;
-  border-left: 2px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.rep-node + .rep-node {
-  margin-top: 0.6rem;
 }
 
 .rep-card-head {
@@ -141,15 +198,30 @@
 
 .rep-card-title {
   margin: 0;
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
-  line-height: 1.3;
+  line-height: var(--lh-snug);
 }
 
+/* The run's id, and the link to its own page in a new tab. Muted and
+   undecorated at rest so a column of these does not read as a wall of links -
+   the card's title is what the eye should land on. `width: fit-content` keeps
+   the hit area on the text: the titles column is a flex column, so a bare <a>
+   would stretch to its full width and swallow clicks either side of the id. */
 .rep-card-id {
-  font-size: 0.72rem;
+  font-size: var(--fs-xs);
   color: var(--text-muted);
+  width: fit-content;
+  text-decoration: none;
+  border-bottom: 1px dotted color-mix(in srgb, var(--text-muted) 55%, transparent);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.rep-card-id:hover,
+.rep-card-id:focus-visible {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
 .rep-card-badges {
@@ -159,14 +231,23 @@
   gap: 0.35rem;
 }
 
-/* Category pills, coloured from the same --tree-dot-* tokens ExperimentTree
-   uses for its dots, so a level is the same colour in both views. */
+/* The parent's id, beside the badges. The indent already says where a card sits;
+   this says what it sits under, which an indent cannot once the page is long
+   enough to scroll its parent off the top. */
+.rep-card-parent {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* Category pills. One rule rather than four, because the colour is the node's
+   own --rep-cat token - the same one the rail is drawn from, so the pill and the
+   rail beside it are always the same colour by construction. */
 .rep-badge {
   display: inline-block;
   padding: 0.12rem 0.5rem;
   border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-semibold);
   white-space: nowrap;
   border: 1px solid transparent;
 }
@@ -183,33 +264,10 @@
   color: var(--bg-primary);
 }
 
-.rep-badge-master {
-  background-color: color-mix(in srgb, var(--tree-dot-master, var(--warning)) 18%, transparent);
-  border-color: color-mix(in srgb, var(--tree-dot-master, var(--warning)) 45%, transparent);
-  color: var(--tree-dot-master, var(--warning));
-}
-
-.rep-badge-experiment {
-  background-color: color-mix(in srgb, #60a5fa 18%, transparent);
-  border-color: color-mix(in srgb, #60a5fa 45%, transparent);
-  color: #60a5fa;
-}
-
-.rep-badge-sub {
-  background-color: color-mix(in srgb, var(--success) 18%, transparent);
-  border-color: color-mix(in srgb, var(--success) 45%, transparent);
-  color: var(--success);
-}
-
-.rep-badge-subsub {
-  background-color: color-mix(in srgb, var(--accent-2) 18%, transparent);
-  border-color: color-mix(in srgb, var(--accent-2) 45%, transparent);
-  color: var(--accent-2);
-}
-
-.rep-badge-other {
-  background-color: var(--bg-elevated);
-  color: var(--text-muted);
+.rep-badge-category {
+  background-color: color-mix(in srgb, var(--rep-cat) 18%, transparent);
+  border-color: color-mix(in srgb, var(--rep-cat) 45%, transparent);
+  color: var(--rep-cat);
 }
 
 .rep-badge-state {
@@ -217,77 +275,7 @@
   color: var(--text-muted);
 }
 
-.rep-badge-success {
-  background-color: color-mix(in srgb, var(--success) 16%, transparent);
-  border-color: color-mix(in srgb, var(--success) 40%, transparent);
-  color: var(--success);
-}
-
-/* Children toggle */
-.rep-children-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.8rem;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background-color: var(--bg-elevated);
-  color: var(--text-muted);
-  font-size: 0.75rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.rep-children-toggle:hover {
-  color: var(--accent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.rep-chevron {
-  display: inline-block;
-  transition: transform 0.15s ease;
-  font-size: 0.95rem;
-  line-height: 1;
-}
-
-.rep-chevron.open {
-  transform: rotate(90deg);
-}
-
-.rep-children-count {
-  min-width: 1.15rem;
-  padding: 0 0.3rem;
-  border-radius: 999px;
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-  text-align: center;
-  font-size: 0.7rem;
-}
-
-/* .rep-cat / .rep-id / .rep-current were the flat renderer's header pieces.
-   Replaced by .rep-badge-* and .rep-card-titles above and removed rather than
-   left behind, so the next reader does not have two header systems to choose
-   between. */
-
-.rep-card-title {
-  margin: 0.45rem 0 0;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
 /* Status pills ----------------------------------------------------------- */
-
-.rep-state {
-  padding: 0.12rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
 
 .rep-state-draft {
   background-color: color-mix(in srgb, var(--text-muted) 16%, transparent);
@@ -317,11 +305,6 @@
 
 /* Body ------------------------------------------------------------------- */
 
-/* .rep-meta / .rep-meta-item held the fixed Created-by / Status / Template
-   strip. Those are ordinary fields now and go through the same skip-if-empty
-   list as everything else, so a run with no template no longer shows a label
-   with nothing after it. */
-
 .rep-fields {
   display: flex;
   flex-direction: column;
@@ -333,21 +316,100 @@
 
 .rep-field-label {
   display: block;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-weight: 700;
+  letter-spacing: var(--ls-wider);
+  font-weight: var(--fw-bold);
   color: var(--text-muted);
   margin-bottom: 0.2rem;
 }
 
+/* Provenance note on a label, for the two comment fields that can carry the
+   template's text rather than the run's. Deliberately not uppercase: it is an
+   aside on the label, not part of it. */
+.rep-field-source {
+  margin-left: 0.4rem;
+  text-transform: none;
+  letter-spacing: var(--ls-normal);
+  font-weight: var(--fw-medium);
+  font-style: italic;
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
 .rep-field-value {
   margin: 0;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
   color: var(--text-primary);
   white-space: pre-wrap;
 }
+
+/* The placeholder for a field nobody filled in. Every section renders at every
+   node, so this is load-bearing: it is what makes "not recorded" visible rather
+   than leaving a label above a gap that reads as a rendering fault. */
+.rep-blank {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+/* Child tables ------------------------------------------------------------ */
+
+/* The scroll container, so a wide table scrolls inside its own card instead of
+   widening the page. `max-width: 100%` rather than a width: the wrapper must not
+   stretch a card that has nothing else wide in it. */
+.rep-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.rep-table {
+  width: 100%;
+  /* Below this the columns stop being readable and the wrapper scrolls instead,
+     which is the intended behaviour on a narrow card at depth. */
+  min-width: 32rem;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.rep-table th,
+.rep-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  line-height: var(--lh-normal);
+}
+
+.rep-table thead th {
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-elevated);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wider);
+  font-weight: var(--fw-bold);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* The last row's rule would double up with the wrapper's own border. */
+.rep-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* The row number, from the child row's own idx - the order the rows were
+   entered in, which for a methodology is part of the content. */
+.rep-table-idx {
+  width: 2.5rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rich text -------------------------------------------------------------- */
 
 /* Text Editor content arrives as markup and brings its own block elements. */
 .rep-rich {
@@ -428,8 +490,8 @@
   justify-content: center;
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
-  font-size: 0.7rem;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   user-select: none;
@@ -439,80 +501,14 @@
   content: none;
 }
 
-.rep-empty-body {
-  margin: 0.7rem 0 0;
-  font-size: 0.8rem;
-  font-style: italic;
-  color: var(--text-muted);
-}
-
-/* Not-yet-saved state, used by the create form's Report tab. */
+/* Not-yet-saved state, used by the create form's Report tab (ExperimentForm.vue)
+   rather than by this component - the report needs a saved run to roll up. */
 .rep-pending {
   padding: 1.5rem;
   border: 1px dashed var(--border);
   border-radius: 10px;
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.5;
-}
-
-/* Report scope switch. Sits above the loading state, so it stays usable while
-   the next scope loads rather than disappearing at the moment of the change. */
-.rep-scope-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-bottom: 1rem;
-}
-
-.rep-scope-label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-.rep-scope-options {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
-.rep-scope-btn {
-  padding: 0.3rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.rep-scope-btn:hover:not(:disabled) {
-  color: var(--text-primary);
-  background-color: var(--bg-elevated);
-}
-
-.rep-scope-btn.active {
-  background-color: var(--bg-elevated);
-  border-color: var(--accent, #a78bfa);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.rep-scope-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-/* The pruning notice. Deliberately not styled as an error - a curated report is
-   a normal thing to produce, it just must not be mistaken for a complete one. */
-.rep-scope-note {
-  margin: 0.4rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--text-muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
 }

@@ -43,6 +43,11 @@ _LOCK_EXEMPT = (
 
 _ROW_META = ("name", "owner", "parent", "modified", "creation", "parentfield", "parenttype")
 
+# Workflow states in which the whole record is frozen server-side. See
+# LabExperiment.validate_post_approval_lock for why `Start` is not among them
+# even though the UI treats it as read-only.
+_LOCKED_STATES = ("Sent for Approval", "Approved")
+
 _TERMINAL_STATES = ("Completed", "Failed")
 
 # Child tables that can receive rows cloned from an Experiment Template. Rows in
@@ -271,7 +276,7 @@ class LabExperiment(Document):
 			return
 
 		tmpl = frappe.db.get_value(
-			"Experiment Template",
+			"Lab Experiment Template",
 			template_name,
 			["employee_function", "project"],
 			as_dict=True,
@@ -510,14 +515,28 @@ class LabExperiment(Document):
 			)
 
 	def validate_post_approval_lock(self):
-		"""Once approved, the record is immutable - for everyone, lead included."""
+		"""Under review or approved, the record is immutable - for everyone, lead included.
+
+		`Sent for Approval` joined `Approved` when the workflow gained a review
+		step: a run that can still be edited while it sits with an approver means
+		the approver is not deciding on what they were sent.
+
+		The transitions out of these states are unaffected. `workflow_state` is in
+		_LOCK_EXEMPT, so the save that apply_workflow performs for Approve, Reject
+		or a resubmission compares equal on everything else and passes.
+
+		`Start` is deliberately NOT here even though the UI freezes it. Nothing has
+		been reviewed at that point, so there is no integrity claim to enforce -
+		and validate() still runs populate_from_template on a run in Start, which a
+		whole-document diff would read as an edit and refuse.
+		"""
 		if self.is_new():
 			return
 
 		db_state = frappe.db.get_value("Lab Experiment", self.name, "workflow_state") or frappe.db.get_value(
 			"Lab Experiment", self.name, "status"
 		)
-		if db_state != "Approved":
+		if db_state not in _LOCKED_STATES:
 			return
 
 		db_dict = frappe.get_doc("Lab Experiment", self.name).as_dict()
@@ -533,4 +552,10 @@ class LabExperiment(Document):
 						row.pop(key, None)
 
 		if db_dict != curr_dict:
-			frappe.throw(_("Approved experiments cannot be modified."))
+			# Names the state, because the two are refused for different reasons and
+			# only one of them is permanent.
+			if db_state == "Approved":
+				frappe.throw(_("Approved experiments cannot be modified."))
+			frappe.throw(
+				_("This run is with an approver and cannot be modified. Ask for it to be rejected first.")
+			)

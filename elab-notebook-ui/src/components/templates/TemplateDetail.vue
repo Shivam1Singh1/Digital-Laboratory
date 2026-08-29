@@ -14,7 +14,7 @@ import './TemplateDetail.css'
 const route = useRoute()
 const router = useRouter()
 
-const DOCTYPE = 'Experiment Template'
+const DOCTYPE = 'Lab Experiment Template'
 const TYPE_OPTIONS = [
   'R&D-Early Stage',
   'R&D-Analytical',
@@ -122,7 +122,7 @@ const loadHistory = async () => {
       params: {
         doctype: 'Version',
         filters: JSON.stringify({
-          ref_doctype: 'Experiment Template',
+          ref_doctype: 'Lab Experiment Template',
           docname: docName.value
         }),
         fields: JSON.stringify(['name', 'owner', 'creation', 'data']),

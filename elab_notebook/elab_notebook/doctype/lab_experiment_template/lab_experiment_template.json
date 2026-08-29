@@ -277,7 +277,7 @@
    "fieldtype": "Link",
    "label": "Amended From",
    "no_copy": 1,
-   "options": "Experiment Template",
+   "options": "Lab Experiment Template",
    "print_hide": 1,
    "read_only": 1
   },
@@ -352,7 +352,7 @@
  "modified": "2026-08-08 12:01:39.875711",
  "modified_by": "Administrator",
  "module": "Elab Notebook",
- "name": "Experiment Template",
+ "name": "Lab Experiment Template",
  "owner": "Administrator",
  "permissions": [
   {

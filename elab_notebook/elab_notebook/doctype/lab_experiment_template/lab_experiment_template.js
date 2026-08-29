@@ -1,4 +1,4 @@
-frappe.ui.form.on("Experiment Template", {
+frappe.ui.form.on("Lab Experiment Template", {
 	setup(frm) {
 		// Employee Function drives the form: the employee picks their function
 		// first, and the Project list is then scoped to that function's projects.

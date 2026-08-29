@@ -14,6 +14,19 @@
   "uom",
   "name_of_sample",
   "qty",
+  "sample_details_section",
+  "sample",
+  "batch_no",
+  "sample_detailsstage",
+  "test_to_be_performed",
+  "sample_vol",
+  "column_break_storage",
+  "warehouse",
+  "location",
+  "sampling_date",
+  "date_of_analysis",
+  "results",
+  "remarks",
   "comments",
   "rejection_reason",
   "amended_from"
@@ -41,25 +54,28 @@
    "read_only": 1
   },
   {
+   "description": "The Item this sample is of, when one exists. Optional: a run often yields a substance the item master has never heard of, and inventing an Item for it would put a record in the master that nothing stocks, costs or reports on. Leave it empty and give the substance a Name of Sample instead - nothing is created either way.",
    "fieldname": "item",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
-   "options": "Item",
-   "reqd": 1
+   "options": "Item"
   },
   {
+   "description": "Filled from the Item's stock UOM when one is picked. Typed by hand when there is no Item - which is why this is no longer read-only.",
    "fetch_from": "item.stock_uom",
+   "fetch_if_empty": 1,
    "fieldname": "uom",
    "fieldtype": "Link",
    "label": "UOM",
-   "options": "UOM",
-   "read_only": 1
+   "options": "UOM"
   },
   {
+   "description": "What the substance is called. Required when no Item is linked, so a sample always has one of the two - otherwise the row says only that something was produced.",
    "fieldname": "name_of_sample",
    "fieldtype": "Data",
-   "label": "Name of Sample"
+   "label": "Name of Sample",
+   "mandatory_depends_on": "eval:!doc.item"
   },
   {
    "fieldname": "qty",
@@ -67,6 +83,74 @@
    "in_list_view": 1,
    "label": "Qty",
    "reqd": 1
+  },
+  {
+   "description": "Carried over from the legacy Stock-module Sample doctype so a run's samples record the same things here as they did there. Field names, types and labels are that doctype's, unchanged, so existing exports and reports keep matching.",
+   "fieldname": "sample_details_section",
+   "fieldtype": "Section Break",
+   "label": "Sample Details"
+  },
+  {
+   "description": "Sample ID",
+   "fieldname": "sample",
+   "fieldtype": "Data",
+   "label": "Sample"
+  },
+  {
+   "fieldname": "batch_no",
+   "fieldtype": "Data",
+   "label": "Batch no."
+  },
+  {
+   "fieldname": "sample_detailsstage",
+   "fieldtype": "Data",
+   "label": "Sample Details/Stage"
+  },
+  {
+   "fieldname": "test_to_be_performed",
+   "fieldtype": "Data",
+   "label": "Test to be performed"
+  },
+  {
+   "description": "(μl) X Vials (Nos).",
+   "fieldname": "sample_vol",
+   "fieldtype": "Data",
+   "label": "Sample Vol."
+  },
+  {
+   "fieldname": "column_break_storage",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Data",
+   "label": "Location"
+  },
+  {
+   "fieldname": "sampling_date",
+   "fieldtype": "Date",
+   "label": "Sampling Date"
+  },
+  {
+   "fieldname": "date_of_analysis",
+   "fieldtype": "Date",
+   "label": "Date of Analysis"
+  },
+  {
+   "fieldname": "results",
+   "fieldtype": "Data",
+   "label": "Results"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "Remarks"
   },
   {
    "allow_on_submit": 1,

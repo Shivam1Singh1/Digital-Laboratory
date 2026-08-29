@@ -811,7 +811,13 @@ const loadTeamsForProject = async () => {
     // No filter for membership here: get_team_permission_query_conditions
     // already narrows the list to teams the user heads or belongs to, which is
     // the same gate LabExperiment.validate_participant applies on save.
-    const filters = { project: project.value }
+    //
+    // Status is filtered explicitly, because that one is not implied by the
+    // permission query: a head keeps seeing their archived teams, and this is
+    // the picker for creating new work, which an archived team no longer
+    // authorises. experiment_access.is_authorized_for_project applies the same
+    // filter server-side, so a team missing here would be refused on save too.
+    const filters = { project: project.value, status: 'Active' }
     if (employeeFunction.value) {
       filters.employee_function = employeeFunction.value
     }

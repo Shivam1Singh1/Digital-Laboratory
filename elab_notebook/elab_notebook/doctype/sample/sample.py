@@ -104,16 +104,27 @@ class Sample(Document):
 
 		workflow_state = frappe.db.get_value("Lab Experiment", self.experiment, "workflow_state")
 
-		# Allow Sample creation/edit in Running, Completed, or Pending Approval states
-		# Lock in Approved, Rejected, or Draft/Saved states.
-		# Only states Lab Experiment Flow can actually emit are listed - the old
-		# bare "Pending Approval" entry matched nothing.
-		allowed_states = ["Running", "Completed", "Pending Approval from System Manager"]
+		# States of "Lab Experiment Workflow". This list previously named the
+		# states of its predecessor - Running, Completed, Pending Approval from
+		# System Manager - and after that workflow was replaced it matched nothing
+		# any run could be in, so every Sample save threw while the button that
+		# started it stayed enabled.
+		#
+		# Blocked, and why:
+		#   Start             the run has not begun; there is nothing to sample yet
+		#   Sent for Approval the run is with an approver and is frozen while it is
+		#                     - adding a sample would change what is being reviewed
+		#   Rejected          corrections are the System Manager's to make first
+		#   Approved          finished and immutable
+		allowed_states = ["In Progress", "Completed", "Edit Completed"]
 
 		if workflow_state not in allowed_states:
 			frappe.throw(
-				_("Sample can only be created/edited when Experiment is in Running, Completed, or Pending Approval state. Current state: {0}").format(workflow_state),
-				title=_("Invalid Experiment State")
+				_(
+					"Samples can only be created or edited while the experiment is In Progress, "
+					"Completed, or Edit Completed. Current state: {0}"
+				).format(workflow_state),
+				title=_("Invalid Experiment State"),
 			)
 
 	def validate_comments_lock(self):

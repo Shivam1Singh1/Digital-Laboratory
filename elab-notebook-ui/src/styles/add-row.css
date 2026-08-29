@@ -22,9 +22,9 @@
   background-color: transparent;
   color: var(--text-muted);
   font-family: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.4;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-heading);
   white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s ease;

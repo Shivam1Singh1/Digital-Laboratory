@@ -34,6 +34,27 @@
   overflow: visible;
 }
 
+/* ExperimentForm.css defines a global .btn at 0.875rem/1.75rem with a 1rem font,
+   which makes the header actions loom over the page title. Compact them the same
+   way TemplateDetail.css does, scoped to this page and compounded so it outranks
+   the base .btn sizing. */
+.sample-detail-container .page-header-right {
+  gap: 0.5rem;
+}
+
+.sample-detail-container .page-header-right .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  border-radius: 6px;
+  height: 32px;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
 .subtitle-sep {
   margin: 0 0.5rem;
   color: var(--text-muted);
@@ -42,8 +63,8 @@
 .sample-detail-alert {
   padding: 0.7rem 0.95rem;
   border-radius: 8px;
-  font-size: 0.85rem;
-  line-height: 1.45;
+  font-size: var(--fs-md);
+  line-height: var(--lh-normal);
 }
 
 .sample-detail-alert-error {
@@ -72,10 +93,10 @@
 
 .sample-card-title {
   margin: 0 0 0.85rem;
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
 }
 
@@ -85,10 +106,10 @@
 
 /* Matches the warning colour used for the Approved/locked banners elsewhere. */
 .sample-lock-pill {
-  font-size: 0.65rem;
-  font-weight: 700;
+  font-size: var(--fs-3xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--warning) 18%, transparent);
@@ -112,17 +133,17 @@
 }
 
 .sample-field dt {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: var(--fs-2xs);
+  font-weight: var(--fw-bold);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-wider);
   color: var(--text-muted);
   margin-bottom: 0.25rem;
 }
 
 .sample-field dd {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   color: var(--text-primary);
   overflow-wrap: anywhere;
 }
@@ -130,7 +151,7 @@
 .sample-link {
   color: var(--accent);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
 }
 
 .sample-link:hover {
@@ -153,7 +174,7 @@
   border-radius: 8px;
   padding: 0.75rem 1rem;
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   font-family: inherit;
   outline: none;
   transition: all 0.2s ease;

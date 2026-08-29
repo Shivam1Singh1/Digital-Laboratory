@@ -17,6 +17,8 @@ to submit, because submitting a Stock Entry writes Stock Ledger Entries against
 live inventory and there is no clean way to take that back.
 """
 
+import json
+
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime
@@ -38,6 +40,24 @@ CONCLUDED_STATUS = "Completed"
 # choice: that purpose makes `work_order` apply, and an experiment has no Work
 # Order to name.
 STOCK_ENTRY_TYPE = "Material Consumption"
+
+# The rest of the Sample form, passed as one JSON blob by the SPA rather than as
+# eleven more arguments. An allowlist and not **kwargs onto the doc: a whitelisted
+# endpoint that copies whatever it is handed would let a caller set `docstatus`,
+# `owner` or `series` - the fields this app is careful about everywhere else.
+_SAMPLE_EXTRA_FIELDS = (
+	"sample",
+	"batch_no",
+	"sample_detailsstage",
+	"test_to_be_performed",
+	"sample_vol",
+	"warehouse",
+	"location",
+	"sampling_date",
+	"date_of_analysis",
+	"results",
+	"remarks",
+)
 
 
 def _experiment_for_generation(experiment_name: str):
@@ -84,10 +104,12 @@ def _samples_of(experiment_name: str) -> list[dict]:
 @frappe.whitelist()
 def add_sample(
 	experiment_name: str,
-	item: str,
+	item: str | None,
 	qty: float,
 	name_of_sample: str | None = None,
 	comments: str | None = None,
+	uom: str | None = None,
+	extra: str | None = None,
 ) -> dict:
 	"""Create one Sample against a run. Callable as many times as needed.
 
@@ -110,19 +132,54 @@ def add_sample(
 			title=_("Not Permitted"),
 		)
 
-	if not item:
-		frappe.throw(_("Pick the item this sample is of."), title=_("Item Required"))
+	# Either identifies the sample. `item` links it to the item master when the
+	# substance is already there; `name_of_sample` is the free-typed name for one
+	# that is not. Requiring `item` used to force the second case through the Item
+	# form, which meant a run could not record what it had made without first
+	# putting an Item in the master that nothing stocks, costs or reports on.
+	#
+	# Nothing here creates an Item. An `item` that does not exist is rejected by
+	# the Link field's own validation, as it should be - the free-text path is
+	# name_of_sample, not a half-made master record.
+	if not item and not (name_of_sample or "").strip():
+		frappe.throw(
+			_("Give this sample an item, or a name if it has no item yet."),
+			title=_("Item or Name Required"),
+		)
 	if flt(qty) <= 0:
 		frappe.throw(_("Quantity must be greater than zero."), title=_("Quantity Required"))
+
+	# json.loads, not frappe.parse_json: the SPA always sends a JSON object here,
+	# and a malformed one should say so rather than be coerced into a string that
+	# then fails the isinstance check below with a less useful message.
+	details = {}
+	if extra:
+		try:
+			details = json.loads(extra) if isinstance(extra, str) else dict(extra)
+		except (ValueError, TypeError):
+			frappe.throw(_("Could not read the sample's details."), title=_("Bad Request"))
+		if not isinstance(details, dict):
+			frappe.throw(_("Could not read the sample's details."), title=_("Bad Request"))
 
 	sample = frappe.get_doc(
 		{
 			"doctype": "Sample",
 			"experiment": doc.name,
-			"item": item,
+			"item": item or None,
 			"qty": flt(qty),
-			"name_of_sample": name_of_sample or None,
+			"name_of_sample": (name_of_sample or "").strip() or None,
+			# Left empty when an Item was picked: the field is fetch_if_empty, so
+			# Frappe fills it from the Item's stock UOM. Only a sample with no Item
+			# needs one supplied, and then it is whatever the user typed.
+			"uom": uom or None,
 			"comments": comments or None,
+			# Only the allowlisted keys, and only the ones that carry a value, so a
+			# blank box on the form leaves the field alone rather than writing "".
+			**{
+				key: value
+				for key in _SAMPLE_EXTRA_FIELDS
+				if (value := (details.get(key) or None)) is not None
+			},
 		}
 	)
 	sample.insert()
@@ -188,6 +245,21 @@ def get_stock_entry_prefill(experiment_name: str) -> dict:
 			"project": doc.project,
 			"custom_line_of_business": doc.cost_center,
 			"custom_cost_centre": doc.segment,
+			# Stock Entry carries four Employee Function links. This is the one on
+			# the Details tab, labelled "Employee Functions", and the one people
+			# actually fill - 1,978 of 6,646 entries on this site carry it.
+			#
+			# NOT the plainly-named `employee_function`, which matches this field's
+			# own name and was the obvious pick: it lives on the Accounting
+			# Dimensions tab and is used by 222 entries, so filling it put the value
+			# somewhere nobody had open and the form looked untouched.
+			"custom_employee_functions": doc.employee_function,
+			# Says where the entry came from on the document itself, so a Stock
+			# Entry found from the stock side is traceable back to the run without
+			# knowing that Lab Experiment.stock_entry exists.
+			"remarks": _("Raised from Lab Experiment {0}{1}").format(
+				doc.name, f" - {doc.title}" if doc.title else ""
+			),
 			# No s_warehouse: it is the one thing the user is being sent to the
 			# form to supply, and a guessed default would be worse than a blank
 			# - it would be a wrong warehouse nobody was asked to confirm.
@@ -196,6 +268,12 @@ def get_stock_entry_prefill(experiment_name: str) -> dict:
 					"item_code": r.item_code,
 					"qty": flt(r.qty),
 					"uom": r.uom or None,
+					# Not a copy of the header field for tidiness: on Stock Entry
+					# Detail `employee_function` sits under the Inventory Dimension
+					# section, so it is the row's value - not the parent's - that
+					# reaches the Stock Ledger Entry. Left blank it would post
+					# against no function at all.
+					"employee_function": doc.employee_function,
 				}
 				for r in rows
 			],

@@ -41,22 +41,23 @@
 }
 
 .modal-title {
-  font-size: 2rem;
-  font-weight: 800;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-snug);
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: var(--ls-tighter);
 }
 
 .modal-close {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 1.75rem;
+  font-size: var(--fs-5xl);
   cursor: pointer;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
-  line-height: 1;
+  line-height: var(--lh-none);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -88,14 +89,14 @@
 }
 
 .form-label {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
 }
 
 .form-control {
-  font-size: 1.05rem;
+  font-size: var(--fs-xl);
   padding: 1.125rem 1.5rem;
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -134,11 +135,11 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
 }
 
 .info-label {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   width: auto;
   min-width: auto;
@@ -146,8 +147,8 @@
 
 .info-value {
   color: var(--text-primary);
-  font-weight: 600;
-  letter-spacing: -0.3px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-tight);
 }
 
 /* Form Controls */
@@ -171,9 +172,9 @@
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 1.25rem;
+  font-size: var(--fs-3xl);
   cursor: pointer;
-  line-height: 1;
+  line-height: var(--lh-none);
   padding: 0.5rem;
   border-radius: 6px;
   transition: all 0.2s ease;
@@ -263,14 +264,14 @@
 }
 
 .item-title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   color: var(--text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
 }
 
 .item-meta {
-  font-size: 0.85rem;
+  font-size: var(--fs-md);
   color: var(--text-muted);
   margin-top: 0.5rem;
 }
@@ -278,7 +279,7 @@
 .empty-dropdown {
   padding: 2rem 1.25rem;
   text-align: center;
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   color: var(--text-muted);
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 100%);
 }
@@ -300,11 +301,11 @@
 }
 
 .details-title {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-bold);
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
 }
 
 .details-grid {
@@ -325,18 +326,18 @@
 }
 
 .detail-label {
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--fs-lg);
   min-width: 140px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: var(--ls-wider);
 }
 
 .detail-value {
   color: var(--text-primary);
-  font-weight: 500;
-  font-size: 1rem;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xl);
 }
 
 .detail-value-muted {
@@ -359,11 +360,11 @@
   padding: 1rem 2.5rem;
   border: none;
   border-radius: 8px;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   transition: all 0.2s ease;
-  letter-spacing: -0.3px;
+  letter-spacing: var(--ls-tight);
   font-family: inherit;
 }
 

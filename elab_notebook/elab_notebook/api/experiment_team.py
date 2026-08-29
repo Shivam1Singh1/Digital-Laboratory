@@ -15,7 +15,7 @@ from elab_notebook.elab_notebook.api.employee_function import (
 	get_projects_for_employee_function,
 )
 from elab_notebook.experiment_access import is_authorized_for_project
-from elab_notebook.permissions import has_bypass
+from elab_notebook.permissions import STATUS_ACTIVE, STATUS_ARCHIVED, has_bypass
 
 
 def _as_dict(value):
@@ -156,8 +156,19 @@ def save_team(employee_function: str, project: str, participants=None, team_name
 
 
 @frappe.whitelist()
-def update_team(team_id: str, participants=None, team_name: str | None = None, segment: str | None = None, cost_center: str | None = None):
-	"""Update team metadata: team_name, participants, segment, cost_center."""
+def update_team(team_id: str, participants=None, team_name: str | None = None, segment: str | None = None, cost_center: str | None = None, status: str | None = None):
+	"""Update team metadata: team_name, participants, segment, cost_center, status.
+
+	`status` rides this endpoint rather than getting a toggle of its own, so
+	archiving goes through the same doc.save() - and therefore the same
+	validate() - as every other edit to a team. In particular validate_head()
+	refuses the write outright if the caller is not the function's head, which is
+	the whole of the "only the head may archive" rule; there is no second check
+	here, because a second check is a second thing to keep in step.
+
+	Note this is the edit path, not save_team(): that one always creates a fresh
+	record and never looks an existing one up, so it has no status to change.
+	"""
 	doc = frappe.get_doc("Experiment Team", team_id)
 	doc.check_permission("write")
 
@@ -182,6 +193,11 @@ def update_team(team_id: str, participants=None, team_name: str | None = None, s
 		doc.segment = segment
 	if cost_center is not None:
 		doc.cost_center = cost_center
+	if status is not None:
+		# Left as given: validate_status() on the controller is what rejects a
+		# value that is neither Active nor Archived, so a bad one fails the same
+		# way whether it arrived from this endpoint or straight over REST.
+		doc.status = status
 
 	doc.save()
 	frappe.db.commit()
@@ -191,20 +207,28 @@ def update_team(team_id: str, participants=None, team_name: str | None = None, s
 		"team_name": doc.team_name,
 		"count": len(doc.participants),
 		"project": doc.project,
+		"status": doc.status,
 	}
 
 
 @frappe.whitelist()
 def get_my_teams():
-	"""Teams the user heads, plus the teams they participate in.
+	"""Teams the user heads, plus the ACTIVE teams they participate in.
 
 	A participant needs a route into the read-only detail view, so the list is
 	not head-only — each row carries the role that applies to it.
+
+	Archiving cuts the two roles apart. A head keeps their archived teams: they
+	are the only person who can reopen one, and a team that vanished from the
+	list of the person responsible for it could never be brought back. A
+	participant loses it, which is the point of archiving — the same line
+	get_team_permission_query_conditions draws, so the list and the permission
+	layer agree about what a participant can see.
 	"""
 	user = frappe.session.user
 	# Note: team_name field may not exist in database if migration hasn't run yet
 	# Try to select it, but fall back if column doesn't exist
-	fields = ["name", "employee_function", "project", "project_id", "modified", "segment", "cost_center"]
+	fields = ["name", "employee_function", "project", "project_id", "modified", "segment", "cost_center", "status"]
 
 	# Try to add team_name if column exists
 	try:
@@ -245,7 +269,9 @@ def get_my_teams():
 		member_teams = (
 			frappe.get_all(
 				"Experiment Team",
-				filters={"name": ("in", member_names)},
+				# Participant rows only. The headed list above is deliberately
+				# unfiltered - see the docstring.
+				filters={"name": ("in", member_names), "status": STATUS_ACTIVE},
 				fields=fields,
 				order_by="modified desc",
 			)
@@ -275,6 +301,13 @@ def get_my_teams():
 
 	for t in teams:
 		names = rosters.get(t.name, [])
+		# A row that predates the field reads as Active, matching
+		# permissions.is_team_active and the backfill patch.
+		t["status"] = t.get("status") or STATUS_ACTIVE
+		# Every archived row in this list belongs to a head by construction, so
+		# the flag is what the badge renders from - the participant's list has
+		# none to mark.
+		t["is_archived"] = t["status"] == STATUS_ARCHIVED
 		t["participant_count"] = len(names)
 		# Two teams can share a project and a member set, so the list shows a
 		# name preview alongside the ID to tell them apart at a glance.
@@ -331,6 +364,9 @@ def get_team_detail(team_name: str):
 		),
 		"is_head": is_head,
 		"can_edit": is_head,
+		# The radio pair on the detail page is gated on can_edit above - there is
+		# no separate "may archive" flag, because there is no separate rule.
+		"status": doc.status or STATUS_ACTIVE,
 		"docstatus": doc.docstatus,
 	}
 
@@ -370,7 +406,23 @@ def get_team_financials(project: str, employee_function: str, team: str | None =
 
 	The pair lookup stays as the fallback for callers that have not picked a team
 	yet, where any team of the pair is a better starting point than nothing.
+
+	Gated on the same rule that governs filing a run against the pair. Segment and
+	Cost Center are how a team's work is booked financially, and this answered for
+	any pair to any logged-in caller - including pairs in Employee Functions the
+	caller has no part in. The check is the project/function authorisation rather
+	than read permission on the team, because that is the question the caller is
+	actually asking: they are filling in a run for this pair, and if they may not
+	file one, the pair's cost coding is not theirs to read.
 	"""
+	if not is_authorized_for_project(frappe.session.user, project, employee_function):
+		frappe.throw(
+			_("You are not permitted to read financials for {0} / {1}.").format(
+				project, employee_function
+			),
+			frappe.PermissionError,
+		)
+
 	if team:
 		team_info = frappe.db.get_value(
 			"Experiment Team",
