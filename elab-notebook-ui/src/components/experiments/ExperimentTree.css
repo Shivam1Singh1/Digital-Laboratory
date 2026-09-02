@@ -1,22 +1,11 @@
-/* Experiment Tree
- *
- * Every class here is `tree-`-prefixed and defined in this file. The rest of
- * this app imports its component CSS globally, so a shared name like
- * `.search-box` or `.candidate` silently picks up whichever definition happened
- * to be bundled last - this component stays out of that entirely.
- *
- * Only `.btn*` and `.font-mono` are borrowed, and those live in style.css,
- * which is always loaded.
- */
+
 
 .experiment-tree {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 
-  /* One colour per level of hierarchy.py CATEGORIES, in that order. Three map
-     onto tokens that already carry the right hue; only blue has no token, so it
-     is the one literal here and the one thing the light theme restates. */
+
   --tree-dot-master: var(--warning);
   --tree-dot-experiment: #60a5fa;
   --tree-dot-sub: var(--success);
@@ -25,7 +14,7 @@
 }
 
 :root.light-theme .experiment-tree {
-  --tree-dot-experiment: #2563eb; /* darkened for contrast on white surfaces */
+  --tree-dot-experiment: #2563eb;
 }
 
 .tree-status {
@@ -53,7 +42,6 @@
   color: var(--success);
 }
 
-/* Toolbar ---------------------------------------------------------------- */
 
 .tree-toolbar {
   display: flex;
@@ -63,10 +51,7 @@
   gap: 0.75rem;
 }
 
-/* Grows into the space the smaller create button gave back, so the row reads as
-   a sentence with its controls after it rather than as text stranded opposite a
-   button. min-width is what makes it wrap instead of squeezing to a word a line
-   on a narrow pane. */
+
 .tree-summary {
   margin: 0;
   flex: 1 1 auto;
@@ -83,17 +68,14 @@
   gap: 0.5rem;
 }
 
-/* Expand/collapse sit closer to each other than to anything else in the bar:
-   the pair is one control, and the divider is what says the rest is not. */
+
 .tree-view-actions {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
 
-/* Icon plus label, so the pair is readable without hovering. Sized down from a
-   real button: these are view controls sitting next to the create action, and
-   matching its weight would make them compete with it. */
+
 .tree-view-btn {
   display: inline-flex;
   align-items: center;
@@ -128,19 +110,13 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
-/* Greyed rather than removed: the icon still names the move it would make, and
-   it stays hoverable so the tooltip keeps working. See the template comment. */
+
 .tree-view-btn[aria-disabled='true'] {
   opacity: 0.4;
   cursor: default;
 }
 
-/* The create action, sized to sit in the same band as the view controls beside
-   it. It already carries .btn-sm, but .btn-sm and .btn have equal specificity
-   and live in different files, so which one wins is decided by import order -
-   and .btn was winning, rendering this at full size. Compounded with .btn here
-   to settle it by specificity instead, and scoped to this toolbar so no other
-   .btn-sm in the app changes size as a side effect. */
+
 .tree-toolbar-actions .btn.btn-sm {
   padding: 0.3rem 0.7rem;
   font-size: var(--fs-sm);
@@ -156,7 +132,6 @@
   background-color: var(--border);
 }
 
-/* Attach picker ---------------------------------------------------------- */
 
 .tree-picker {
   border: 1px solid var(--accent);
@@ -294,22 +269,11 @@
   margin-top: 0.85rem;
 }
 
-/* Downward view ----------------------------------------------------------
- *
- * Drawn as a real tree: one guide column per ancestor level, each carrying the
- * trunk down past this row when that ancestor still has siblings pending, then
- * a tee or corner into the node itself.
- *
- * Rows are flush with no gap between them, which is what lets the vertical
- * segments meet across row boundaries - a gap here breaks every line in the
- * trunk. Indentation is the guide columns' own width, not a margin, so the
- * lines and the content cannot drift out of step.
- */
 
 .tree-rows {
   --tree-indent: 1.5rem;
-  --tree-rail: 0.75rem; /* line's x-offset inside its column: half of the indent */
-  --tree-toggle-w: 1.3rem; /* control and its leaf-row spacer share this width */
+  --tree-rail: 0.75rem;
+  --tree-toggle-w: 1.3rem;
   --tree-line: color-mix(in srgb, var(--accent) 38%, var(--border));
   list-style: none;
   margin: 0;
@@ -331,7 +295,7 @@
   position: relative;
 }
 
-/* The ancestor's trunk keeps running through this row. */
+
 .tree-guide-on::before {
   content: '';
   position: absolute;
@@ -346,7 +310,7 @@
   position: relative;
 }
 
-/* Corner into the node: down the rail, then across. */
+
 .tree-elbow::before {
   content: '';
   position: absolute;
@@ -359,7 +323,7 @@
   border-bottom-left-radius: 5px;
 }
 
-/* A tee, not a corner: more siblings follow, so the trunk continues below. */
+
 .tree-elbow:not(.tree-elbow-last)::after {
   content: '';
   position: absolute;
@@ -369,12 +333,6 @@
   border-left: 1px solid var(--tree-line);
 }
 
-/* Expand/collapse ---------------------------------------------------------
- *
- * Only rows with children get the control; the rest get a spacer of the same
- * width, so every node at one depth still starts at the same x. Both sit
- * between the trunk and the node, outside the row's link.
- */
 
 .tree-toggle,
 .tree-toggle-spacer {
@@ -407,8 +365,7 @@
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
-/* A border triangle rather than a glyph: it inherits the button's colour and
-   rotates about its own centre, which a text caret does not do predictably. */
+
 .tree-caret {
   width: 0;
   height: 0;
@@ -422,8 +379,7 @@
   transform: rotate(90deg);
 }
 
-/* The clickable node. A router-link on descendants, a plain span on the run
-   being viewed - there is nowhere to navigate to from yourself. */
+
 .tree-node {
   display: flex;
   align-items: center;
@@ -450,10 +406,7 @@ a.tree-node:focus-visible {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* The run being viewed. It is no longer the top row - the tree starts at the
-   root, so the current run can sit at any depth - which makes the highlight the
-   only thing marking it. Border, fill and a heavier id together, because at
-   depth three a tinted background alone is easy to miss. */
+
 .tree-node-current {
   border-color: var(--accent);
   background-color: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -465,9 +418,7 @@ a.tree-node:focus-visible {
   color: var(--accent);
 }
 
-/* Level dot. Redundant with the category badge beside it on purpose: the badge
-   is what you read, the dot is what you scan a deep tree by. Decorative, so it
-   is aria-hidden in the template and the badge carries the meaning. */
+
 .tree-dot {
   flex: 0 0 auto;
   width: 0.6rem;
@@ -496,7 +447,7 @@ a.tree-node:focus-visible {
   background-color: var(--tree-dot-other);
 }
 
-/* What a collapsed branch is hiding, so the row is worth reopening. */
+
 .tree-child-count {
   flex: 0 0 auto;
   font-size: var(--fs-2xs);
@@ -505,8 +456,7 @@ a.tree-node:focus-visible {
   white-space: nowrap;
 }
 
-/* What the run produced. Same weight as the child count deliberately - both are
-   secondary to the row's id and title, and neither should read as a status. */
+
 .tree-sample-count {
   flex: 0 0 auto;
   font-size: var(--fs-2xs);
@@ -564,7 +514,7 @@ a.tree-node:focus-visible {
   color: var(--accent);
 }
 
-/* Sits outside .tree-node so it stays a button inside a clickable row. */
+
 .tree-unlink-btn {
   flex: 0 0 auto;
   align-self: center;
@@ -591,7 +541,6 @@ a.tree-node:focus-visible {
   cursor: default;
 }
 
-/* Workflow state chips --------------------------------------------------- */
 
 .tree-state {
   flex: 0 0 auto;
@@ -630,12 +579,6 @@ a.tree-node:focus-visible {
   color: var(--danger);
 }
 
-/* Legend ------------------------------------------------------------------
- *
- * Last element of the tab, reading the dots above it. Every level is listed
- * whether or not this particular subtree contains one, so the key is the same
- * key on every run.
- */
 
 .tree-legend {
   display: flex;
@@ -663,11 +606,7 @@ a.tree-node:focus-visible {
   gap: 0.4rem;
 }
 
-/* Deep rows would otherwise push the id column off a narrow viewport. The rows
-   must not wrap - wrapping puts the node under its own guide columns and the
-   trunk stops lining up - so the indent tightens and .tree-rows scrolls
-   sideways instead. The state chip is what goes, being the one thing here also
-   shown in the page header. */
+
 @media (max-width: 720px) {
   .tree-rows {
     --tree-indent: 0.9rem;

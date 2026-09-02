@@ -8,9 +8,7 @@ from elab_notebook.permissions import is_function_head
 
 TEMPLATE_DOCTYPE = "Lab Experiment Template"
 
-# Review actions the Employee Function head may run in addition to the System Manager.
-# "Send For Approval" is deliberately absent: moving a Draft into review stays with the
-# author under the Employee role, exactly as the workflow already defines it.
+
 FUNCTION_HEAD_ACTIONS = frozenset({"Approve", "Reject", "Send Back for Correction"})
 
 
@@ -78,7 +76,7 @@ def approve_template(template_name, action):
             frappe.PermissionError,
         )
 
-    # Must be a real transition out of the *current* state, so states cannot be skipped.
+
     transition = next(
         (t for t in _head_transitions(doc, user) if t.action == action), None
     )
@@ -98,8 +96,7 @@ def approve_template(template_name, action):
             _("Workflow state {0} is not defined.").format(transition.next_state)
         )
 
-    # Every state in this workflow is a draft state. Guard rather than assume, so a
-    # future submit/cancel state fails loudly instead of being silently saved as draft.
+
     if cint(next_state.doc_status) != 0:
         frappe.throw(
             _("State {0} changes the document status and cannot be applied here.").format(
@@ -107,10 +104,7 @@ def approve_template(template_name, action):
             )
         )
 
-    # frappe's apply_workflow() re-checks the transition's `allowed` role inside
-    # validate_workflow() on save, which no ignore_permissions flag bypasses. The
-    # state is therefore written directly - a narrow, audited write of just the
-    # workflow field (plus any update_field the state declares).
+
     values = {workflow.workflow_state_field: transition.next_state}
     if next_state.update_field:
         values[next_state.update_field] = next_state.update_value
@@ -119,7 +113,7 @@ def approve_template(template_name, action):
 
     doc.reload()
     doc.add_comment("Workflow", _(next_state.state))
-    frappe.db.commit()
+
 
     return doc.get(workflow.workflow_state_field)
 
@@ -133,7 +127,7 @@ def get_experiment_templates(filters=None):
         if not filters:
             filters = {}
 
-        # Always exclude disabled templates and archived status
+
         if not isinstance(filters, dict):
             filters = {}
 
@@ -153,7 +147,7 @@ def get_experiment_templates(filters=None):
 
         frappe.logger().info(f"[get_experiment_templates] Found {len(templates)} templates")
 
-        # Calculate derived count of runs
+
         for t in templates:
             t["times_used"] = frappe.db.count("Lab Experiment", {"experiment_template": t.name})
             t["template_name"] = t.get("template_name") or t.get("title") or t.name
@@ -179,18 +173,7 @@ def get_template_detail(template_name):
     doc.check_permission("read")
     return doc.as_dict()
 
-# ---------------------------------------------------------------------------
-# Template -> Lab Experiment cloning
-# ---------------------------------------------------------------------------
-#
-# One mapping function, used by every path that clones a template. Previously
-# the UI hand-mapped these tables in ExperimentForm.vue while this module mapped
-# a different subset, so which rows existed depended on how the run was created.
-# Keeping the mapping here means `from_template` cannot be set inconsistently:
-# there is only one place that builds the rows.
-#
-# Field name is the Lab Experiment child field; value is (template child field,
-# [column names to copy]).
+
 TEMPLATE_CHILD_MAP = {
     "experiment_ingredients": (
         "template_ingredients",
@@ -284,7 +267,7 @@ def create_experiment_from_template(template_name, overrides=None):
 
     Kept as a supported entry point rather than deleted: the Vue form builds its
     document client-side and never calls this, but it is whitelisted API surface
-    for callers outside the UI (scripts, integrations, bench execute). It now
+    for callers outside the UI (scripts, integrations, server-side console). It now
     goes through _clone_template_children, so a run created here is identical to
     one created through the form - including the from_template flags, which
     previously it never set at all.
@@ -303,7 +286,7 @@ def create_experiment_from_template(template_name, overrides=None):
     temp_doc = frappe.get_doc(TEMPLATE_DOCTYPE, template_name)
     temp_doc.check_permission("read")
 
-    # Resolve top-level values
+
     aim = overrides.get("experiment_name") or overrides.get("title") or overrides.get("aim") or temp_doc.objective_hypothesis or temp_doc.aim or f"Run: {temp_doc.template_name or temp_doc.name}"
     sub_aim = overrides.get("sub_aim") or temp_doc.sub_aim or "Cloned from template"
     department = overrides.get("department") or temp_doc.department or ""
@@ -317,8 +300,8 @@ def create_experiment_from_template(template_name, overrides=None):
         "doctype": "Lab Experiment",
         "experiment_template": template_name,
         "template": template_name,
-        # `title` is the run's own name now (Data), not a Link back to the
-        # template - the template is already carried by the two fields above.
+
+
         "title": aim,
         "aim": aim,
         "sub_aim": sub_aim,
@@ -333,28 +316,14 @@ def create_experiment_from_template(template_name, overrides=None):
     exp_dict.update(_clone_template_children(temp_doc))
 
     new_exp = frappe.get_doc(exp_dict)
-    # Under the caller's own rights. LabExperiment's before_insert gate (see
-    # experiment_access.is_authorized_for_project) runs either way - validate and
-    # before_insert are not what ignore_permissions skips - but the flag did waive
-    # the create right on Lab Experiment itself, so a user who may not create runs
-    # could still get one made for them by naming a template.
+
+
     new_exp.insert()
     frappe.db.commit()
 
     return new_exp.name
 
 
-# Fields a payload is never allowed to carry into a template.
-#
-# Two groups. The framework's own bookkeeping (`owner`, `docstatus`, the
-# modified/creation stamps) identifies who did what and must come from the
-# session and the server clock, not from the request. `workflow_state` is the
-# approval chain's business: it moves through frappe.model.workflow, and a plain
-# save that sets it directly is how a Pending template gets quietly bounced back
-# to Draft. The creator-identity quartet is already frozen by
-# LabExperimentTemplate.validate_creator_identity_locked; they are stripped here
-# as well so an honest read-modify-write round-trip - which sends the whole
-# document back, unchanged fields included - does not trip that check.
 _TEMPLATE_PROTECTED_FIELDS = frozenset({
     "doctype", "name", "owner", "docstatus", "idx",
     "creation", "modified", "modified_by",
@@ -386,8 +355,8 @@ def save_experiment_template(template_data):
     name = template_data.get("name")
     if name:
         doc = frappe.get_doc(TEMPLATE_DOCTYPE, name)
-        # Explicit, so an unauthorised caller is refused before `update` mutates
-        # the in-memory doc rather than at save time.
+
+
         doc.check_permission("write")
         doc.update(fields)
         doc.save()

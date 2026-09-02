@@ -22,28 +22,13 @@ const userStore = useUserStore()
   height: 100vh;
   background-color: #0b1329;
   color: #9fb3d9;
-  /* Was 'Inter', sans-serif - naming Inter without the fallback chain meant
-     that until the woff2 arrived this screen rendered in the browser's generic
-     sans, which is the one moment in the app where a font swap is visible. */
+
   font-family: var(--sans);
   font-size: var(--fs-lg);
   font-weight: var(--fw-medium);
   letter-spacing: var(--ls-normal);
 }
-/* Scoped to the loading screen, NOT a bare `.spinner`.
- *
- * This block is global - App.vue's <style> is not scoped - and it is bundled
- * after styles/list-page.css, where the app's real .spinner and its .btn-spinner
- * modifier live. Declared bare, these four properties therefore won on source
- * order and every *button* spinner in the app came out at 40px with a 1rem
- * bottom margin, which is what burst the buttons on Settings, Team Setup, Team
- * Detail and Template Detail. .btn-spinner never stood a chance: same
- * specificity, earlier in the file.
- *
- * The one place this splash spinner appears is the div below, so that is what it
- * is attached to. See the note at the top of list-page.css, which asks for
- * exactly this: a page that needs to differ scopes its override to its own
- * container rather than redeclaring the bare class. */
+
 .loading-screen .spinner {
   width: 40px;
   height: 40px;

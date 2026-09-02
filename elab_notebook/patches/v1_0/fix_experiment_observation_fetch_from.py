@@ -19,28 +19,28 @@ def execute():
 	observations would be replaced by the template's.
 	"""
 	field = frappe.db.get_value(
-		"DocField",
-		{"parent": "Experiment", "fieldname": "observation"},
-		["name", "fetch_from"],
-		as_dict=True,
+	 "DocField",
+	 {"parent": "Experiment", "fieldname": "observation"},
+	 ["name", "fetch_from"],
+	 as_dict=True,
 	)
 	if not field or field.fetch_from != "template.observation":
 		return
 
 	target = frappe.db.get_value(
-		"DocField",
-		{"parent": "Lab Experiment Template", "fieldname": "observation_comments"},
-		"name",
+	 "DocField",
+	 {"parent": "Lab Experiment Template", "fieldname": "observation_comments"},
+	 "name",
 	)
 	if not target:
-		# Nothing sensible to point at - drop the broken fetch rather than keep it failing.
+
 		frappe.db.set_value("DocField", field.name, "fetch_from", "", update_modified=False)
 	else:
 		frappe.db.set_value(
-			"DocField",
-			field.name,
-			{"fetch_from": "template.observation_comments", "fetch_if_empty": 1},
-			update_modified=False,
+		 "DocField",
+		 field.name,
+		 {"fetch_from": "template.observation_comments", "fetch_if_empty": 1},
+		 update_modified=False,
 		)
 
 	frappe.clear_cache(doctype="Experiment")

@@ -12,7 +12,7 @@ from frappe import _
 from elab_notebook.elab_notebook.api.dashboard import get_dashboard_projects
 from elab_notebook.elab_notebook.doctype.sample.sample import _COMMENTS_LOCKED_STATES
 
-# Docstatus is an integer on the wire; the list wants a word.
+
 _DOCSTATUS_LABELS = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
 
 _SAMPLE_FIELDS = (
@@ -45,11 +45,11 @@ def get_samples_list(project=None, docstatus=None):
 	if not allowed_projects:
 		return []
 
-	# Sample has no project column, so the scope is applied via the parent runs.
+
 	parent_names = frappe.get_all(
-		"Lab Experiment",
-		filters={"project": ("in", allowed_projects)},
-		pluck="name",
+	 "Lab Experiment",
+	 filters={"project": ("in", allowed_projects)},
+	 pluck="name",
 	)
 	if not parent_names:
 		return []
@@ -59,23 +59,23 @@ def get_samples_list(project=None, docstatus=None):
 		filters["docstatus"] = int(docstatus)
 
 	samples = frappe.get_list(
-		"Sample",
-		filters=filters,
-		fields=list(_SAMPLE_FIELDS),
-		order_by="creation desc",
-		limit_page_length=0,
+	 "Sample",
+	 filters=filters,
+	 fields=list(_SAMPLE_FIELDS),
+	 order_by="creation desc",
+	 limit_page_length=0,
 	)
 	if not samples:
 		return []
 
-	# One lookup for the whole page rather than one per row.
+
 	parents = {
-		row["name"]: row
-		for row in frappe.get_all(
-			"Lab Experiment",
-			filters={"name": ("in", list({s["experiment"] for s in samples if s.get("experiment")}))},
-			fields=list(_PARENT_FIELDS),
-		)
+	 row["name"]: row
+	 for row in frappe.get_all(
+	  "Lab Experiment",
+	  filters={"name": ("in", list({s["experiment"] for s in samples if s.get("experiment")}))},
+	  fields=list(_PARENT_FIELDS),
+	 )
 	}
 
 	for sample in samples:
@@ -103,9 +103,9 @@ def get_sample_detail(name: str) -> dict:
 	"""
 	if not frappe.has_permission("Sample", "read", doc=name):
 		frappe.throw(
-			_("You are not permitted to view {0}.").format(frappe.bold(name)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _("You are not permitted to view {0}.").format(frappe.bold(name)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
 
 	doc = frappe.get_doc("Sample", name)
@@ -114,38 +114,38 @@ def get_sample_detail(name: str) -> dict:
 	parent = {}
 	if doc.experiment:
 		parent = (
-			frappe.db.get_value(
-				"Lab Experiment",
-				doc.experiment,
-				[
-					"name",
-					"title",
-					"aim",
-					"project",
-					"employee_function",
-					"employee_name",
-					"experiment_team",
-					"workflow_state",
-					"experiment_status",
-					"experiment_category",
-				],
-				as_dict=True,
-			)
-			or {}
+		 frappe.db.get_value(
+		  "Lab Experiment",
+		  doc.experiment,
+		  [
+		   "name",
+		   "title",
+		   "aim",
+		   "project",
+		   "employee_function",
+		   "employee_name",
+		   "experiment_team",
+		   "workflow_state",
+		   "experiment_status",
+		   "experiment_category",
+		  ],
+		  as_dict=True,
+		 )
+		 or {}
 		)
 
 	workflow_state = parent.get("workflow_state")
 
 	return {
-		"sample": sample,
-		"parent": parent,
-		"status_label": _DOCSTATUS_LABELS.get(int(doc.docstatus or 0), "Draft"),
-		"comments_locked": workflow_state in _COMMENTS_LOCKED_STATES,
-		# Submitted/cancelled rows are frozen by Frappe itself for every field
-		# except the allow_on_submit ones, so the page has to say which it is.
-		"can_edit_comments": (
-			workflow_state not in _COMMENTS_LOCKED_STATES
-			and int(doc.docstatus or 0) != 2
-			and frappe.has_permission("Sample", "write", doc=name)
-		),
+	 "sample": sample,
+	 "parent": parent,
+	 "status_label": _DOCSTATUS_LABELS.get(int(doc.docstatus or 0), "Draft"),
+	 "comments_locked": workflow_state in _COMMENTS_LOCKED_STATES,
+
+
+	 "can_edit_comments": (
+	  workflow_state not in _COMMENTS_LOCKED_STATES
+	  and int(doc.docstatus or 0) != 2
+	  and frappe.has_permission("Sample", "write", doc=name)
+	 ),
 	}

@@ -21,13 +21,12 @@ def execute():
 	if not frappe.db.table_exists("Template Parameter"):
 		return
 
-	# Read the child rows directly rather than loading every template: the parent
-	# is irrelevant here, only the set of names authored anywhere is.
+
 	rows = frappe.get_all(
-		"Template Parameter",
-		fields=["parameter_name"],
-		filters={"parenttype": "Lab Experiment Template"},
-		limit_page_length=0,
+	 "Template Parameter",
+	 fields=["parameter_name"],
+	 filters={"parenttype": "Lab Experiment Template"},
+	 limit_page_length=0,
 	)
 
 	created = sync_parameter_master(rows)
@@ -35,6 +34,6 @@ def execute():
 		frappe.db.commit()
 
 	print(
-		f"Parameter master backfill: {len(rows)} template rows scanned, "
-		f"{len(created)} created ({', '.join(created) or 'none'})"
+	 f"Parameter master backfill: {len(rows)} template rows scanned, "
+	 f"{len(created)} created ({', '.join(created) or 'none'})"
 	)

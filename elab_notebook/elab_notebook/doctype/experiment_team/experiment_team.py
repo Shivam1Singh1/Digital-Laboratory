@@ -18,7 +18,7 @@ class ExperimentTeam(Document):
 	def autoname(self):
 		prefix = f"ETM-{self.project}"
 		names = frappe.db.get_all("Experiment Team", filters={"project": self.project}, pluck="name")
-		
+
 		max_suffix = 0
 		for name in names:
 			parts = name.split("-")
@@ -29,7 +29,7 @@ class ExperimentTeam(Document):
 						max_suffix = val
 				except ValueError:
 					pass
-		
+
 		suffix = str(max_suffix + 1).zfill(6)
 		self.name = f"{prefix}-{suffix}"
 
@@ -63,10 +63,10 @@ class ExperimentTeam(Document):
 		self.status = self.status.strip()
 		if self.status not in TEAM_STATUSES:
 			frappe.throw(
-				_("{0} is not a valid Status. Use {1} or {2}.").format(
-					frappe.bold(self.status), frappe.bold(STATUS_ACTIVE), frappe.bold(STATUS_ARCHIVED)
-				),
-				title=_("Invalid Status"),
+			 _("{0} is not a valid Status. Use {1} or {2}.").format(
+			  frappe.bold(self.status), frappe.bold(STATUS_ACTIVE), frappe.bold(STATUS_ARCHIVED)
+			 ),
+			 title=_("Invalid Status"),
 			)
 
 	def validate_roster_lock(self):
@@ -78,12 +78,12 @@ class ExperimentTeam(Document):
 		if not self.is_new():
 			db_doc = frappe.get_doc("Experiment Team", self.name)
 
-			# Only lock the identity-defining fields
+
 			identity_fields = ["project", "employee_function"]
 			if any(self.get(f) != db_doc.get(f) for f in identity_fields):
 				frappe.throw(
-					_("Team identity (Project, Employee Function) cannot be changed after creation."),
-					title=_("Team Identity Locked"),
+				 _("Team identity (Project, Employee Function) cannot be changed after creation."),
+				 title=_("Team Identity Locked"),
 				)
 
 	def validate_head(self):
@@ -99,19 +99,19 @@ class ExperimentTeam(Document):
 
 		if not head:
 			frappe.throw(
-				_("Employee Function {0} has no Function Head, so its team cannot be set up.").format(
-					frappe.bold(self.employee_function)
-				),
-				title=_("No Function Head"),
+			 _("Employee Function {0} has no Function Head, so its team cannot be set up.").format(
+			  frappe.bold(self.employee_function)
+			 ),
+			 title=_("No Function Head"),
 			)
 
 		if frappe.session.user != head:
 			frappe.throw(
-				_("Only the Employee Function head can set up the team. {0} is headed by {1}.").format(
-					frappe.bold(self.employee_function), frappe.bold(head)
-				),
-				frappe.PermissionError,
-				title=_("Not Permitted"),
+			 _("Only the Employee Function head can set up the team. {0} is headed by {1}.").format(
+			  frappe.bold(self.employee_function), frappe.bold(head)
+			 ),
+			 frappe.PermissionError,
+			 title=_("Not Permitted"),
 			)
 
 	def has_permission(self, perm_type="read", user=None):
@@ -133,41 +133,37 @@ class ExperimentTeam(Document):
 		"""
 		user = user or frappe.session.user
 
-		# System Managers always have full access
+
 		if has_bypass(user):
 			return True
 
-		# Check if user is the head of this team's employee function
+
 		head = frappe.db.get_value("Employee Function", self.employee_function, "function_head")
 		is_head = head == user
 
-		# HEAD: full access to read and write, whatever the status. Archiving is
-		# reversible and the head is who reverses it.
+
 		if is_head:
 			return True
 
-		# ARCHIVED: closed to everyone below the head, including by direct URL.
-		# Checked before participation so the answer is the same as it is for an
-		# outsider - "no access" - rather than a different refusal that would
-		# confirm the team exists and that they are on it.
+
 		if (self.status or STATUS_ACTIVE) != STATUS_ACTIVE:
 			return False
 
-		# For non-heads, check if they are a participant on this team
+
 		is_participant = frappe.db.exists(
-			"Experiment Team Participant",
-			{"parenttype": "Experiment Team", "parent": self.name, "user": user}
+		 "Experiment Team Participant",
+		 {"parenttype": "Experiment Team", "parent": self.name, "user": user}
 		)
 
-		# PARTICIPANT: read-only access to their own team
+
 		if is_participant:
 			if perm_type == "read":
 				return True
 			else:
-				# Participants cannot write/edit
+
 				return False
 
-		# Neither head nor participant: no access
+
 		return False
 
 	def validate_project_mapping(self):
@@ -175,15 +171,12 @@ class ExperimentTeam(Document):
 		allowed = get_projects_for_employee_function(self.employee_function)
 		if self.project not in allowed:
 			frappe.throw(
-				_("Project {0} is not mapped to Employee Function {1}.").format(
-					frappe.bold(self.project), frappe.bold(self.employee_function)
-				),
-				title=_("Invalid Project"),
+			 _("Project {0} is not mapped to Employee Function {1}.").format(
+			  frappe.bold(self.project), frappe.bold(self.employee_function)
+			 ),
+			 title=_("Invalid Project"),
 			)
 
-	# Note: there is deliberately no uniqueness rule. The same Employee Function,
-	# Project and participant set may be used for any number of teams — each is a
-	# separate record distinguished only by its own ID.
 
 	def validate_participants(self):
 		"""Every participant must be an employee mapped to this Employee Function."""
@@ -197,27 +190,27 @@ class ExperimentTeam(Document):
 		for row in self.participants:
 			if row.user in seen_users:
 				frappe.throw(
-					_("Row {0}: Participant {1} is listed more than once.").format(row.idx, frappe.bold(row.user)),
-					title=_("Duplicate Participant"),
+				 _("Row {0}: Participant {1} is listed more than once.").format(row.idx, frappe.bold(row.user)),
+				 title=_("Duplicate Participant"),
 				)
 			seen_users.add(row.user)
 
 			match = allowed.get(row.user)
 			if not match:
 				frappe.throw(
-					_("Row {0}: {1} is not mapped to Employee Function {2}.").format(
-						row.idx, frappe.bold(row.user), frappe.bold(self.employee_function)
-					),
-					title=_("Invalid Participant"),
+				 _("Row {0}: {1} is not mapped to Employee Function {2}.").format(
+				  row.idx, frappe.bold(row.user), frappe.bold(self.employee_function)
+				 ),
+				 title=_("Invalid Participant"),
 				)
 
 			emp_id = match.get("employee")
 			if emp_id in seen_employees:
 				frappe.throw(
-					_("Row {0}: Employee {1} ({2}) is listed more than once in the team roster.").format(
-						row.idx, frappe.bold(emp_id), frappe.bold(row.user)
-					),
-					title=_("Duplicate Participant"),
+				 _("Row {0}: Employee {1} ({2}) is listed more than once in the team roster.").format(
+				  row.idx, frappe.bold(emp_id), frappe.bold(row.user)
+				 ),
+				 title=_("Duplicate Participant"),
 				)
 			seen_employees.add(emp_id)
 
@@ -247,32 +240,32 @@ def permission_query_conditions(user):
 	later on the assumption that it was current.
 	"""
 	if has_bypass(user):
-		return None  # System Manager sees all
+		return None
 
-	# Get functions this user heads
+
 	headed_functions = frappe.get_all(
-		"Employee Function",
-		filters={"function_head": user},
-		pluck="name"
+	 "Employee Function",
+	 filters={"function_head": user},
+	 pluck="name"
 	)
 
-	# If user heads any functions, they see all teams in those functions
+
 	if headed_functions:
 		return f"`tabExperiment Team`.`employee_function` IN ({','.join([frappe.db.escape(f) for f in headed_functions])})"
 
-	# Otherwise, user only sees teams they participate in
+
 	participated_teams = frappe.get_all(
-		"Experiment Team Participant",
-		filters={"parenttype": "Experiment Team", "user": user},
-		pluck="parent"
+	 "Experiment Team Participant",
+	 filters={"parenttype": "Experiment Team", "user": user},
+	 pluck="parent"
 	)
 
 	if participated_teams:
 		joined = ",".join([frappe.db.escape(t) for t in participated_teams])
 		return (
-			f"(`tabExperiment Team`.`name` IN ({joined})"
-			f" AND `tabExperiment Team`.`status` = {frappe.db.escape(STATUS_ACTIVE)})"
+		 f"(`tabExperiment Team`.`name` IN ({joined})"
+		 f" AND `tabExperiment Team`.`status` = {frappe.db.escape(STATUS_ACTIVE)})"
 		)
 
-	# User is neither a head nor a participant anywhere — see nothing
+
 	return "`tabExperiment Team`.`name` = 'IMPOSSIBLE'"

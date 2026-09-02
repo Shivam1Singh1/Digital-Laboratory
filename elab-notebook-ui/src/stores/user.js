@@ -9,22 +9,17 @@ export const useUserStore = defineStore('user', () => {
     first_name: 'Guest',
     initials: 'GU',
     user_image: null,
-    // Employee id (not the User id) - required by Link fields such as
-    // Experiment.employee_code, which point at Employee.
+
+
     employee: null,
     employee_name: null,
     role: 'Guest'
   })
-  
+
   const loading = ref(true)
   const error = ref(null)
 
-  // The project picker resets every session by design - most people work across
-  // projects and a stale one silently filters the whole app. Settings lets an
-  // individual opt out of that: with `rememberProject` on, the choice is also
-  // written to localStorage and seeds the next session. fetchEmployeeScope still
-  // validates whatever comes back, so a remembered project the user has since
-  // lost access to falls back to 'all' like any other invalid value.
+
   const rememberProject = ref(localStorage.getItem('remember_project') === '1')
 
   const currentProject = ref(
@@ -50,8 +45,8 @@ export const useUserStore = defineStore('user', () => {
   const createModalProject = ref('')
   const createModalProjectName = ref('')
   const createModalEmployeeFunction = ref('')
-  // Set only when the create flow starts from a team. Its presence is what marks
-  // the run as team-originated, which in turn drives the read-only notebook rule.
+
+
   const createModalTeam = ref('')
 
   const openCreateExperimentModal = (proj = '', empFunc = '', projName = '', team = '') => {
@@ -80,7 +75,7 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  // Apply initial theme status immediately
+
   if (theme.value === 'light') {
     document.documentElement.classList.add('light-theme')
   } else {
@@ -94,10 +89,7 @@ export const useUserStore = defineStore('user', () => {
     }
   })
 
-  // Written straight into the profile the sidebar and top bar already render,
-  // so a new photo appears everywhere the moment it is saved. Re-fetching the
-  // whole profile would work too, but it would blank the avatar for a beat while
-  // the request is in flight.
+
   const setUserImage = (url) => {
     user.value = { ...user.value, user_image: url || null }
   }
@@ -122,8 +114,8 @@ export const useUserStore = defineStore('user', () => {
       const response = await axios.get('/api/method/elab_notebook.elab_notebook.api.user.get_employee_scope')
       if (response.data && response.data.message) {
         employeeScope.value = response.data.message
-        
-        // Reset currentProject to 'all' if the stored value is no longer valid or allowed
+
+
         const validProjects = employeeScope.value.projects.map(p => p.name)
         if (currentProject.value !== 'all' && !validProjects.includes(currentProject.value) && employeeScope.value.scope !== 'all') {
           currentProject.value = 'all'

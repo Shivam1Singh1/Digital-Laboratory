@@ -6,40 +6,24 @@ import { useUserStore } from '../../stores/user'
 import { extractFrappeError } from '../../utils/frappeError'
 import PageHeader from '../layout/PageHeader.vue'
 import './TeamSetup.css'
-// === DYNAMIC-PERMS-START ===
-// import { usePermissionStore } from '../../stores/permissions'
-// === DYNAMIC-PERMS-END ===
+
 
 const userStore = useUserStore()
 const route = useRoute()
 const API = 'elab_notebook.elab_notebook.api.experiment_team'
-// === DYNAMIC-PERMS-START ===
-// const permStore = usePermissionStore()
-//
-// // OR, never AND. Frappe's doctype-level create on Experiment Team belongs to
-// // System Manager alone, while the page's real gate is "do you head this
-// // Employee Function" - and _assert_head lets a System Manager through by
-// // bypass. ANDing the two would hide Create Team from every head who is not a
-// // System Manager, which is all of them here (verified: has_permission says
-// // create=0 for the head, who can nonetheless create a team). ORing adds the
-// // case the domain check misses - a System Manager who heads nothing but may
-// // still create by bypass - and takes nothing away.
-// const canCreateTeam = computed(
-//   () => isHead.value || permStore.can('Experiment Team', 'create')
-// )
-// === DYNAMIC-PERMS-END ===
+
 
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const notice = ref('')
 
-// Only Employee Function heads can create teams; participants only get the list.
+
 const isHead = ref(false)
 const functions = ref([])
 const myTeams = ref([])
 
-// --- dialog state
+
 const showDialog = ref(false)
 const teamName = ref('')
 const employeeFunction = ref('')
@@ -98,7 +82,6 @@ const call = async (method, params = {}) => {
   return res.data.message
 }
 
-// ------------------------------------------------------------------ loading
 
 const loadContext = async () => {
   loading.value = true
@@ -117,9 +100,7 @@ const loadContext = async () => {
   }
 }
 
-// Two separate numbers per team. They used to be one: the badge printed the
-// experiment count twice, once labelled Samples, so a team with no samples at
-// all still read "6 Samples".
+
 const teamExperimentCounts = ref({})
 const teamSampleCounts = ref({})
 
@@ -173,8 +154,7 @@ watch(() => userStore.currentProject, () => {
   currentPage.value = 1
 })
 
-// A team is identified by its ID, since the same function/project/member set
-// can legitimately exist many times over.
+
 const memberPreview = (t) => {
   const names = t.participant_names || []
   if (!names.length) return 'no participants'
@@ -182,7 +162,6 @@ const memberPreview = (t) => {
   return `${names.slice(0, 2).join(', ')} +${names.length - 2}`
 }
 
-// ------------------------------------------------------------------- dialog
 
 const openDialog = () => {
   teamName.value = ''
@@ -201,7 +180,7 @@ const closeDialog = () => {
 }
 
 const toggle = (user) => {
-  // Sets are not deeply reactive in Vue 3, so replace it to trigger updates.
+
   const next = new Set(selected.value)
   next.has(user) ? next.delete(user) : next.add(user)
   selected.value = next
@@ -210,7 +189,7 @@ const toggle = (user) => {
 const save = async () => {
   error.value = ''
 
-  // Client-side validation
+
   if (!teamName.value.trim()) {
     error.value = 'Team Name is required.'
     return
@@ -234,10 +213,10 @@ const save = async () => {
     const msg = res.data.message || {}
     notice.value = `Created "${msg.team_name}" (${msg.name}) - ${msg.count} participant${msg.count === 1 ? '' : 's'} on ${msg.project}.`
     showDialog.value = false
-    // Reset pagination to show the newly created team
+
     currentPage.value = 1
     await Promise.all([loadMyTeams(), loadCounts()])
-    // Clear notice after 5 seconds so it doesn't obscure the new team
+
     setTimeout(() => {
       notice.value = ''
     }, 5000)
@@ -249,7 +228,7 @@ const save = async () => {
   }
 }
 
-// Refresh the per-project team counts shown in the dialog dropdown.
+
 const loadCounts = async () => {
   if (!employeeFunction.value) return
   try {
@@ -269,14 +248,7 @@ watch(employeeFunction, () => {
   loadSegmentsAndCostCenters()
 })
 
-// Arriving from the Experiment form's "Set up a team for this project" link,
-// which sends create=1 plus the pair it had already resolved. Seeding them here
-// is what lets that form drop its own copy of this dialog: the user lands on the
-// same one, already filled in, instead of retyping what the other page knew.
-//
-// employeeFunction is set first and the project a tick later: the watcher above
-// clears the project whenever the function changes, so setting both at once
-// would wipe the one that arrived in the URL.
+
 const applyCreateIntent = async () => {
   if (!route.query.create) return
 
@@ -295,11 +267,8 @@ const applyCreateIntent = async () => {
 }
 
 onMounted(async () => {
-  // === DYNAMIC-PERMS-START ===
-  // // Doctype-level: no record exists yet on a list page. Fetched alongside the
-  // // context rather than after it so the create affordance settles in one paint.
-  // await Promise.all([loadContext(), permStore.fetchAndCache('Experiment Team')])
-  // === DYNAMIC-PERMS-END ===
+
+
   await loadContext()
   await loadSegmentsAndCostCenters()
   await applyCreateIntent()
@@ -424,9 +393,9 @@ onMounted(async () => {
 
         <!-- Pagination Controls -->
         <div v-if="totalPages > 1" class="pagination-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding-bottom: 0.5rem;">
-          <button 
-            class="btn btn-secondary btn-sm" 
-            :disabled="currentPage === 1" 
+          <button
+            class="btn btn-secondary btn-sm"
+            :disabled="currentPage === 1"
             @click="currentPage--"
           >
             Previous
@@ -434,9 +403,9 @@ onMounted(async () => {
           <span class="pagination-info" style="font-size: var(--fs-lg); color: var(--text-muted); font-weight: var(--fw-medium);">
             Page {{ currentPage }} of {{ totalPages }}
           </span>
-          <button 
-            class="btn btn-secondary btn-sm" 
-            :disabled="currentPage === totalPages" 
+          <button
+            class="btn btn-secondary btn-sm"
+            :disabled="currentPage === totalPages"
             @click="currentPage++"
           >
             Next

@@ -44,7 +44,7 @@ const fetchData = async () => {
       rawData.value = res.data.message.data || []
       statuses.value = res.data.message.statuses || []
 
-      // Auto select latest month
+
       if (uniqueMonths.value.length > 0) {
         selectedMonth.value = uniqueMonths.value[0]
       } else {
@@ -60,18 +60,18 @@ const fetchData = async () => {
   }
 }
 
-// Extract unique months sorted descending
+
 const uniqueMonths = computed(() => {
   const monthsSet = new Set(rawData.value.map(r => r.month))
   return Array.from(monthsSet).sort((a, b) => b.localeCompare(a))
 })
 
-// Calculate total count across all time
+
 const grandTotal = computed(() => {
   return rawData.value.reduce((acc, curr) => acc + curr.count, 0)
 })
 
-// Calculate status overall totals (for summary cards)
+
 const statusOverallCounts = computed(() => {
   const counts = {}
   statuses.value.forEach(st => {
@@ -87,7 +87,7 @@ const statusOverallCounts = computed(() => {
   return counts
 })
 
-// Filter data for selected month or sum up for "all_time"
+
 const chartData = computed(() => {
   const counts = {}
   statuses.value.forEach(st => {
@@ -106,13 +106,12 @@ const chartData = computed(() => {
   return counts
 })
 
-// Total for the selected month — this is what the donut actually plots,
-// so the ring, the centre number and the chips all agree.
+
 const filteredTotal = computed(() => {
   return Object.values(chartData.value).reduce((acc, val) => acc + val, 0)
 })
 
-// Calculate percentages and counts for the chart legend
+
 const legendItems = computed(() => {
   const total = filteredTotal.value
   return statuses.value.map(st => {
@@ -127,11 +126,11 @@ const legendItems = computed(() => {
   })
 })
 
-// Compile rows for data table
+
 const tableRows = computed(() => {
   const rowsMap = {}
 
-  // Initialize mapping for each month
+
   uniqueMonths.value.forEach(m => {
     rowsMap[m] = {
       month: m,
@@ -143,7 +142,7 @@ const tableRows = computed(() => {
     })
   })
 
-  // Aggregate counts
+
   rawData.value.forEach(r => {
     if (rowsMap[r.month]) {
       rowsMap[r.month].total += r.count
@@ -153,7 +152,7 @@ const tableRows = computed(() => {
 
   const rowsArray = Object.values(rowsMap)
 
-  // Sort rows
+
   return rowsArray.sort((a, b) => {
     return sortAscending.value
       ? a.month.localeCompare(b.month)
@@ -165,20 +164,7 @@ const toggleSort = () => {
   sortAscending.value = !sortAscending.value
 }
 
-/**
- * The twelve month buckets the trends chart plots, oldest first.
- *
- * The chart used to take its x-axis from the months that happen to be present in
- * the data, so a doctype with records in one month drew one enormous bar and no
- * timeline at all - which is not a trend, it is a total with an axis drawn round
- * it. Twelve fixed buckets give the bar a scale to be read against, and a month
- * with nothing in it is itself information.
- *
- * The window ends at the later of this month and the newest month in the data,
- * so it always contains the most recent records even if the clock and the data
- * disagree. Anything older than twelve months falls outside the chart; the Data
- * Table still lists every month that has records.
- */
+
 const TREND_MONTHS = 12
 
 const trendMonths = computed(() => {
@@ -202,53 +188,43 @@ const trendMonths = computed(() => {
   return months
 })
 
-// Premium status color helper
+
 const getStatusColor = (status) => {
   const st = String(status).toLowerCase();
   if (st.includes('approve') || st.includes('active') || st.includes('production') || st.includes('completed') || st.includes('passed')) {
-    return '#10B981'; // Premium Green
+    return '#10B981';
   }
   if (st.includes('draft') || st.includes('idle') || st.includes('setup') || st.includes('unsubmitted')) {
-    return '#8b5cf6'; // Violet/Purple (was Premium Blue)
+    return '#8b5cf6';
   }
   if (st.includes('pending') || st.includes('review') || st.includes('not reporting')) {
-    return '#F59E0B'; // Premium Amber
+    return '#F59E0B';
   }
   if (st.includes('reject') || st.includes('left') || st.includes('off') || st.includes('failed') || st.includes('problem') || st.includes('suspended')) {
-    return '#EF4444'; // Premium Red
+    return '#EF4444';
   }
   if (st.includes('archive') || st.includes('inactive') || st.includes('maintenance')) {
-    return '#7c3aed'; // Deep Violet
+    return '#7c3aed';
   }
-  return '#6B7280'; // Muted Slate Gray
+  return '#6B7280';
 }
 
-// Chart instance references
+
 const chartRef = ref(null)
 let chartInstance = null
 
 const barChartRef = ref(null)
 let barChartInstance = null
-const viewMode = ref('chart') // 'chart' (Bar Graph) by default, toggle to 'table'
+const viewMode = ref('chart')
 
-// Historical trends live in a modal so the tile itself stays inside one screen
+
 const showTrends = ref(false)
 
-// ---------------------------------------------------------------------------
-// Chart typography
-// ---------------------------------------------------------------------------
-// Chart.js paints to a canvas, so nothing in style.css reaches these labels.
-// Left alone they render in Chart.js's own defaults - Helvetica Neue at 12px -
-// which is both off the app's font stack and a step *larger* than the body text
-// around the tile, so the densest labels on the dashboard came out as the
-// biggest. Values are read off :root rather than written out here, so the axis
-// and legend keep tracking the scale in style.css instead of drifting from it,
-// and they are read at draw time rather than at import because a canvas is only
-// ever painted after the stylesheet has been applied.
+
 const chartFont = (sizeToken, weightToken) => {
   const root = getComputedStyle(document.documentElement)
-  // The scale is authored in rem against the 14px root, but Chart.js wants a
-  // plain number of px - it does not resolve CSS units itself.
+
+
   const rootPx = parseFloat(root.fontSize) || 14
   const size = root.getPropertyValue(sizeToken).trim()
   return {
@@ -273,7 +249,7 @@ const renderChart = () => {
   const bgColors = legendItems.value.map(item => item.color)
 
   const total = dataVals.reduce((acc, val) => acc + val, 0)
-  if (total === 0) return // Don't draw empty chart
+  if (total === 0) return
 
   chartInstance = new Chart(chartRef.value, {
     type: 'doughnut',
@@ -319,9 +295,7 @@ const renderBarChart = () => {
 
   const isLight = userStore.theme === 'light'
 
-  // Twelve fixed buckets, oldest first, rather than only the months present in
-  // the data - see trendMonths. Counts are looked up per month instead of read
-  // off tableRows in order, so a month with no records plots as a real zero.
+
   const months = trendMonths.value
   const byMonth = Object.fromEntries(tableRows.value.map(r => [r.month, r]))
 
@@ -341,8 +315,8 @@ const renderBarChart = () => {
   barChartInstance = new Chart(barChartRef.value, {
     type: 'bar',
     data: {
-      // MM/YY, from the same formatter the rest of the app uses. Twelve
-      // spelled-out months would collide on this axis.
+
+
       labels: months.map(formatMonth),
       datasets: datasets
     },
@@ -357,8 +331,8 @@ const renderBarChart = () => {
           },
           ticks: {
             color: 'var(--text-muted)',
-            // Semibold at the smallest step, matching the th rule in style.css:
-            // an axis label sits in the same role as a column header.
+
+
             font: chartFont('--fs-3xs', '--fw-semibold')
           }
         },
@@ -367,10 +341,8 @@ const renderBarChart = () => {
           grid: {
             display: false
           },
-          // These are record counts - there is no such thing as 1.4 templates.
-          // With a max of 2 the default tick generator produced 0.2, 0.4, 0.6 …;
-          // `precision: 0` rounds the computed step size to a whole number
-          // instead, so the axis goes 0, 1, 2 and stays integral at any scale.
+
+
           beginAtZero: true,
           ticks: {
             color: 'var(--text-muted)',
@@ -418,13 +390,7 @@ const onKeydown = (e) => {
   if (e.key === 'Escape' && showTrends.value) closeTrends()
 }
 
-// Doctypes this app has its own list page for. Anything not here has no Vue
-// equivalent and still goes to the desk - Workstation, the fourth block on the
-// dashboard, is the case that keeps this fallback honest.
-//
-// Keyed on doctype rather than on the block's entityName label, because the
-// label is display text ("Team", "Experiments") that can be reworded without
-// anyone realising a route depends on it.
+
 const IN_APP_LISTS = {
   'Lab Experiment Template': '/templates',
   'Experiment Team': '/elab-notebook',
@@ -433,26 +399,21 @@ const IN_APP_LISTS = {
 
 const router = useRouter()
 
-// `month` is accepted because the month rows pass it, and deliberately unused:
-// none of the in-app lists take a month filter, and the desk URL this replaced
-// did not carry one either, so nothing is lost by ignoring it here rather than
-// inventing a filter format each list would have to learn.
+
 const navigateToListView = (month) => {
   const route = IN_APP_LISTS[props.doctype]
   if (route) {
-    // Same tab. These are pages of this app, and opening one in a new tab left
-    // the user with two copies of the SPA running.
+
+
     router.push(route)
     return
   }
-  // /app/List/<Doctype> unchanged from before - Frappe resolves that form and
-  // redirects to its own slug, and this is not the place to start guessing at
-  // slugification rules. deskUrl only fixes the origin: on the Vite dev server
-  // window.location.origin is :5173, which is not where the desk lives.
+
+
   window.open(deskUrl(`/app/List/${props.doctype}`), '_blank', 'noopener')
 }
 
-// Watchers
+
 watch(() => userStore.currentProject, () => {
   fetchData()
 })

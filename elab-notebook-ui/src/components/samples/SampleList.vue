@@ -19,8 +19,7 @@ const statusFilter = ref('')
 const currentPage = ref(1)
 const pageSize = 7
 
-// No in-page text filter: the top bar's global search covers it, so this list
-// only ever shows what the Project Scope and Status filters return.
+
 const totalPages = computed(() => Math.ceil(samples.value.length / pageSize) || 1)
 
 const paginatedSamples = computed(() => {

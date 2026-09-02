@@ -1,6 +1,6 @@
 <script setup>
-// Time is captured in whole minutes everywhere — one field, one unit, no
-// day/hour/minute juggling on the way in or out.
+
+
 defineProps({
   modelValue: { type: [Number, String], default: 0 },
   disabled: { type: Boolean, default: false },

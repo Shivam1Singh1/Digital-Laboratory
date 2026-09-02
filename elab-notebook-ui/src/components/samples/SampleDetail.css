@@ -1,12 +1,5 @@
-/* Sample detail.
- *
- * .status-pill, .loading-state and .empty-state come from
- * styles/list-page.css; .card, .btn and .form-control from style.css. Only what
- * is specific to this page is defined here.
- */
 
-/* See the note in SampleList.css: .main-workspace is overflow:hidden, so the
-   page has to scroll itself or it is clipped with no scrollbar. */
+
 .sample-detail-container {
   padding: 1.5rem;
   display: flex;
@@ -17,16 +10,12 @@
   overflow-y: auto;
 }
 
-/* This one IS a column flex container, so its cards are shrinkable by default
-   and would compress to fit rather than overflow - which is the same thing that
-   stopped the Templates list from scrolling. Pin them at their natural height. */
+
 .sample-detail-container > * {
   flex-shrink: 0;
 }
 
-/* ExperimentForm.css sets .card globally to display: flex, max-height: 100%,
-   and overflow: hidden, which clips our cards and squashes inputs inside them.
-   Restore them to standard block, unconstrained cards on this page. */
+
 .sample-detail-container > .card {
   display: block;
   flex: none;
@@ -34,10 +23,7 @@
   overflow: visible;
 }
 
-/* ExperimentForm.css defines a global .btn at 0.875rem/1.75rem with a 1rem font,
-   which makes the header actions loom over the page title. Compact them the same
-   way TemplateDetail.css does, scoped to this page and compounded so it outranks
-   the base .btn sizing. */
+
 .sample-detail-container .page-header-right {
   gap: 0.5rem;
 }
@@ -104,7 +90,7 @@
   margin: 0;
 }
 
-/* Matches the warning colour used for the Approved/locked banners elsewhere. */
+
 .sample-lock-pill {
   font-size: var(--fs-3xs);
   font-weight: var(--fw-bold);
@@ -166,7 +152,7 @@
   margin-top: 0.7rem;
 }
 
-/* Form controls (e.g. comments textarea) */
+
 .form-control {
   width: 100%;
   background-color: var(--bg-primary);

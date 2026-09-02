@@ -1,9 +1,7 @@
 .team-setup-container {
   padding: 1.5rem;
   flex: 1;
-  /* Without min-height:0 a flex child cannot shrink below its content, so the
-     list grows past .main-workspace (overflow:hidden) and gets clipped rather
-     than scrolled. */
+
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -58,9 +56,7 @@
   white-space: nowrap;
 }
 
-/* Member filter input. Deliberately not `.search-box` — that is the global
-   top-bar control, and its `flex: 0 1 320px` becomes a 320px *height* here
-   because `.form-group` is a column flex container. */
+
 .member-search {
   display: block;
   flex: none;
@@ -88,7 +84,7 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Candidate roster */
+
 .candidate-list {
   list-style: none;
   margin: 0;
@@ -222,15 +218,7 @@
   font-size: var(--fs-lg);
 }
 
-/* Section-header actions: Archive/Reactivate team on Scope, and Edit team /
-   Cancel / Save on Participants.
-   These already carry .btn-sm, but .btn-sm (TemplateDetail.css) and .btn
-   (ExperimentForm.css) have equal specificity and live in different files, so
-   which one wins is decided by import order - and .btn was winning, rendering
-   all three at full size beside a section title. Compounded with .btn here to
-   settle it by specificity instead, and scoped to these toolbars so no other
-   .btn-sm in the app changes size as a side effect. Same fix, same reason, as
-   the block in ExperimentTree.css. */
+
 .header-actions .btn.btn-sm {
   display: inline-flex;
   align-items: center;
@@ -245,8 +233,7 @@
   box-sizing: border-box;
 }
 
-/* The spinner sits inside these buttons while saving; at 30px tall the default
-   size pushes the label out of the way. */
+
 .header-actions .btn.btn-sm .btn-spinner {
   width: 12px;
   height: 12px;
@@ -405,7 +392,7 @@
   color: var(--text-muted);
 }
 
-/* Participant avatars (detail view) */
+
 .avatar-list {
   list-style: none;
   margin: 0;
@@ -451,7 +438,7 @@
   color: var(--text-primary);
 }
 
-/* Modal styling with proper overflow handling */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -571,26 +558,18 @@
   color: var(--text-muted);
 }
 
-/* Archived. Amber rather than a second grey: it sits next to the role tag, and
-   a participant-grey badge beside a participant-grey badge says nothing. This
-   marks a team that is closed for new work, which is worth noticing. */
+
 .role-tag.archived {
   background-color: color-mix(in srgb, var(--warning) 20%, transparent);
   color: var(--warning);
 }
 
-/* The banner on an archived team's detail page. An archived team looks exactly
-   like an active one apart from one read-only field, and the consequences reach
-   past this page, so it is said outright rather than left to be noticed. */
+
 .archived-note {
   margin: 0 0 1rem;
 }
 
-/* Team status radios (TeamDetail, edit mode, head only).
-   Cards rather than bare radios: each option carries a line explaining what it
-   does, and archiving reaches past this page - the team leaves its participants'
-   lists and stops authorising new runs - so the consequence belongs next to the
-   control, not in a tooltip. */
+
 .team-status-options {
   display: flex;
   flex-direction: column;
@@ -663,7 +642,7 @@
   font-style: italic;
 }
 
-/* Empty / no-access state */
+
 .team-setup-container .empty-state {
   display: flex;
   flex-direction: column;
@@ -699,7 +678,7 @@
   line-height: var(--lh-relaxed);
 }
 
-/* Utility classes */
+
 .font-mono {
   font-family: var(--mono);
 }

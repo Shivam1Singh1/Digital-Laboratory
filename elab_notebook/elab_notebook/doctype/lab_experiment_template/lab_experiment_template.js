@@ -1,9 +1,7 @@
 frappe.ui.form.on("Lab Experiment Template", {
 	setup(frm) {
-		// Employee Function drives the form: the employee picks their function
-		// first, and the Project list is then scoped to that function's projects.
-		// Neither side is a plain Link (the mapping lives in child tables on both
-		// Employee Function and Project), so both queries go through the server.
+
+
 		frm.set_query("project", () => {
 			return {
 				query: "elab_notebook.elab_notebook.api.employee_function.project_query",
@@ -22,7 +20,7 @@ frappe.ui.form.on("Lab Experiment Template", {
 			};
 		});
 
-		// Only departments that are still in use.
+
 		frm.set_query("allowed_roles", () => {
 			return { filters: { disabled: 0 } };
 		});
@@ -39,7 +37,7 @@ frappe.ui.form.on("Lab Experiment Template", {
 			method: "elab_notebook.elab_notebook.api.employee_function.get_current_employee_function",
 			callback(r) {
 				const functions = (r.message || {}).functions || [];
-				// Only auto-select when the answer is unambiguous.
+
 				if (functions.length === 1) {
 					frm.set_value("employee_function", functions[0].name);
 				}
@@ -48,8 +46,8 @@ frappe.ui.form.on("Lab Experiment Template", {
 	},
 
 	employee_function(frm) {
-		// A Project is only valid for the function it is mapped to, so a stale
-		// selection must not survive a function change.
+
+
 		if (frm.doc.project) {
 			frm.set_value("project", null);
 			frm.set_value("project_id", null);
@@ -64,8 +62,7 @@ frappe.ui.form.on("Lab Experiment Template", {
 			return;
 		}
 
-		// Department follows the Project. Most Projects have none, so the
-		// Employee Function's department is the fallback.
+
 		frappe.db.get_value("Project", frm.doc.project, "department").then((r) => {
 			const fromProject = (r.message || {}).department;
 			if (fromProject) {

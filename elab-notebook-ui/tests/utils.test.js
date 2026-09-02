@@ -1,15 +1,4 @@
-/**
- * Unit tests for the pure helpers under src/utils.
- *
- * Run with `npm test` (node --test). Node's own test runner rather than vitest
- * or jest: these modules are plain ESM with no DOM and no Vite features, so a
- * test dependency would buy nothing and this suite stays runnable on a bench
- * with no network to install from.
- *
- * frappeUrl.js is deliberately absent - it reads `import.meta.env`, which only
- * exists inside Vite, so it cannot be imported here without a shim that would
- * be testing the shim.
- */
+
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
 
@@ -43,7 +32,7 @@ describe('duration.toMinutes', () => {
   })
 
   test('floors fractions rather than rounding', () => {
-    // A half minute is not a minute of bench time yet.
+
     assert.equal(toMinutes(1.9), 1)
     assert.equal(toMinutes(0.4), 0)
   })
@@ -54,7 +43,7 @@ describe('duration.toMinutes', () => {
   })
 
   test('treats unusable input as zero, never NaN', () => {
-    // A NaN reaching the UI renders as "NaN min" on the page.
+
     for (const bad of [null, undefined, '', 'abc', {}, [], NaN]) {
       assert.equal(toMinutes(bad), 0, `toMinutes(${JSON.stringify(bad)})`)
     }
@@ -97,16 +86,16 @@ describe('duration.formatMinutes', () => {
   })
 
   test('a whole-day-plus-minutes run does not lose the minutes', () => {
-    // days and minutes with no hours between them - the branch where a naive
-    // join would emit "1d  05m".
+
+
     assert.equal(formatMinutes(1445), '1d 05m (1445 min)')
   })
 })
 
 describe('dateFormatter.formatDate', () => {
   test('a date-only string keeps its own day', () => {
-    // The UTC trap: new Date('2026-08-27') is UTC midnight, which renders as the
-    // 26th anywhere west of Greenwich. This must hold in every time zone.
+
+
     assert.equal(formatDate('2026-08-27'), '27/08/26')
     assert.equal(formatDate('2026-01-01'), '01/01/26')
     assert.equal(formatDate('2026-12-31'), '31/12/26')
@@ -155,7 +144,7 @@ describe('dateFormatter.formatMonth', () => {
   })
 
   test('an unpadded month is padded', () => {
-    // The dashboard builds these by hand, so a single-digit month does arrive.
+
     assert.equal(formatMonth('2026-8'), '08/26')
   })
 
@@ -180,8 +169,8 @@ describe('rawData visibility rules', () => {
   })
 
   test('a run with no category yet still gets the tab', () => {
-    // Written as an exclusion rather than an allow-list precisely so an
-    // uncategorised run does not silently lose the tab.
+
+
     assert.equal(showsRawDataTab(''), true)
     assert.equal(showsRawDataTab(undefined), true)
   })

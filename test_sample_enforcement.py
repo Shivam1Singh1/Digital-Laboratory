@@ -19,7 +19,7 @@ def test_sample_enforcement():
         print("SAMPLE ENFORCEMENT TEST")
         print("="*80)
 
-        # Check if Experiment and Sample doctypes exist
+
         print("\n1. Checking Experiment & Sample doctypes...")
         try:
             exp_meta = frappe.get_meta('Experiment')
@@ -35,12 +35,12 @@ def test_sample_enforcement():
             print("   ✗ Sample doctype not found - skipping tests")
             return
 
-        # Get a test Experiment
+
         print("\n2. Finding test Experiment...")
         exp = frappe.db.get_list('Experiment', fields=['name', 'workflow_state'], limit=1)
         if not exp:
             print("   ✗ No experiments found - creating test experiment...")
-            # Would create test data here if possible
+
             print("   ⚠ Cannot create test data without proper setup")
             return
 
@@ -48,12 +48,12 @@ def test_sample_enforcement():
         exp_state = exp[0].get('workflow_state', 'Draft')
         print(f"   ✓ Found experiment: {exp_name} (state: {exp_state})")
 
-        # Test 1: Create first Sample
+
         print("\n3. TEST 1: Create first Sample...")
         try:
             sample1 = frappe.new_doc('Sample')
             sample1.experiment = exp_name
-            sample1.item = 'ITEM-001'  # Would need to use actual item
+            sample1.item = 'ITEM-001'
             sample1.qty = 10
             sample1.name_of_sample = 'Test Sample 1'
             sample1.insert(ignore_permissions=True)
@@ -67,7 +67,7 @@ def test_sample_enforcement():
             print(f"   ✗ Unexpected error: {e}")
             return
 
-        # Test 2: Try to create second Sample (should fail)
+
         print("\n4. TEST 2: Try to create duplicate Sample (should be rejected)...")
         try:
             sample2 = frappe.new_doc('Sample')
@@ -85,13 +85,13 @@ def test_sample_enforcement():
             print(f"   Error message:")
             print(f"   {error_msg}")
 
-            # Check if error contains the right message
+
             if "already exists" in error_msg.lower() and "one sample" in error_msg.lower():
                 print(f"   ✓ Error message is correct (mentions duplicate)")
             else:
                 print(f"   ⚠ Error message doesn't mention duplicate check")
 
-        # Test 3: Check field auto-population
+
         print("\n5. TEST 3: Verify field auto-population...")
         sample_doc = frappe.get_doc('Sample', sample1_name)
         exp_doc = frappe.get_doc('Experiment', exp_name)
@@ -101,7 +101,7 @@ def test_sample_enforcement():
         else:
             print(f"   ✗ elab_no mismatch: {sample_doc.elab_no} vs {exp_doc.name}")
 
-        # Test 4: Try editing Sample in locked state
+
         print("\n6. TEST 4: Test edit locking by workflow state...")
         current_state = exp_doc.workflow_state or 'Draft'
         print(f"   Current experiment state: {current_state}")

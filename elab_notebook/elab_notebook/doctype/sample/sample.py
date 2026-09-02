@@ -3,16 +3,9 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
-# Parent states in which this sample's comments are frozen. The trigger is the
-# "Send For Approval" transition into Pending Approval, not the later Approved
-# lock - and the states past it stay frozen, because nothing on the way out
-# unfreezes them.
-#
-# Same three states as isSampleLocked() in ExperimentDetail.vue, deliberately:
-# the greyed-out field and the server rule read from one list so they cannot
-# drift apart.
+
 _COMMENTS_LOCKED_STATES = (
-	"Pending Approval from System Manager",
+	"Sent for Approval",
 	"Approved",
 	"Rejected",
 )
@@ -55,8 +48,8 @@ class Sample(Document):
 		"""
 		if not self.item or flt(self.qty) <= 0:
 			frappe.throw(
-				_("At least one item with quantity is required before this Sample can proceed."),
-				title=_("Item Required"),
+			 _("At least one item with quantity is required before this Sample can proceed."),
+			 title=_("Item Required"),
 			)
 
 	def validate_rejection_reason(self):
@@ -74,8 +67,8 @@ class Sample(Document):
 		"""
 		if self.workflow_state == "Rejected" and not (self.rejection_reason or "").strip():
 			frappe.throw(
-				_("Rejection Reason is mandatory when rejecting a sample."),
-				title=_("Reason Required"),
+			 _("Rejection Reason is mandatory when rejecting a sample."),
+			 title=_("Reason Required"),
 			)
 
 	def validate_experiment_exists(self):
@@ -85,17 +78,10 @@ class Sample(Document):
 
 		if not frappe.db.exists("Lab Experiment", self.experiment):
 			frappe.throw(
-				_("Experiment '{0}' does not exist").format(self.experiment),
-				title=_("Invalid Experiment")
+			 _("Experiment '{0}' does not exist").format(self.experiment),
+			 title=_("Invalid Experiment")
 			)
 
-	# validate_one_sample_per_experiment() used to live here and refused a second
-	# Sample on any run. It is gone: samples are now generated in a batch from the
-	# run's own Sample table when the run is concluded, one Sample per row, so
-	# "more than one" is the normal case rather than the error case. The name is
-	# still unique per sample - the Sample_Custom_ID server script seeds `series`
-	# as {experiment}-A0001, A0002, ... and format:{series} names the record from
-	# it.
 
 	def validate_experiment_workflow_state(self):
 		"""Ensure Experiment is in a state that allows Sample creation/editing"""
@@ -104,27 +90,16 @@ class Sample(Document):
 
 		workflow_state = frappe.db.get_value("Lab Experiment", self.experiment, "workflow_state")
 
-		# States of "Lab Experiment Workflow". This list previously named the
-		# states of its predecessor - Running, Completed, Pending Approval from
-		# System Manager - and after that workflow was replaced it matched nothing
-		# any run could be in, so every Sample save threw while the button that
-		# started it stayed enabled.
-		#
-		# Blocked, and why:
-		#   Start             the run has not begun; there is nothing to sample yet
-		#   Sent for Approval the run is with an approver and is frozen while it is
-		#                     - adding a sample would change what is being reviewed
-		#   Rejected          corrections are the System Manager's to make first
-		#   Approved          finished and immutable
+
 		allowed_states = ["In Progress", "Completed", "Edit Completed"]
 
 		if workflow_state not in allowed_states:
 			frappe.throw(
-				_(
-					"Samples can only be created or edited while the experiment is In Progress, "
-					"Completed, or Edit Completed. Current state: {0}"
-				).format(workflow_state),
-				title=_("Invalid Experiment State"),
+			 _(
+			  "Samples can only be created or edited while the experiment is In Progress, "
+			  "Completed, or Edit Completed. Current state: {0}"
+			 ).format(workflow_state),
+			 title=_("Invalid Experiment State"),
 			)
 
 	def validate_comments_lock(self):
@@ -141,7 +116,7 @@ class Sample(Document):
 		lead included", and this mirrors it. That does differ from the sample's
 		other fields, where has_sample_permission lets a System Manager through.
 
-		The diff is against the stored row, so it holds for bench console and
+		The diff is against the stored row, so it holds for server-side console and
 		direct REST writes too, not only the form.
 		"""
 		if not self.experiment:
@@ -158,9 +133,9 @@ class Sample(Document):
 			return
 
 		frappe.throw(
-			_(
-				"Comments are locked: run {0} is {1}. They stay editable until the run "
-				"is sent for approval."
-			).format(frappe.bold(self.experiment), frappe.bold(workflow_state)),
-			title=_("Comments Locked"),
+		 _(
+		  "Comments are locked: run {0} is {1}. They stay editable until the run "
+		  "is sent for approval."
+		 ).format(frappe.bold(self.experiment), frappe.bold(workflow_state)),
+		 title=_("Comments Locked"),
 		)

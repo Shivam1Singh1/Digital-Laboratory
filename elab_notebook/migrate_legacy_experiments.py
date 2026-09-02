@@ -5,11 +5,9 @@ deleted. Run it, verify the new records end to end, and only then decide what
 happens to the originals.
 
 Deliberately not registered in patches.txt: this is a one-shot data move that
-should be run and inspected by hand, not silently on every `bench migrate`.
-
-    bench --site <site> execute elab_notebook.migrate_legacy_experiments.dry_run
-    bench --site <site> execute elab_notebook.migrate_legacy_experiments.run
-    bench --site <site> execute elab_notebook.migrate_legacy_experiments.verify
+should be run and inspected by hand, not silently on every migrate. The
+dry_run / run / verify / backfill_titles invocations are in
+elab-notebook-ui/README.md under "Useful Commands".
 
 Rows are written with direct SQL rather than through `frappe.get_doc(...).insert()`
 on purpose. `LabExperiment.before_insert()` would overwrite `series` (it recounts
@@ -24,16 +22,10 @@ import frappe
 LEGACY = "Experiment"
 NEW = "Lab Experiment"
 
-# Legacy parent columns with no counterpart on Lab Experiment. Both are dropped
-# knowingly: `field_edit_log` was retired (written only by a legacy Client
-# Script, read by nothing), `steps` is an orphan column left behind by a field
-# that no longer exists on the doctype.
+
 DROPPED_COLUMNS = ("field_edit_log", "steps")
 
-# (source child doctype, destination child doctype)
-# Same source and destination means the child table is SHARED with Experiment
-# Template - the rows are re-parented inside one table, so they need fresh
-# primary keys.
+
 CHILD_TABLES = [
 	("E-lab Item", "Lab Experiment Item CT"),
 	("Template Ingredient", "Template Ingredient"),
@@ -41,8 +33,7 @@ CHILD_TABLES = [
 	("Template Protocol Step", "Template Protocol Step"),
 ]
 
-# Legacy Select values the live workflow never emitted -> the state it really
-# used. Anything outside this map and the new Select aborts the run.
+
 STATE_MAP = {
 	"Pending from System Manager": "Pending Approval from System Manager",
 	"Pending For Approval": "Pending Approval from System Manager",
@@ -78,8 +69,8 @@ def _map_state(value, valid):
 	if value in STATE_MAP:
 		return STATE_MAP[value], f"mapped from {value!r}"
 	frappe.throw(
-		f"Legacy workflow_state {value!r} has no counterpart in the "
-		f"Lab Experiment Select ({sorted(valid)}). Add it to STATE_MAP first."
+	 f"Legacy workflow_state {value!r} has no counterpart in the "
+	 f"Lab Experiment Select ({sorted(valid)}). Add it to STATE_MAP first."
 	)
 
 
@@ -91,53 +82,53 @@ def _plan():
 
 	parents = []
 	for row in frappe.db.sql(
-		f"select name, series, workflow_state, status, docstatus, elab_notebook, "
-		f"template, experiment_template, owner from `{_table(LEGACY)}` order by creation",
-		as_dict=True,
+	 f"select name, series, workflow_state, status, docstatus, elab_notebook, "
+	 f"template, experiment_template, owner from `{_table(LEGACY)}` order by creation",
+	 as_dict=True,
 	):
 		state, note = _map_state(row.workflow_state, valid)
 		parents.append(
-			{
-				"name": row.name,
-				"series": row.series,
-				"state_from": row.workflow_state,
-				"state_to": state,
-				"state_note": note,
-				"docstatus": row.docstatus,
-				"owner": row.owner,
-				"skip": row.name in already,
-				"dangling": [
-					f"{field}={value!r}"
-					for field, value in (("template", row.template), ("experiment_template", row.experiment_template))
-					if value and not frappe.db.exists("Lab Experiment Template", value)
-				],
-			}
+		 {
+		  "name": row.name,
+		  "series": row.series,
+		  "state_from": row.workflow_state,
+		  "state_to": state,
+		  "state_note": note,
+		  "docstatus": row.docstatus,
+		  "owner": row.owner,
+		  "skip": row.name in already,
+		  "dangling": [
+		   f"{field}={value!r}"
+		   for field, value in (("template", row.template), ("experiment_template", row.experiment_template))
+		   if value and not frappe.db.exists("Lab Experiment Template", value)
+		  ],
+		 }
 		)
 
 	children = []
 	for src, dest in CHILD_TABLES:
 		rows = frappe.db.sql(
-			f"select name, parent, parentfield from `{_table(src)}` "
-			f"where parenttype = %s and parent in %s",
-			(LEGACY, names or [""]),
-			as_dict=True,
+		 f"select name, parent, parentfield from `{_table(src)}` "
+		 f"where parenttype = %s and parent in %s",
+		 (LEGACY, names or [""]),
+		 as_dict=True,
 		)
 		children.append(
-			{
-				"src": src,
-				"dest": dest,
-				"shared_table": src == dest,
-				"count": len(rows),
-				"parentfields": sorted({r.parentfield for r in rows}),
-				"parents": sorted({r.parent for r in rows}),
-			}
+		 {
+		  "src": src,
+		  "dest": dest,
+		  "shared_table": src == dest,
+		  "count": len(rows),
+		  "parentfields": sorted({r.parentfield for r in rows}),
+		  "parents": sorted({r.parent for r in rows}),
+		 }
 		)
 
 	return {
-		"parents": parents,
-		"children": children,
-		"parent_columns": _shared_columns(LEGACY, NEW),
-		"dropped": sorted(set(_columns(LEGACY)) - set(_columns(NEW))),
+	 "parents": parents,
+	 "children": children,
+	 "parent_columns": _shared_columns(LEGACY, NEW),
+	 "dropped": sorted(set(_columns(LEGACY)) - set(_columns(NEW))),
 	}
 
 
@@ -152,11 +143,11 @@ def _copy_parents(plan):
 			print(f"  skip (exists): {entry['name']}")
 			continue
 		row = frappe.db.sql(
-			f"select {collist} from `{_table(LEGACY)}` where name = %s", entry["name"], as_dict=True
+		 f"select {collist} from `{_table(LEGACY)}` where name = %s", entry["name"], as_dict=True
 		)[0]
 		row["workflow_state"] = entry["state_to"]
 		frappe.db.sql(
-			f"insert into `{_table(NEW)}` ({collist}) values ({placeholders})", row
+		 f"insert into `{_table(NEW)}` ({collist}) values ({placeholders})", row
 		)
 		written += 1
 		print(f"  copied: {entry['name']}  (workflow_state={entry['state_to']!r})")
@@ -176,17 +167,17 @@ def _copy_children(plan):
 		placeholders = ", ".join(f"%({c})s" for c in cols)
 
 		rows = frappe.db.sql(
-			f"select {collist} from `{_table(src)}` where parenttype = %s and parent in %s",
-			(LEGACY, names or [""]),
-			as_dict=True,
+		 f"select {collist} from `{_table(src)}` where parenttype = %s and parent in %s",
+		 (LEGACY, names or [""]),
+		 as_dict=True,
 		)
 		for row in rows:
 			row["parenttype"] = NEW
 			if spec["shared_table"]:
-				# Re-parenting inside one table - the old primary key is taken.
+
 				row["name"] = frappe.generate_hash(length=10)
 			frappe.db.sql(
-				f"insert into `{_table(dest)}` ({collist}) values ({placeholders})", row
+			 f"insert into `{_table(dest)}` ({collist}) values ({placeholders})", row
 			)
 			written += 1
 		print(f"  {src} -> {dest}: {len(rows)} row(s)")
@@ -252,10 +243,10 @@ def backfill_titles(dry_run=True):
 	title from create_experiment_from_template().
 	"""
 	rows = frappe.db.sql(
-		f"select name, aim, title from `{_table(NEW)}` "
-		f"where (title is null or title = '') and name in "
-		f"(select name from `{_table(LEGACY)}`)",
-		as_dict=True,
+	 f"select name, aim, title from `{_table(NEW)}` "
+	 f"where (title is null or title = '') and name in "
+	 f"(select name from `{_table(LEGACY)}`)",
+	 as_dict=True,
 	)
 	print(f"=== {len(rows)} migrated record(s) with empty title ===")
 	for r in rows:
@@ -272,7 +263,7 @@ def backfill_titles(dry_run=True):
 
 	frappe.db.commit()
 	remaining = frappe.db.sql(
-		f"select name, title from `{_table(NEW)}` where title is null or title = ''", as_dict=True
+	 f"select name, title from `{_table(NEW)}` where title is null or title = ''", as_dict=True
 	)
 	print("\n=== AFTER ===")
 	for r in frappe.db.sql(f"select name, title from `{_table(NEW)}` order by creation", as_dict=True):
@@ -301,9 +292,9 @@ def verify():
 		new = new[0]
 
 		diffs = [
-			f"{c}: {old[c]!r} -> {new[c]!r}"
-			for c in cols
-			if old[c] != new[c] and c != "workflow_state"
+		 f"{c}: {old[c]!r} -> {new[c]!r}"
+		 for c in cols
+		 if old[c] != new[c] and c != "workflow_state"
 		]
 		state_ok = new["workflow_state"] in valid or not new["workflow_state"]
 		print(f"  {name}")
@@ -317,12 +308,12 @@ def verify():
 	print("=== CHILD ROWS ===")
 	for src, dest in CHILD_TABLES:
 		legacy_n = frappe.db.sql(
-			f"select count(*) from `{_table(src)}` where parenttype = %s and parent in %s",
-			(LEGACY, names or [""]),
+		 f"select count(*) from `{_table(src)}` where parenttype = %s and parent in %s",
+		 (LEGACY, names or [""]),
 		)[0][0]
 		new_n = frappe.db.sql(
-			f"select count(*) from `{_table(dest)}` where parenttype = %s and parent in %s",
-			(NEW, names or [""]),
+		 f"select count(*) from `{_table(dest)}` where parenttype = %s and parent in %s",
+		 (NEW, names or [""]),
 		)[0][0]
 		match = "OK" if legacy_n == new_n else "MISMATCH"
 		if legacy_n != new_n:

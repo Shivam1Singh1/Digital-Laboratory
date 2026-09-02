@@ -1,14 +1,4 @@
-/* Raw Data tab
- *
- * Every class is `rd-`-prefixed and defined here. Component CSS is imported
- * globally in this app, so a generic name like `.section` or `.num` would pick
- * up whichever definition the bundler emitted last - the same trap TeamSetup.css
- * and ExperimentTree.css both carry notes about.
- *
- * `.form-control`, `.form-group`, `.form-group-row`, `.table-container`,
- * `.btn*` and `.field-hint` are borrowed from the shared form styles the two
- * host forms already use, so this pane sits in either without restyling.
- */
+
 
 .raw-data-pane {
   display: flex;
@@ -16,7 +6,7 @@
   gap: 1.25rem;
 }
 
-/* A titled block with its own Add Row control: the three child tables. */
+
 .rd-block {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -39,7 +29,7 @@
   color: var(--text-primary);
 }
 
-/* Scalar fields between two child tables read as one group, not as loose rows. */
+
 .rd-section {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -94,9 +84,7 @@
   border-color: var(--danger);
 }
 
-/* The Sample grid carries all sixteen of the child doctype's fields, which is
-   wider than any pane it sits in. It scrolls sideways rather than wrapping -
-   a wrapped row here stops being a row. */
+
 .rd-wide {
   overflow-x: auto;
 }

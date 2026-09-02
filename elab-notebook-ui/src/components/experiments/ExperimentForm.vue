@@ -7,6 +7,7 @@ import { formatAuditDate } from '../../utils/dateFormatter'
 import { readServerError } from '../../utils/serverError'
 import RichTextEditor from '../common/RichTextEditor.vue'
 import AddRow from '../common/AddRow.vue'
+import FileAttachment from '../common/FileAttachment.vue'
 import LinkField from '../common/LinkField.vue'
 import RawDataTab from './RawDataTab.vue'
 import { showsRawDataTab } from '../../utils/rawData'
@@ -19,16 +20,12 @@ const userStore = useUserStore()
 const project = ref(route.query.project || '')
 const employeeFunction = ref(route.query.employee_function || '')
 const templateId = ref(route.query.template || '')
-// Present only when the run was started from a team's Create Experiment button.
-// Everything team-specific below keys off this, so the general New Experiment
-// entry point is untouched.
+
+
 const experimentTeam = ref(route.query.experiment_team || '')
 const isTeamFlow = computed(() => Boolean(experimentTeam.value))
 
-// Present only when the run was started from an existing run's Create button
-// (ExperimentDetail.startChildRun): the level below that run, and that run as
-// this one's parent. Both seed the hierarchy fields below and neither is
-// locked - they pre-select the same pickers the general entry point offers.
+
 const seedCategory = ref(route.query.experiment_category || '')
 const seedParent = ref(route.query.parent_experiment || '')
 
@@ -38,35 +35,30 @@ const error = ref('')
 
 const activeTab = ref('general')
 
-// Available items for dropdowns
+
 const availableMaterials = ref([])
 const availableEquipment = ref([])
 const availableMethods = ref([])
 
-// Search states for each row
+
 const materialSearchStates = ref({})
 const equipmentSearchStates = ref({})
 
-// Check if experiment is from template - makes template-sourced fields read-only
+
 const isFromTemplate = computed(() => !!experiment.value.experiment_template)
 
 const projectName = ref('')
 const employeeFunctionName = ref('')
 
-// Who the server will file this run under once it is saved. Never posted - see
-// the note on the experiment ref below.
+
 const scientistName = computed(
   () => userStore.user.employee_name || userStore.user.full_name || '—'
 )
 
-// The signed-in account itself, shown beside the Employee it resolves to. Frappe
-// stores it on the record as `owner` at insert; it is displayed here so the
-// person filling the form can see which account the run will be filed under.
+
 const currentUserId = computed(() => userStore.user.name || '—')
 
-// The Employee behind that account - the id the run actually stores in
-// employee_code. Shown, never posted: the server stamps it from the session and
-// discards whatever the payload carried.
+
 const currentEmployeeId = computed(() => userStore.user.employee || '—')
 
 const experiment = ref({
@@ -77,35 +69,26 @@ const experiment = ref({
   experiment_template: templateId.value,
   aim: '',
   sub_aim: '',
-  // The level this run sits at. Mandatory on new runs (LabExperiment.validate_category)
-  // and fixed once saved, so it is asked for here and nowhere else. It also
-  // decides which of the fields below apply at all - see the hierarchy section.
+
+
   experiment_category: seedCategory.value,
-  // The run one level up. Required at every level except the root, which takes
-  // none (api/hierarchy.assert_parent_presence).
+
+
   parent_experiment: seedParent.value,
   rationale: '',
   remark: '',
-  // Filled from the site's clock on mount (loadServerNow), not from the browser's:
-  // the two are not the same machine, let alone the same timezone. Left blank
-  // until then rather than seeded with a value that would have to be corrected -
-  // and Lab Experiment.experiment_start_date defaults to Today server-side, so a
-  // run posted before the lookup lands is still stamped by the server, not by
-  // whatever the browser believed the date was.
+
+
   experiment_start_date: '',
   experiment_end_date: '',
-  // employee_code / employee_name are deliberately absent: the server stamps the
-  // author from the session (LabExperiment.set_creator_identity) and discards
-  // whatever the payload carried, so sending a value here would only suggest the
-  // client had a say in it. The name is shown below from the user store.
-  // Required: the naming rule derives the experiment id from its team. Seeded
-  // from the URL on the team flow; picked below on the general entry point.
+
+
   experiment_team: experimentTeam.value,
 
   segment: '',
   cost_center: '',
 
-  // Child tables
+
   experiment_ingredients: [],
   experiment_parameters: [],
   experiment_protocol_steps: [],
@@ -114,28 +97,17 @@ const experiment = ref({
   methodology: [],
   observation: '',
 
-  // The run's own step list and observation rows, same two tables the detail
-  // page edits. Seeded here for the reason given below: the payload is this
-  // object posted whole, so a table Vue never saw is a table the server never
-  // receives. Not in TEMPLATE_CHILD_FIELDS - neither is ever cloned from a
-  // template, so no row here can arrive flagged from_template.
+
   protocol_steps: [],
   observations: [],
 
-  // Result tab. All three write-ups start empty: they are descriptive prose, and
-  // an author who wants a table can build one in the editor. Seeded here anyway,
-  // blank and all, for the reason given above - the payload is this object
-  // posted whole, so a key Vue never saw is a key the server never receives.
-  // `result` stays empty too: blank is the first option of the doctype's Select,
-  // and a run nobody has judged yet should not post as Pass.
+
   results: '',
   observation_and_conclusion: '',
   conclusion: '',
   result: '',
 
-  // Raw Data tab. Seeded here rather than left to appear on first keystroke:
-  // the payload is this object posted whole, and a key Vue never saw is a key
-  // the server never receives. Checks are 0/1 to match the doctype's Check.
+
   sample_details: '',
   sample_detailsgenerated: '',
   sample_generated: 0,
@@ -150,16 +122,13 @@ const experiment = ref({
   nature_of_sample: '',
   result_attachment: [],
   quality_metrics: [],
-  // Sub Experiment only, but seeded at every level for the reason above: the
-  // payload is this object posted whole. An empty array on the other levels
-  // costs nothing and is never shown.
+
+
   sub_metrics: [],
   sample: []
 })
 
-// Mirrors TEMPLATE_CHILD_MAP in elab_notebook/api/template.py. Rows in these
-// tables can arrive pre-flagged with from_template = 1, which makes them
-// editable but not deletable.
+
 const TEMPLATE_CHILD_FIELDS = [
   'experiment_ingredients',
   'experiment_parameters',
@@ -172,10 +141,8 @@ const TEMPLATE_CHILD_FIELDS = [
 const applyTemplateClone = async (name) => {
   if (!name) return
   try {
-    // The server owns the template -> run mapping (api/template.py
-    // _clone_template_children). Mapping the tables here as well is what let the
-    // two clone paths drift apart, and it is how imported rows ended up
-    // unflagged. Every cloned row comes back with from_template = 1 already set.
+
+
     const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_template_clone', {
       params: { template_name: name }
     })
@@ -184,9 +151,7 @@ const applyTemplateClone = async (name) => {
     experiment.value.template = name
     experiment.value.experiment_template = name
 
-    // `title` is the run's own name (Data) - it used to be a read-only Link that
-    // could only hold a template id, which is why older runs are named after
-    // their template.
+
     experiment.value.title = header.title || ''
     experiment.value.aim = header.aim || header.title || ''
     experiment.value.sub_aim = header.sub_aim || ''
@@ -202,10 +167,7 @@ const applyTemplateClone = async (name) => {
   }
 }
 
-// Dropping the template has to drop what it cloned as well. Leaving the rows
-// behind would post material, equipment and methodology - each still flagged
-// from_template = 1, and so undeletable afterwards - onto a run whose level is
-// not supposed to carry any of it.
+
 const clearTemplateSelection = () => {
   experiment.value.template = ''
   experiment.value.experiment_template = ''
@@ -224,7 +186,7 @@ const loadTemplate = async () => {
   loading.value = false
 }
 
-// Item management actions
+
 const addMaterial = () => {
   experiment.value.material_required.push({
     item_code: '',
@@ -237,15 +199,20 @@ const addMaterial = () => {
 }
 
 const removeMaterial = (index) => {
-  // Imported rows are protected server-side too - see
-  // LabExperiment.validate_imported_rows_kept().
+
+
   if (experiment.value.material_required[index]?.from_template) return
   experiment.value.material_required.splice(index, 1)
 }
 
-// No from_template guard on these two, unlike the tables above: they are never
-// populated from a template, so every row is one the user added here and every
-// row is theirs to delete.
+
+const renumberProtocolSteps = () => {
+  const rows = experiment.value.protocol_steps || []
+  rows.forEach((row, idx) => {
+    row.step_no = idx + 1
+  })
+}
+
 const addProtocolStep = () => {
   const rows = experiment.value.protocol_steps
   rows.push({
@@ -255,10 +222,13 @@ const addProtocolStep = () => {
     is_critical: 0,
     attachment: ''
   })
+  renumberProtocolSteps()
 }
 
 const removeProtocolStep = (index) => {
   experiment.value.protocol_steps.splice(index, 1)
+
+  renumberProtocolSteps()
 }
 
 const addObservationRow = () => {
@@ -285,8 +255,8 @@ const addEquipment = () => {
 }
 
 const removeEquipment = (index) => {
-  // Imported rows are protected server-side too - see
-  // LabExperiment.validate_imported_rows_kept().
+
+
   if (experiment.value.equipment_details[index]?.from_template) return
   experiment.value.equipment_details.splice(index, 1)
 }
@@ -301,34 +271,27 @@ const addMethod = () => {
 }
 
 const removeMethod = (index) => {
-  // Imported rows are protected server-side too - see
-  // LabExperiment.validate_imported_rows_kept().
+
+
   if (experiment.value.methodology[index]?.from_template) return
   experiment.value.methodology.splice(index, 1)
 }
 
 const SAVE_FALLBACK = 'Error saving experiment. Please verify all required fields.'
 
-// Level two is literally "Experiment", so the article cannot be baked into the
-// message strings - "a Experiment" is what every one of them would say.
-// Mirrors _a() in api/hierarchy.py, which does the same for the server's errors.
+
 const withArticle = (category) =>
   `${'AEIOU'.includes((category || '').charAt(0).toUpperCase()) ? 'an' : 'a'} ${category}`
 
 const capitalise = (text) => text.charAt(0).toUpperCase() + text.slice(1)
 
-// "Project", "Project and Employee Function", "Project, Employee Function and
-// Experiment Team" - a list a person would read out loud.
+
 const listNames = (names) =>
   names.length <= 1
     ? names[0] || ''
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 
-// Every mandatory field on this form, in the order the pane asks for them, each
-// with the tab it lives on and the sentence to use when it is the only one
-// missing. One field missing gets the sentence that says what to do about it;
-// several get named together, because being sent back for one at a time is how a
-// form feels like it is hiding the rules.
+
 const missingRequiredFields = () => {
   const fields = []
 
@@ -353,9 +316,8 @@ const missingRequiredFields = () => {
       message: 'Experiment Category is required — pick the level this run sits at.',
     })
   }
-  // Named here rather than left to the server's rejection, but the server rule
-  // is the control: api/hierarchy.assert_parent_presence runs on every write,
-  // including a direct POST that never sees this form.
+
+
   if (needsParent.value && !experiment.value.parent_experiment) {
     const self = withArticle(experiment.value.experiment_category)
     const above = withArticle(parentCategory.value)
@@ -368,9 +330,8 @@ const missingRequiredFields = () => {
           + 'and Employee Function yet. Create one first.',
     })
   }
-  // The run's ID is derived from its team, so this one is fatal rather than
-  // cosmetic - and when the pair simply has no team, saying "select one" would
-  // be pointing at an empty list.
+
+
   if (!experiment.value.experiment_team) {
     fields.push({
       label: 'Experiment Team',
@@ -385,8 +346,8 @@ const missingRequiredFields = () => {
   if (!(experiment.value.aim || '').trim()) {
     fields.push({ label: 'Aim / Hypothesis', tab: 'details', message: 'Aim / Hypothesis is required.' })
   }
-  // A template may legitimately carry a blank Sub Aim while Lab Experiment
-  // requires one, so the form asks for it rather than inventing a placeholder.
+
+
   if (!(experiment.value.sub_aim || '').trim()) {
     fields.push({
       label: 'Sub Aim',
@@ -400,23 +361,17 @@ const missingRequiredFields = () => {
   return fields
 }
 
-// Everything the server would reject with a bare "value missing", named here
-// instead - including which Material Required row is at fault. A template may
-// legitimately carry a blank Sub Aim while Lab Experiment requires one, so the
-// form asks for it rather than inventing a placeholder.
+
 const validateExperiment = () => {
-  // The blur resolver runs on a 200ms delay so a dropdown pick lands first, and
-  // clicking Save straight from the search box beats it. Settle every row here,
-  // keeping what was typed so the message can quote it back.
+
+
   const rowsToCheck = experiment.value.material_required || []
   const typedPerRow = rowsToCheck.map(
     (_, idx) => (materialSearchStates.value[idx]?.search || '').trim()
   )
   rowsToCheck.forEach((row, idx) => resolveMaterialSearch(row, idx))
 
-  // Every empty mandatory field, gathered before anything is reported, so the
-  // message names all of them at once instead of sending the user round the form
-  // one rejection at a time. The order is the order the pane asks for them.
+
   const missing = missingRequiredFields()
   if (missing.length) {
     activeTab.value = missing[0].tab
@@ -424,7 +379,7 @@ const validateExperiment = () => {
       ? missing[0].message
       : `${listNames(missing.map((f) => f.label))} are required.`
   }
-  // Both are plain dates, so a string compare is the date compare.
+
   if (
     experiment.value.experiment_end_date &&
     experiment.value.experiment_start_date &&
@@ -453,9 +408,8 @@ const validateExperiment = () => {
 }
 
 const saveExperiment = async () => {
-  // The Experiment Team used to be checked here, ahead of everything else, which
-  // meant a form with three fields empty only ever reported that one.
-  // validateExperiment now gathers them all and names them together.
+
+
   const validationError = validateExperiment()
   if (validationError) {
     error.value = validationError
@@ -464,6 +418,8 @@ const saveExperiment = async () => {
 
   saving.value = true
   error.value = ''
+
+  renumberProtocolSteps()
   try {
     const payload = {
       ...experiment.value,
@@ -474,12 +430,7 @@ const saveExperiment = async () => {
       const newId = res.data.data.name
       createdId.value = newId
 
-      // Children are linked in a second call: `parent_experiment` lives on the
-      // child, so there is nothing to write until the parent has a name. The
-      // link itself is all-or-nothing server-side, but it is a separate
-      // transaction from the create - so a failure here leaves a real run with
-      // no children, and saying so is the only honest option. Re-saving would
-      // create a second run, which is why Save is closed off once createdId is set.
+
       if (selectedChildren.value.size) {
         try {
           await axios.post(`/api/method/${HIERARCHY_API}.link_child_experiments`, {
@@ -505,14 +456,11 @@ const saveExperiment = async () => {
   }
 }
 
-// The site's clock. `experiment_start_date` is a Date field on Lab Experiment,
-// so what is stored is a day - the form used to show a time next to it that was
-// both in the wrong timezone and discarded on save.
+
 const serverToday = ref('')
 const serverTimeZone = ref('')
-// How far this browser is from the site. Kept rather than the timestamp itself
-// so a row added twenty minutes into filling the form is stamped twenty minutes
-// later, still on the site's clock.
+
+
 const serverSkewMs = ref(0)
 
 const loadServerNow = async () => {
@@ -523,37 +471,29 @@ const loadServerNow = async () => {
     serverTimeZone.value = stamp.time_zone || ''
     if (stamp.today) experiment.value.experiment_start_date = stamp.today
     if (stamp.now) {
-      // Read as local so the difference is between wall clocks, not instants -
-      // which is what makes the getters below print the site's time.
+
+
       serverSkewMs.value = new Date(stamp.now.replace(' ', 'T')).getTime() - Date.now()
     }
   } catch (err) {
     console.error('Failed to read the server clock:', err)
-    // Left blank on purpose: the doctype's own `Today` default then fills it in
-    // server-side, which is the same clock this call was asking for.
+
+
   }
 }
 
-// A native date field only opens its calendar from the small icon at its end,
-// which is easy to miss and easy to mis-aim at - the field reads as a text box
-// you are meant to type a date into. This opens the calendar from a click
-// anywhere in the control. showPicker() needs a real user gesture and is not in
-// every browser, so a failure here is not an error: the icon and typing both
-// still work.
+
 const openDatePicker = (event) => {
   const input = event.currentTarget
   if (!input || input.readOnly || input.disabled) return
   try {
     input.showPicker?.()
   } catch {
-    /* Browser declined (unsupported, or not a trusted gesture) - leave the
-       field as a plain date input. */
+
   }
 }
 
-// 'YYYY-MM-DD HH:mm:ss' on the site's clock - the shape Frappe stores, and the
-// one formatAuditDate reads back without shifting it. `new Date().toISOString()`
-// gave neither: UTC, and a trailing Z that moves the value again on display.
+
 const labStamp = () => {
   const d = new Date(Date.now() + serverSkewMs.value)
   const pad = (n) => String(n).padStart(2, '0')
@@ -564,8 +504,8 @@ const labStamp = () => {
 }
 
 const loadProjectAndFunctionNames = async () => {
-  // Cleared first: both are picked on this form now, so a name left over from
-  // the previous pick would sit under the new one.
+
+
   projectName.value = ''
   employeeFunctionName.value = ''
   try {
@@ -584,11 +524,11 @@ const loadProjectAndFunctionNames = async () => {
 
 const loadAvailableItems = async () => {
   try {
-    // Load available items from Item doctype
+
     const itemsRes = await axios.get('/api/resource/Item?fields=["name","item_name","uom"]&limit_page_length=500')
     availableMaterials.value = itemsRes.data.data || []
 
-    // Load available equipment from Item doctype with item_group = Equipment
+
     const equipmentRes = await axios.get('/api/resource/Item?filters=[["item_group","=","Equipment"]]&fields=["name","item_name","uom"]&limit_page_length=500')
     availableEquipment.value = equipmentRes.data.data || []
   } catch (err) {
@@ -605,12 +545,7 @@ const selectMaterial = (mat, idx, item) => {
   }
 }
 
-// item_code is a Link to Item, so only a real Item id may be stored. Typing in
-// the search box updates the search state alone - the code is set by picking a
-// suggestion. Text typed but never picked used to survive on screen while
-// item_code stayed empty, and the row only failed on save with the server's
-// generic "value missing". Resolve or wipe it when the cell loses focus so the
-// cell always shows what the row actually holds.
+
 const findMaterialItem = (text) => {
   const query = (text || '').trim().toLowerCase()
   if (!query) return null
@@ -621,7 +556,7 @@ const findMaterialItem = (text) => {
       m.name.toLowerCase().includes(query) ||
       (m.item_name || '').toLowerCase().includes(query)
   )
-  // Only an unambiguous match may be applied on the user's behalf.
+
   return matches.length === 1 ? matches[0] : null
 }
 
@@ -629,7 +564,7 @@ const resolveMaterialSearch = (mat, idx) => {
   const state = materialSearchStates.value[idx]
   if (!state) return
   const typed = (state.search || '').trim()
-  // Already settled by picking a suggestion.
+
   if (typed && typed === mat.item_code) return
 
   const item = findMaterialItem(typed)
@@ -637,8 +572,8 @@ const resolveMaterialSearch = (mat, idx) => {
     selectMaterial(mat, idx, item)
     return
   }
-  // Nothing matched (or the text was cleared): leave the cell empty rather than
-  // showing text with no item behind it.
+
+
   state.search = ''
   mat.item_code = ''
 }
@@ -648,22 +583,13 @@ const selectEquipment = (eq, item) => {
   eq.equipment_name = item.item_name || item.name
 }
 
-// Segment and Cost Centre come off the team the run is filed under: a team is
-// set up by picking a pair (ExperimentTeam.validate refuses one without), and a
-// run booked anywhere other than where its own team books is a run filed under
-// the wrong budget. The Employee Function supplies the list the picker offers -
-// the function record carries the pairs its work is booked against, which is the
-// same list Team Setup chose from - so the field is still answerable before any
-// team exists, and two users on different functions never inherit each other's
-// cost centre. Team first, function as the fallback.
+
 const segmentOptions = ref([])
 const costCenterOptions = ref([])
 const financialsLoaded = ref(false)
 const fetchedFromTeam = ref(false)
 
-// The team picker settles after this runs (loadTeamsForProject pre-selects a
-// lone team), so two loads can be in flight at once and the earlier one must not
-// land last with the team-less answer.
+
 let financialsRun = 0
 
 const loadFinancials = async () => {
@@ -686,9 +612,8 @@ const loadFinancials = async () => {
       axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_segments_and_cost_centers', {
         params: { employee_function: employeeFunction.value },
       }),
-      // The pair belonging to the team named in the picker. Passing it is what
-      // makes this the run's own team rather than whichever team of this project
-      // and function happens to be oldest.
+
+
       project.value
         ? axios.get('/api/method/elab_notebook.elab_notebook.api.experiment_team.get_team_financials', {
             params: {
@@ -710,11 +635,7 @@ const loadFinancials = async () => {
     if (run === financialsRun) financialsLoaded.value = true
   }
 
-  // The team's value wins outright, including when the function no longer maps
-  // it - the team books where it books, and blanking the field would quietly
-  // re-file the run. A value the list is missing is added to it so the picker
-  // can show what is selected. With no team to read, a function offering exactly
-  // one answer fills itself in and anything else is left for the user to pick.
+
   const settle = (optionsRef, teamValue) => {
     if (teamValue) {
       if (!optionsRef.value.includes(teamValue)) {
@@ -743,22 +664,11 @@ const financialsHint = (options, kind) => {
 const segmentHint = computed(() => financialsHint(segmentOptions.value, 'Segment'))
 const costCenterHint = computed(() => financialsHint(costCenterOptions.value, 'Cost Centre'))
 
-// The run's ID is derived from its team (LabExperiment.set_series), so a run
-// cannot be saved without one - at every Experiment Category, the root included.
-// The picker is always shown and always editable, including on the team flow
-// where the team's Create Experiment button passes one in the URL: that value
-// pre-selects the field rather than replacing it, because the team a run is
-// filed under is now something the user confirms rather than something decided
-// off-screen. A project + function pair maps to many teams by design
-// (api/experiment_team.save_team always creates a new record rather than reusing
-// one), so there is a real choice to make here.
+
 const teamOptions = ref([])
 const teamsLoaded = ref(false)
 
-// "No team exists for this pair" is only true once there is a pair to check.
-// Project starts empty on the blank entry point, and an empty project is not a
-// project with nothing set up for it - reporting it as one put a red error and a
-// Team Setup link on a form the user had not filled in yet.
+
 const noTeamAvailable = computed(
   () =>
     Boolean(project.value) &&
@@ -782,13 +692,10 @@ const teamHint = computed(() => {
   return `This project has ${teamOptions.value.length} teams under this function — confirm which one this run belongs to.`
 })
 
-// Shown in the picker: team_name is the friendly label but is empty on teams
-// created before it existed, so the id carries the row on its own.
+
 const teamLabel = (t) => (t.team_name ? `${t.team_name} — ${t.name}` : t.name)
 
-// The selected team's name, read back out of the options the picker was built
-// from. Most teams predate the field, so "Not named" is the common answer and is
-// said plainly rather than left as an empty box.
+
 const teamNameDisplay = computed(() => {
   if (!experiment.value.experiment_team) return '—'
   const match = teamOptions.value.find((t) => t.name === experiment.value.experiment_team)
@@ -797,10 +704,8 @@ const teamNameDisplay = computed(() => {
 })
 
 const loadTeamsForProject = async () => {
-  // Loaded on the team flow too: the URL team pre-selects the picker, it does
-  // not stand in for it, so the alternatives still have to be on hand.
-  // Re-run whenever the project or Employee Function changes, so the previous
-  // pair's teams are cleared rather than left on offer.
+
+
   teamOptions.value = []
   teamsLoaded.value = false
   if (!project.value) {
@@ -808,15 +713,8 @@ const loadTeamsForProject = async () => {
     return
   }
   try {
-    // No filter for membership here: get_team_permission_query_conditions
-    // already narrows the list to teams the user heads or belongs to, which is
-    // the same gate LabExperiment.validate_participant applies on save.
-    //
-    // Status is filtered explicitly, because that one is not implied by the
-    // permission query: a head keeps seeing their archived teams, and this is
-    // the picker for creating new work, which an archived team no longer
-    // authorises. experiment_access.is_authorized_for_project applies the same
-    // filter server-side, so a team missing here would be refused on save too.
+
+
     const filters = { project: project.value, status: 'Active' }
     if (employeeFunction.value) {
       filters.employee_function = employeeFunction.value
@@ -831,8 +729,8 @@ const loadTeamsForProject = async () => {
       }
     })
     teamOptions.value = res.data.message || []
-    // Pre-select the only candidate, but leave the field open: the user is meant
-    // to see which team the run lands on, not have it decided silently.
+
+
     if (!experiment.value.experiment_team && teamOptions.value.length === 1) {
       experiment.value.experiment_team = teamOptions.value[0].name
     }
@@ -843,24 +741,10 @@ const loadTeamsForProject = async () => {
   }
 }
 
-// Which team the run is filed under is what decides where it books, so the
-// financials are re-read whenever that answer changes - including the
-// pre-selection above, which lands after the first read. Without this the run
-// keeps the pair of whichever team was resolved first while naming another.
+
 watch(() => experiment.value.experiment_team, loadFinancials)
 
-// ---------------------------------------------------------------------------
-// Getting a team when the project has none
-// ---------------------------------------------------------------------------
-// This form used to carry its own team-creation panel - name field, roster
-// checkboxes, its own save_team call - which meant the same feature existed
-// twice, here and in Team Setup, and had to be fixed twice. It is gone. The link
-// below carries the project and function this form already resolved, plus
-// create=1, and Team Setup opens its own dialog seeded with them.
-//
-// Deliberate consequence: leaving this form loses what has been typed into it.
-// That is why the inline panel existed. Team Setup is one page and one save, and
-// the run is started again from a project that now has a team.
+
 const teamSetupUrl = computed(() => ({
   path: '/elab-notebook',
   query: {
@@ -870,32 +754,11 @@ const teamSetupUrl = computed(() => ({
   },
 }))
 
-// ---------------------------------------------------------------------------
-// Project and Employee Function
-// ---------------------------------------------------------------------------
-// Both used to be settled before this form opened - they arrived in the URL or
-// not at all, and a run started without them could never be saved because the
-// Experiment Team picker had nothing to resolve. They are fields of this form
-// now, filled here like any other. A value arriving in the URL (the team flow,
-// or a Master's Create Experiment button) still pre-fills them and still wins
-// over anything resolved below.
 
-// Projects the user may actually start a run for - a team must exist and the
-// user must be on it or head its function. Narrower than the function -> project
-// mapping on purpose: a project with no team is a dead end here.
 const authorizedProjects = ref([])
 const projectsLoaded = ref(false)
 
-// Scoped to the chosen Employee Function once there is one. The narrowing is the
-// server's, not a filter applied to a list it already sent: a head is authorised
-// for projects that carry no team yet, and those exist only in the function ->
-// project mapping, so they cannot be recovered from an unfiltered response.
-//
-// Before a function is picked this asks for all of them, which is what keeps the
-// no-function fallback reachable: a user whose employee record maps to no
-// function picks a project first and takes the function from that project's
-// teams (loadProjectFunctions). Filtering on an empty function would empty the
-// picker they need to get out of that state.
+
 const loadAuthorizedProjects = async () => {
   try {
     const res = await axios.get(
@@ -924,9 +787,8 @@ const projectSearch = async (txt) => {
 const projectHint = computed(() => {
   if (!projectsLoaded.value) return 'Looking up the projects you can start a run for…'
   if (!authorizedProjects.value.length) {
-    // Two different dead ends, and they need different things done about them:
-    // the function may be the wrong one for this run, or the user may have no
-    // route into any project at all.
+
+
     if (employeeFunction.value) {
       return `No project under ${employeeFunction.value} is available to you. `
         + 'Change the Employee Function, or set up an Experiment Team on one of its projects.'
@@ -940,17 +802,11 @@ const projectHint = computed(() => {
   return 'Required. Only projects with a team you belong to, or head, are listed.'
 })
 
-// The signed-in user's own active Employee Functions, from the resolver the
-// Experiment Template form already uses (api/employee_function
-// .get_current_employee_function, which reads Employee.custom_function_code).
-// One resolver, one definition of "your function".
+
 const myFunctions = ref([])
 const functionsLoaded = ref(false)
 
-// Only consulted when the resolver comes back empty - see the hint below. These
-// are the functions the *project* offers the user, which is what the create
-// modal used to ask for, so an employee record with no function mapping is not
-// left unable to start a run.
+
 const projectFunctions = ref([])
 
 const functionPool = computed(() =>
@@ -974,10 +830,7 @@ const loadMyFunctions = async () => {
     functionsLoaded.value = true
   }
 
-  // Pre-select only an unambiguous answer, and never over an explicit one: a
-  // function passed in the URL is what the flow that opened this form decided,
-  // and it stays. Pre-selected, not locked - the picker below stays open, the
-  // same rule the Experiment Team picker follows.
+
   if (!employeeFunction.value && myFunctions.value.length === 1) {
     employeeFunction.value = myFunctions.value[0].name
   }
@@ -1027,16 +880,7 @@ const employeeFunctionHint = computed(() => {
     : 'No Employee Function is assigned to your employee record, and this project offers none.'
 })
 
-// The project list itself is scoped by the function, so it is reloaded when the
-// function changes - and only then. Kept out of the pair watcher below because
-// that one also fires on `project`, and reloading the list a project was just
-// chosen from would be a round trip that can only return what is already there.
-//
-// A project chosen under the previous function is dropped if the new one does
-// not offer it, for the same reason that watcher drops the team and template:
-// carrying it over leaves a value the picker no longer lists but the payload
-// still posts. Cleared after the reload, so the decision is made against the new
-// list rather than the old one.
+
 watch(employeeFunction, async () => {
   await loadAuthorizedProjects()
   if (project.value && !authorizedProjects.value.some((p) => p.name === project.value)) {
@@ -1044,12 +888,7 @@ watch(employeeFunction, async () => {
   }
 })
 
-// Everything scoped by the pair has to be resolved again when either half of it
-// changes: the teams the run can be filed under, the financials copied from that
-// team, the templates in scope, and the runs it can sit under or adopt. Whatever
-// was picked for the previous pair is dropped first rather than carried over -
-// a team, template or parent from another project is not a choice, it is a stale
-// value that would post silently.
+
 watch([project, employeeFunction], () => {
   experiment.value.project = project.value
   experiment.value.employee_function = employeeFunction.value
@@ -1067,13 +906,6 @@ watch([project, employeeFunction], () => {
   loadChildCandidates()
 })
 
-// ---------------------------------------------------------------------------
-// Category hierarchy
-// ---------------------------------------------------------------------------
-// The level a run sits at, and the runs one level below it that this one adopts
-// on creation. The level ordering is not retyped here: get_category_options
-// ships it from elab_notebook.api.hierarchy, which is the same tuple the
-// server validates against.
 
 const HIERARCHY_API = 'elab_notebook.elab_notebook.api.hierarchy'
 
@@ -1087,8 +919,7 @@ const parentCandidates = ref([])
 const loadingParents = ref(false)
 const parentsLoaded = ref(false)
 
-// Set once the run exists. Save is blocked afterwards so a failed link step
-// cannot be retried into a second run.
+
 const createdId = ref('')
 
 const currentCategoryOption = computed(
@@ -1098,67 +929,46 @@ const currentCategoryOption = computed(
 
 const childCategory = computed(() => currentCategoryOption.value?.child_category || '')
 
-// The level directly above the chosen one, read back out of the same shipped
-// ordering rather than retyped: the option whose child_category is this one.
+
 const parentCategory = computed(() => {
   const current = currentCategoryOption.value
   if (!current) return ''
   return categoryOptions.value.find((o) => o.child_category === current.category)?.category || ''
 })
 
-// Which of the four levels this is, expressed as what the level *does* rather
-// than by name. Both fall out of the ordering get_category_options ships, so the
-// form never hard-codes "Master Experiment" or "Sub Sub Experiment" - renaming a
-// level server-side does not leave a stale string here.
+
 const needsParent = computed(() => Boolean(parentCategory.value))
 const usesTemplate = computed(() => Boolean(currentCategoryOption.value?.is_leaf))
 
-// Tabs that only exist for a run that can carry template-cloned content -
-// Protocol Steps among them, since experiment_protocol_steps is cloned from a
-// template like the other three and a level that takes no template can never
-// have any. Hidden rather than disabled at the other levels: an empty tab that
-// can never hold anything reads as a bug.
+
 const TEMPLATE_TABS = ['materials', 'equipment', 'methodology', 'procedure']
 
-// Four tabs at every level, plus the template-only ones at the leaf. Observation
-// is not a tab of its own any more - it is part of the run's write-up and sits
-// with Aim, Sub Aim and Rationale under Details.
+
 const visibleTabs = computed(() => [
   { key: 'general', label: 'Template' },
   { key: 'details', label: 'Details' },
-  // Third at every level that has it, which is why it sits above the
-  // template-only block rather than after it: at the leaf those four tabs
-  // appear and would otherwise push Raw Data down to seventh.
-  // Hidden on a Master Experiment - see utils/rawData.js, which mirrors the
-  // doctype's own depends_on rather than restating the rule.
+
+
   ...(showsRawDataTab(experiment.value.experiment_category)
     ? [{ key: 'rawdata', label: 'Raw Data' }]
     : []),
-  // After Raw Data, not before it as on the desk form. The desk runs
-  // Procedure -> Result -> Raw Data, but this app has no Procedure tab at all
-  // and deliberately holds Raw Data third at every level (above). Slotting
-  // Result in ahead of it would push Raw Data to fourth and break that; the
-  // doctype puts no depends_on on result_tab, so unlike Raw Data this one shows
-  // at every level including Master Experiment.
+
+
   { key: 'result', label: 'Result' },
   ...(usesTemplate.value
     ? [
-        // One tab, two stacked sections: Material Required above, Equipment
-        // Details below. Keyed 'materials', which is also what TEMPLATE_TABS
-        // resets from, so nothing else had to change.
+
+
         { key: 'materials', label: 'Material & Equipment' },
-        // Methodology moved under Details; Protocol Steps is gone outright.
-        // Both tables stay on the server, untouched.
+
+
       ]
     : []),
   { key: 'hierarchy', label: 'Experiment Hierarchy' },
   { key: 'report', label: 'Report' },
 ])
 
-// Both scope values are required to resolve candidates, and a blank
-// employee_function is deliberately not matched against other blanks - see
-// get_available_children. Runs predating the hierarchy have no function set, and
-// blank-matching would pull unrelated orphans into a tree.
+
 const canPickChildren = computed(
   () => Boolean(childCategory.value && project.value && employeeFunction.value)
 )
@@ -1190,7 +1000,7 @@ const filteredChildCandidates = computed(() => {
 })
 
 const toggleChild = (name) => {
-  // Reassigning is what Vue tracks; mutating the Set in place does not re-render.
+
   const next = new Set(selectedChildren.value)
   next.has(name) ? next.delete(name) : next.add(name)
   selectedChildren.value = next
@@ -1236,9 +1046,8 @@ const parentLabel = (row) => {
 
 const parentPickerHint = computed(() => {
   if (!parentCategory.value) return ''
-  // Names the half that is actually missing: the Employee Function fills itself
-  // in from the signed-in user, so "no Project and Employee Function" was
-  // reporting a blank field that was not blank.
+
+
   if (!project.value || !employeeFunction.value) {
     const missing = !project.value && !employeeFunction.value
       ? 'Project or Employee Function'
@@ -1273,7 +1082,7 @@ const loadParentCandidates = async () => {
       },
     })
     parentCandidates.value = res.data.message || []
-    // A parent picked for the previous level is not a parent for this one.
+
     if (!parentCandidates.value.some((c) => c.name === experiment.value.parent_experiment)) {
       experiment.value.parent_experiment = ''
     }
@@ -1286,8 +1095,7 @@ const loadParentCandidates = async () => {
   }
 }
 
-// Templates for the leaf level only, scoped the same way the create modal scopes
-// them: a template with no project is shared, one with a project must match.
+
 const templateOptions = ref([])
 const templatesLoaded = ref(false)
 
@@ -1311,31 +1119,25 @@ const loadTemplateOptions = async () => {
 
 const templateLabel = (t) => t.template_name || t.title || t.name
 
-// Re-cloning on every keystroke of a picker is not possible - the pick itself is
-// the event - but switching templates has to drop the previous one's rows first,
-// or the two sets would be merged into one run.
+
 const onTemplatePicked = async (name) => {
   clearTemplateSelection()
   if (name) await applyTemplateClone(name)
 }
 
-// Changing the level changes everything the form asks for: which runs are
-// adoptable, which run can be its parent, and whether it carries a template at
-// all. Rebuilding rather than carrying selections across levels is what keeps a
-// Master from being posted with a Sub Sub's material rows still attached.
+
 watch(() => experiment.value.experiment_category, () => {
   loadChildCandidates()
   loadParentCandidates()
 
-  // Guarded on the options being in hand: before they load, every level would
-  // look like "no template, no parent" and wipe a template arriving by URL.
+
   if (!categoryOptions.value.length) return
 
   if (!needsParent.value) experiment.value.parent_experiment = ''
   if (!usesTemplate.value) clearTemplateSelection()
   if (!usesTemplate.value && TEMPLATE_TABS.includes(activeTab.value)) activeTab.value = 'general'
-  // Same for Raw Data: a Master Experiment has no such tab, so the pane must
-  // not stay open underneath a tab row that no longer lists it.
+
+
   if (activeTab.value === 'rawdata' && !showsRawDataTab(experiment.value.experiment_category)) {
     activeTab.value = 'general'
   }
@@ -1349,29 +1151,19 @@ onMounted(async () => {
   loadTeamsForProject()
   loadTemplateOptions()
   loadAuthorizedProjects()
-  // Resolves the signed-in user's function, and pre-selects it when there is
-  // exactly one. Awaited so the fallback below knows whether it is needed.
+
+
   await loadMyFunctions()
   loadProjectFunctions()
   await loadCategoryOptions()
 
-  // A category that arrived in the URL was set before this component mounted,
-  // so the watcher above - which is what normally fills the parent and child
-  // pickers - never fires for it. Prime them here instead, once the ordering
-  // those pickers read is in hand. The parent seeded from the URL survives only
-  // if it is a real candidate: loadParentCandidates drops anything the server
-  // does not offer for this level and scope.
+
   if (experiment.value.experiment_category) {
     loadParentCandidates()
     loadChildCandidates()
   }
 
-  // A template in the URL belongs to the one level that can carry one, so it is
-  // dropped here rather than cloned first: a run started at a level with no
-  // Material Required, Equipment Details or Methodology tab would otherwise be
-  // posted with those rows attached, each flagged from_template = 1 and so
-  // undeletable afterwards. The watcher above does the same on a level *change*;
-  // it never fires for a level that arrived already set.
+
   if (experiment.value.experiment_category && !usesTemplate.value) {
     clearTemplateSelection()
     loading.value = false
@@ -1821,9 +1613,9 @@ onMounted(async () => {
                   </thead>
                   <tbody>
                     <tr v-for="(step, idx) in experiment.protocol_steps" :key="idx">
-                      <td>
-                        <input type="number" v-model="step.step_no" class="form-control table-input" min="0" />
-                      </td>
+                      <!-- Positional, like the Observation table below. step_no
+                           is kept equal to it by renumberProtocolSteps. -->
+                      <td class="text-center">{{ idx + 1 }}</td>
                       <td>
                         <input
                           type="text"
@@ -1844,16 +1636,11 @@ onMounted(async () => {
                       <td class="text-center">
                         <input type="checkbox" v-model="step.is_critical" :true-value="1" :false-value="0" />
                       </td>
-                      <!-- Path, not an upload widget: this SPA has no uploader
-                           anywhere, and the Raw Data tab enters its attachments
-                           the same way. -->
+                      <!-- Uploads through Frappe's upload_file, like the Raw Data
+                           tab's attachment rows and the rich-text editor's attach
+                           button. The bound value is still the stored file_url. -->
                       <td>
-                        <input
-                          type="text"
-                          v-model="step.attachment"
-                          class="form-control table-input"
-                          placeholder="/files/…"
-                        />
+                        <FileAttachment v-model="step.attachment" />
                       </td>
                       <td>
                         <button class="delete-row-btn" title="Delete step" @click="removeProtocolStep(idx)">×</button>

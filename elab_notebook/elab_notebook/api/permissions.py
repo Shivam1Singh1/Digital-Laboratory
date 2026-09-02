@@ -1,8 +1,5 @@
-# === DYNAMIC-PERMS-START ===
-# Whole file belongs to the dynamic-permission work. Left executable rather than
-# commented out: it is additive, read-only, answers only for the calling user,
-# and no code path reaches it once the page wiring is commented out. Commenting
-# it out would buy nothing and would break imports at migrate time.
+
+
 """Permission answers for the SPA, taken from Frappe rather than re-derived.
 
 The rule this file exists to enforce: the frontend never works out for itself
@@ -27,9 +24,7 @@ README-permissions-resume.md at the repo root for how to wire it up.
 
 import frappe
 
-# The keys Frappe itself uses. Returned in full for every call, present or
-# absent docname, so the frontend reads one shape and never guesses a key name
-# per doctype.
+
 PTYPES = (
 	"read",
 	"write",
@@ -48,11 +43,7 @@ PTYPES = (
 
 DENY_ALL = {ptype: 0 for ptype in PTYPES}
 
-# What a bad `doctype` or `docname` can raise on the way in. ImportError is in
-# the list because frappe.get_doc resolves a controller module before it ever
-# looks at the database, so an unknown doctype surfaces as a failed import
-# rather than as DoesNotExistError. The doctype arrives from the browser, so a
-# typo here has to be a closed door and not a 500.
+
 LOOKUP_FAILURES = (frappe.DoesNotExistError, frappe.PermissionError, ImportError)
 
 
@@ -77,12 +68,12 @@ def get_permissions(doctype: str, docname: str | None = None):
 	if not docname:
 		try:
 			return {
-				ptype: int(bool(frappe.has_permission(doctype, ptype=ptype)))
-				for ptype in PTYPES
+			 ptype: int(bool(frappe.has_permission(doctype, ptype=ptype)))
+			 for ptype in PTYPES
 			}
 		except LOOKUP_FAILURES:
-			# has_permission loads the meta, which throws on an unknown doctype.
-			# A name the caller got wrong is a closed door, not a 500.
+
+
 			frappe.clear_last_message()
 			return dict(DENY_ALL)
 
@@ -92,15 +83,7 @@ def get_permissions(doctype: str, docname: str | None = None):
 		frappe.clear_last_message()
 		return dict(DENY_ALL)
 
-	# VERIFIED LIMIT: get_doc_permissions is called here with ptype=None, and
-	# Frappe passes that same None straight to the controller hook (permissions.py
-	# line 206), calling it exactly once. A hook rule that depends on ptype - such
-	# as has_experiment_permission refusing delete on an Approved run - is
-	# therefore invisible in this dict. A second verified limit: a hook can only
-	# restrict, never grant, so a user the role table denies stays denied even
-	# where has_team_permission would allow them. Both are why every caller ORs
-	# this answer with the server's own domain answer instead of replacing it.
+
 	return _normalise(frappe.permissions.get_doc_permissions(doc))
 
 
-# === DYNAMIC-PERMS-END ===

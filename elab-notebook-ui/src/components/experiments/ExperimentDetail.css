@@ -4,25 +4,12 @@
   flex-direction: column;
   gap: 1.5rem;
   flex: 1;
-  /* Without min-height:0 a flex child cannot shrink below its content, so the
-     page grows past .main-workspace (overflow:hidden) and is clipped rather
-     than scrolled. */
+
   min-height: 0;
   overflow-y: auto;
 }
 
-/* This container is the page's scroller, and its children are flex items with
-   the default flex-shrink: 1. Left alone, an over-tall tab card is *squeezed*
-   instead of overflowing, so nothing ever overflows, the container never
-   scrolls, and .tab-content (flex: 1) collapses to a sliver with its own
-   scrollbar - which is what made the tables unreachable. Pinning the children
-   to their natural height moves the scrolling back up to the page. */
-/* ExperimentForm.css declares a global `.card` (component CSS here is not
-   scoped) as `flex: 1; max-height: 100%; overflow: hidden` for the create form's
-   single full-height card. On this page that capped the tab card at the
-   container's height and clipped the rest: measured 764px of content inside a
-   386px box, so nothing ever overflowed the container and no scrollbar appeared
-   anywhere. Undo all three here and let the card be as tall as its content. */
+
 .experiment-detail-container > .card,
 .experiment-detail-container > .detail-layout {
   flex: none;
@@ -30,32 +17,21 @@
   overflow: visible;
 }
 
-/* The form page nests .tab-content in a height-bounded card and wants it to
-   scroll internally; here the page scrolls, so the pane must simply be as tall
-   as its content - otherwise the inner scroller reappears. */
+
 .experiment-detail-container .tab-content {
   flex: none;
   overflow: visible;
-  padding-top: 0.05rem;  
+  padding-top: 0.05rem;
 }
 
-/* overflow-x:auto zeroes this row's automatic min-height, so as a flex item it
-   is free to be squeezed to nothing - leaving just its bottom border and no
-   visible tab buttons. Same trap as .page-header, same fix. */
+
 .experiment-detail-container .form-tabs-row {
   flex-shrink: 0;
-  /* The shared rule leaves 1.5rem under the tab strip. That reads as a gap on
-     this page, where the first thing in most panes is a toolbar rather than a
-     heading - the Experiment Hierarchy tab in particular opened with a band of
-     empty space above its summary line. Scoped to the detail container so the
-     create form, whose panes start with a field label, keeps its own spacing. */
+
   margin-bottom: 0.2rem;
 }
 
-/* This header carries the run actions as well as the title block, so it is the
-   tallest thing on the page and every pixel here is taken from the tabs. Tighter
-   than the shared .page-header, and scoped so the template/team/dashboard
-   headers keep their own proportions. */
+
 .experiment-detail-container .page-header {
   padding: 0.9rem 1.25rem;
   gap: 0.5rem 1rem;
@@ -77,9 +53,7 @@
   font-size: var(--fs-sm);
 }
 
-/* Run actions, merged into the header card as its own full-width row.
-   flex-basis:100% makes it wrap onto a line of its own inside the header's
-   flex row, under the title block and the Back to List button. */
+
 .experiment-detail-container .run-actions-row {
   flex: 1 1 100%;
   display: flex;
@@ -90,14 +64,14 @@
   margin-top: 0.6rem;
   padding-top: 0.6rem;
   border-top: 1px solid var(--border);
-  /* Above the header's decorative flask motif. */
+
   position: relative;
   z-index: 1;
 }
 
 .experiment-detail-container .run-actions-hint {
   margin: 0;
-  /* Shrinkable so the buttons keep the row instead of wrapping under it. */
+
   flex: 1 1 16rem;
   min-width: 0;
   font-size: var(--fs-sm);
@@ -121,16 +95,7 @@
   white-space: nowrap;
 }
 
-/* Compact header actions, matching the run-action row directly beneath them and
-   the same treatment TemplateDetail.css already gives its own header.
-   Create <level> and Back to List were running at the base .btn size - 0.875rem
-   text in 0.5rem/1rem padding - which made the two of them the loudest thing on
-   the page and pushed the title into wrapping across three lines.
 
-   Scoped to the detail container so the list page's own buttons keep full size,
-   and compounded past .btn / .btn-workflow to outrank the base sizing. The width
-   this frees is not padded back: .page-header-right is flex-shrink: 0, so the
-   title block beside it simply gets it. */
 .experiment-detail-container .page-header-right {
   gap: 0.5rem;
 }
@@ -143,19 +108,13 @@
   padding: 0.45rem 0.85rem;
   font-size: var(--fs-sm);
   border-radius: 6px;
-  /* Fixed height so the primary and secondary buttons line up regardless of
-     whether one of them carries an icon. */
+
   height: 32px;
   box-sizing: border-box;
   white-space: nowrap;
 }
 
-/* ------------------------------------------------------------- Add Sample
-   The dialog carries the whole Sample record now - fifteen fields rather than
-   four - so its body has to scroll instead of pushing the footer off screen.
-   Capped against the viewport, not a fixed height, so a short screen still
-   reaches the buttons. Scoped to this dialog: the app's other modals are short
-   and the shared .modal-body rules are theirs. */
+
 .sample-modal {
   display: flex;
   flex-direction: column;
@@ -164,14 +123,12 @@
 
 .sample-modal .modal-body {
   overflow-y: auto;
-  /* The scroll container, so header and footer stay put while it moves. */
+
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* Divides the record's own details from the four fields that identify it. Not a
-   <legend> or a card: the dialog is one column of fields and a heavier break
-   would read as a separate form. */
+
 .sample-modal .modal-subheading {
   margin: 0.5rem 0 0;
   padding-top: 0.9rem;
@@ -183,7 +140,7 @@
   color: var(--text-muted);
 }
 
-/* Success Banner */
+
 .form-success-banner {
   padding: 0.75rem 1rem;
   background-color: rgba(16, 185, 129, 0.12);
@@ -197,7 +154,7 @@
   font-weight: var(--fw-medium);
 }
 
-/* Read-only variables */
+
 .readonly-textarea {
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -210,7 +167,7 @@
   white-space: pre-wrap;
 }
 
-/* Checklist executions */
+
 .execution-step {
   cursor: pointer;
   user-select: none;
@@ -229,7 +186,7 @@
   background-color: rgba(16, 185, 129, 0.03);
 }
 
-/* Checklist checkbox box */
+
 .step-checkbox-wrapper {
   padding-top: 0.15rem;
 }
@@ -264,7 +221,7 @@
   opacity: 0.7;
 }
 
-/* Version History Timeline */
+
 .history-timeline {
   display: flex;
   flex-direction: column;
@@ -349,7 +306,7 @@
   color: var(--success);
 }
 
-/* Samples Tab Layout & Table */
+
 .samples-section-header {
   display: flex;
   justify-content: space-between;
@@ -374,7 +331,7 @@
   overflow: hidden;
 }
 
-.samples-table th, 
+.samples-table th,
 .samples-table td {
   padding: 0.75rem 1rem;
   text-align: left;
@@ -388,8 +345,7 @@
   color: var(--text-primary);
 }
 
-/* An action offered inside a hint line - reads as part of the sentence rather
-   than as a button competing with the dialog's own footer. */
+
 .inline-link {
   color: var(--accent, #a78bfa);
   text-decoration: underline;
@@ -400,9 +356,7 @@
   opacity: 0.85;
 }
 
-/* Whole sample rows open the sample. The action cell stops its own clicks, so
-   the pointer is reset there - a cursor promising navigation over a Submit
-   button would be lying about what pressing it does. */
+
 .samples-table tr.sample-row-link {
   cursor: pointer;
   transition: background-color 0.15s;
@@ -443,7 +397,7 @@
   color: #EF4444;
 }
 
-/* Modal layout refinements */
+
 .qty-input-group {
   display: flex;
   align-items: center;
@@ -461,7 +415,7 @@
   border-radius: 4px;
 }
 
-/* Workflow State Badges */
+
 .workflow-state-badge {
   display: inline-block;
   padding: 0.3rem 0.75rem;
@@ -515,7 +469,7 @@
   border-color: rgba(239, 68, 68, 0.25);
 }
 
-/* Workflow Action Buttons */
+
 .btn-workflow {
   font-weight: var(--fw-semibold);
   border-radius: 6px;
@@ -534,7 +488,6 @@
 }
 
 
-/* Read-only field styling */
 .form-control.readonly,
 .readonly-textarea {
   background-color: var(--bg-elevated);
@@ -542,8 +495,7 @@
   opacity: 0.7;
 }
 
-/* A field that carries a record id and opens it. Sits in the same box as the readonly
-   inputs beside it, but stays clearly actionable rather than dimmed like they are. */
+
 .form-control.link-value {
   display: flex;
   align-items: center;
@@ -575,14 +527,14 @@
   opacity: 0.75;
 }
 
-/* Disabled form fields when workflow is locked */
+
 .form-control:disabled,
 .form-control[readonly] {
   background-color: var(--bg-elevated);
   cursor: not-allowed;
 }
 
-/* Workflow state change timeline items */
+
 .timeline-item.workflow-change {
   border-left: 3px solid var(--accent);
   padding-left: 0.75rem;
@@ -595,7 +547,7 @@
   margin-right: 0.5rem;
 }
 
-/* Sample Status Indicators */
+
 .sample-status-indicators {
   display: flex;
   gap: 2rem;
@@ -634,8 +586,6 @@
 }
 
 
-/* Shown in place of the delete control on rows imported from an Experiment
-   Template - those rows stay editable, but cannot be removed. */
 .imported-row-lock {
   display: inline-flex;
   align-items: center;
@@ -649,13 +599,7 @@
   user-select: none;
 }
 
-/* Register Output Sample modal panel.
-   The markup asked for .modal-container / .sample-register-modal and neither
-   existed in any stylesheet, so the panel rendered fully transparent: the
-   overlay's dark blur showed straight through it and every field read as
-   disabled even though nothing is. Mirrors .modal-content in
-   CreateExperimentModal.css - the app's other modal - and is scoped to this
-   page because .modal-container is used nowhere else. */
+
 .experiment-detail-container .modal-container {
   display: flex;
   flex-direction: column;
@@ -672,8 +616,7 @@
   max-width: 620px;
 }
 
-/* Sample comments. Below the samples table rather than a column in it - a
-   textarea in a table cell is unusable at this width. */
+
 .sample-comments-wrapper {
   margin-top: 1.5rem;
   display: flex;
@@ -721,7 +664,7 @@
   color: var(--text-muted);
 }
 
-/* Matches the warning colour the pane's existing lock banner uses. */
+
 .sample-comments-lock {
   font-size: var(--fs-3xs);
   font-weight: var(--fw-bold);
@@ -742,25 +685,14 @@
   margin-top: 0.6rem;
 }
 
-/* Result tab spacing.
 
-   The four cards in this pane - Results, Observation, Conclusion, and the
-   Pass/Fail select - are plain siblings, and .meta-card carries no margin of
-   its own. What separated them was whatever bottom margin the last .form-group
-   inside each card happened to leave, so the gaps came out uneven: a card
-   ending in an editor sat far from the next, one ending in a select sat almost
-   flush against it.
-
-   One gap on the container instead, so the spacing is a property of the pane
-   rather than a side effect of each card's last child. */
 .result-pane {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-/* The editors already carry their own min-height; the card should not add a
-   second helping of padding under them. */
+
 .result-pane .meta-card .form-group.stacked-field:last-child {
   margin-bottom: 0;
 }

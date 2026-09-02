@@ -1,7 +1,4 @@
-/* ==========================================================================
-   Entity stats tile — compact enough that four of them fit one screen.
-   Historical trends are lifted into .trends-modal instead of stacking here.
-   ========================================================================== */
+
 
 .entity-stats-block {
   padding: 1.75rem;
@@ -24,7 +21,7 @@
   border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Header & Dropdown */
+
 .block-header {
   display: flex;
   align-items: center;
@@ -96,7 +93,7 @@
   color: var(--accent);
 }
 
-/* Body: donut left, status chips right */
+
 .tile-body {
   flex: 1;
   min-height: 0;
@@ -141,7 +138,7 @@
   margin-top: 0.2rem;
 }
 
-/* Status chips replace the old full-width summary cards + legend pills */
+
 .tile-stats {
   flex: 1;
   min-width: 0;
@@ -224,7 +221,7 @@
   color: var(--text-muted);
 }
 
-/* Footer: all-time total stays visible whatever the month filter says */
+
 .tile-footer {
   display: flex;
   align-items: baseline;
@@ -248,7 +245,7 @@
   color: var(--accent);
 }
 
-/* Loading / empty states */
+
 .tile-loading {
   flex: 1;
   display: flex;
@@ -282,16 +279,12 @@
   font-size: var(--fs-sm);
 }
 
-/* ==========================================================================
-   Historical trends modal
-   ========================================================================== */
 
 .trends-modal-backdrop {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  /* Frosted overlay: the page stays legible behind the modal instead of being
-     blacked out, which is what makes the panel read as glass rather than a box. */
+
   background-color: rgba(0, 0, 0, 0.38);
   backdrop-filter: blur(3px);
   display: flex;
@@ -338,8 +331,7 @@
   color: var(--danger, #EF4444);
 }
 
-/* Data Table — scoped to the modal so the shared .table-container used by the
-   experiment list/detail views keeps its own sizing. */
+
 .trends-modal .table-container {
   overflow: auto;
   max-height: 60vh;
@@ -404,7 +396,7 @@
   padding: 2rem;
 }
 
-/* Toggler Header & Segment Control */
+
 .section-tabs-header {
   display: flex;
   justify-content: space-between;
@@ -460,7 +452,7 @@
   height: 14px;
 }
 
-/* Bar Chart View wrapper */
+
 .bar-chart-view-wrapper {
   background-color: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -476,7 +468,7 @@
   position: relative;
 }
 
-/* Narrower viewports: stack donut above chips so nothing is squeezed */
+
 @media (max-width: 1280px) {
   .tile-chart {
     width: 140px;
@@ -488,7 +480,7 @@
   }
 }
 
-/* Short viewports: shrink the donut before the tile starts clipping it */
+
 @media (max-height: 800px) {
   .tile-chart {
     width: 124px;
@@ -521,10 +513,7 @@
   }
 }
 
-/* Compact variant of the shared .empty-icon (styles/list-page.css) for the
-   chart placeholder, which is much smaller than a full-page empty state.
-   Scoped rather than redeclaring the bare class, which is what used to make the
-   size depend on bundle order. */
+
 .empty-chart-state .empty-icon {
   width: 32px;
   height: 32px;

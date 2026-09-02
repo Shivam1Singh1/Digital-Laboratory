@@ -1,22 +1,10 @@
 <script setup>
 import './PageHeader.css'
 
-/**
- * The one page header for every module page.
- *
- * Same prop contract as the spec, expressed in Vue rather than React - this app
- * is Vue 3 with plain CSS, so there is no JSX to accept a `React.ReactNode`
- * icon. The icon is a named slot instead, defaulting to the Plus glyph that all
- * three existing action buttons already used.
- *
- * Nothing here is overridable per page. Sizing lives in PageHeader.css and
- * nowhere else, so a page cannot drift by redeclaring `.page-title` in its own
- * stylesheet - which is exactly how "Elab Notebook" ended up rendering larger
- * than "Samples".
- */
+
 defineProps({
-  // [{ label: 'Home', href: '/' }, { label: 'Samples' }]
-  // The last crumb is the current page and is never a link.
+
+
   breadcrumbs: {
     type: Array,
     default: () => [],
@@ -29,9 +17,8 @@ defineProps({
     type: String,
     default: '',
   },
-  // { label, onClick, variant?: 'primary' | 'secondary', icon?: 'plus' | 'none' }
-  // Omit entirely on a page with no action - the header keeps its layout and the
-  // title does not move.
+
+
   action: {
     type: Object,
     default: null,

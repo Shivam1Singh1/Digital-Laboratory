@@ -3,8 +3,8 @@ from frappe import _
 
 def run_tests():
 	print("=== STARTING REFERENTIAL INTEGRITY GUARD VERIFICATION TESTS ===")
-	
-	# Fetch reference data to ensure valid project/function mapping
+
+
 	team_data = frappe.db.get_value("Experiment Team", {}, ["project", "employee_function"], as_dict=True)
 	if team_data:
 		project = team_data.project
@@ -20,57 +20,55 @@ def run_tests():
 	item_code = frappe.db.get_value("Item", {}, "name")
 	emp_code = frappe.db.get_value("Employee", {}, "name")
 	elab_notebook = frappe.db.get_value("ELab Notebook", {}, "name")
-	
+
 	test_segment = frappe.db.get_value("Segment", {}, "name")
 	test_cost_center = frappe.db.get_value("Cost Center", {}, "name")
-	
+
 	if not project or not emp_func or not item_code or not emp_code or not elab_notebook or not test_segment or not test_cost_center:
 		print("ERROR: Missing required master data (Project, Employee Function, Item, Employee, ELab Notebook, Segment, or Cost Center) to run tests.")
 		return
-		
+
 	print(f"Using Project: {project}")
 	print(f"Using Employee Function: {emp_func}")
 	print(f"Using Item: {item_code}")
 	print(f"Using Employee: {emp_code}")
 	print(f"Using ELab Notebook: {elab_notebook}")
 
-	# ----------------------------------------------------
-	# Test 1: Experiment Template Delete Guard
-	# ----------------------------------------------------
+
 	print("\n--- TEST 1: Experiment Template Guard ---")
-	
-	# Create dummy template
+
+
 	template = frappe.get_doc({
-		"doctype": "Lab Experiment Template",
-		"project": project,
-		"employee_function": emp_func,
-		"template_name": "Test Delete Guard Template",
-		"title": "Test Delete Guard Template"
+	 "doctype": "Lab Experiment Template",
+	 "project": project,
+	 "employee_function": emp_func,
+	 "template_name": "Test Delete Guard Template",
+	 "title": "Test Delete Guard Template"
 	})
 	template.insert(ignore_permissions=True, ignore_links=True)
 	template_name = template.name
 	print(f"Created test template: {template_name}")
-	
-	# Create dummy experiment referencing it
+
+
 	experiment = frappe.get_doc({
-		"doctype": "Experiment",
-		"project": project,
-		"employee_function": emp_func,
-		"template": template_name,
-		"experiment_template": template_name,
-		"title": "Test Delete Guard Experiment",
-		"aim": "Testing referential integrity",
-		"sub_aim": "Testing referential integrity sub-aim",
-		"employee_code": emp_code,
-		"elab_notebook": elab_notebook,
-		"experiment_start_date": frappe.utils.today(),
-		"status": "Draft"
+	 "doctype": "Experiment",
+	 "project": project,
+	 "employee_function": emp_func,
+	 "template": template_name,
+	 "experiment_template": template_name,
+	 "title": "Test Delete Guard Experiment",
+	 "aim": "Testing referential integrity",
+	 "sub_aim": "Testing referential integrity sub-aim",
+	 "employee_code": emp_code,
+	 "elab_notebook": elab_notebook,
+	 "experiment_start_date": frappe.utils.today(),
+	 "status": "Draft"
 	})
 	experiment.insert(ignore_permissions=True, ignore_links=True)
 	experiment_name = experiment.name
 	print(f"Created test experiment: {experiment_name} linking to template")
 
-	# Try to delete the template (Should fail)
+
 	try:
 		template.delete()
 		print("FAIL: Experiment Template deleted despite having linked Experiment!")
@@ -83,11 +81,11 @@ def run_tests():
 	except Exception as e:
 		print(f"FAIL: Unexpected exception during template delete: {type(e).__name__} | {str(e)}")
 
-	# Clean up Experiment first
+
 	experiment.delete(ignore_permissions=True)
 	print(f"Deleted experiment: {experiment_name}")
 
-	# Try to delete template again (Should pass)
+
 	try:
 		template.delete(ignore_permissions=True)
 		print("SUCCESS: Experiment Template deleted successfully after linked Experiment was deleted.")
@@ -95,63 +93,60 @@ def run_tests():
 		print(f"FAIL: Failed to delete Experiment Template when clean: {type(e).__name__} | {str(e)}")
 
 
-	# ----------------------------------------------------
-	# Test 2: Experiment Team Delete Guard
-	# ----------------------------------------------------
 	print("\n--- TEST 2: Experiment Team Guard ---")
-	
-	# Create temporary project and map it to avoid conflicts with existing experiments
+
+
 	custom_division = frappe.db.get_value("Project", project, "custom_division")
 	test_project = "PRJ-TEST-GUARD"
 	existing_name = frappe.db.get_value("Project", {"project_name": test_project}, "name")
 	if existing_name:
 		frappe.delete_doc("Project", existing_name, force=True)
 		frappe.db.commit()
-		
+
 	p = frappe.get_doc({
-		"doctype": "Project",
-		"name": test_project,
-		"project_name": test_project,
-		"status": "Active",
-		"custom_division": custom_division
+	 "doctype": "Project",
+	 "name": test_project,
+	 "project_name": test_project,
+	 "status": "Active",
+	 "custom_division": custom_division
 	})
 	p.insert(ignore_permissions=True)
-	
+
 	ef = frappe.get_doc("Employee Function", emp_func)
 	if not any(row.projects == test_project for row in ef.project_list):
 		ef.append("project_list", {"projects": test_project})
 		ef.save(ignore_permissions=True)
 
-	# Create dummy team
+
 	team = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": test_project,
-		"employee_function": emp_func,
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": test_project,
+	 "employee_function": emp_func,
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	team.insert(ignore_permissions=True, ignore_links=True)
 	team_name = team.name
 	print(f"Created test team: {team_name} with project {test_project} and function {emp_func}")
 
-	# Create dummy experiment under the same project & function
+
 	experiment = frappe.get_doc({
-		"doctype": "Experiment",
-		"project": test_project,
-		"employee_function": emp_func,
-		"title": "Test Team Delete Guard Experiment",
-		"aim": "Testing referential integrity",
-		"sub_aim": "Testing referential integrity sub-aim",
-		"employee_code": emp_code,
-		"elab_notebook": elab_notebook,
-		"experiment_start_date": frappe.utils.today(),
-		"status": "Draft"
+	 "doctype": "Experiment",
+	 "project": test_project,
+	 "employee_function": emp_func,
+	 "title": "Test Team Delete Guard Experiment",
+	 "aim": "Testing referential integrity",
+	 "sub_aim": "Testing referential integrity sub-aim",
+	 "employee_code": emp_code,
+	 "elab_notebook": elab_notebook,
+	 "experiment_start_date": frappe.utils.today(),
+	 "status": "Draft"
 	})
 	experiment.insert(ignore_permissions=True, ignore_links=True)
 	experiment_name = experiment.name
 	print(f"Created test experiment: {experiment_name} under project {test_project}")
 
-	# Try to delete the team (Should fail)
+
 	try:
 		team.delete()
 		print("FAIL: Experiment Team deleted despite having experiments under it!")
@@ -164,63 +159,60 @@ def run_tests():
 	except Exception as e:
 		print(f"FAIL: Unexpected exception during team delete: {type(e).__name__} | {str(e)}")
 
-	# Clean up Experiment
+
 	experiment.delete(ignore_permissions=True)
 	print(f"Deleted experiment: {experiment_name}")
 
-	# Try to delete team again (Should pass)
+
 	try:
 		team.delete(ignore_permissions=True)
 		print("SUCCESS: Experiment Team deleted successfully after matching Experiment was deleted.")
 	except Exception as e:
 		print(f"FAIL: Failed to delete Experiment Team when clean: {type(e).__name__} | {str(e)}")
 
-	# Clean up temporary project mapping and Project document
+
 	ef = frappe.get_doc("Employee Function", emp_func)
 	ef.project_list = [row for row in ef.project_list if row.projects != test_project]
 	ef.save(ignore_permissions=True)
 	frappe.delete_doc("Project", test_project, force=True)
 
 
-	# ----------------------------------------------------
-	# Test 3: Experiment Delete Guard
-	# ----------------------------------------------------
 	print("\n--- TEST 3: Experiment Guard ---")
 
-	# Create dummy experiment
+
 	experiment = frappe.get_doc({
-		"doctype": "Experiment",
-		"project": project,
-		"employee_function": emp_func,
-		"title": "Test Sample Link Delete Guard Experiment",
-		"aim": "Testing referential integrity",
-		"sub_aim": "Testing referential integrity sub-aim",
-		"employee_code": emp_code,
-		"elab_notebook": elab_notebook,
-		"experiment_start_date": frappe.utils.today(),
-		"status": "Draft"
+	 "doctype": "Experiment",
+	 "project": project,
+	 "employee_function": emp_func,
+	 "title": "Test Sample Link Delete Guard Experiment",
+	 "aim": "Testing referential integrity",
+	 "sub_aim": "Testing referential integrity sub-aim",
+	 "employee_code": emp_code,
+	 "elab_notebook": elab_notebook,
+	 "experiment_start_date": frappe.utils.today(),
+	 "status": "Draft"
 	})
 	experiment.insert(ignore_permissions=True, ignore_links=True)
 	experiment_name = experiment.name
 	print(f"Created test experiment: {experiment_name}")
 
-	# Mark status as Completed so we can add sample
+
 	frappe.db.set_value("Experiment", experiment_name, "status", "Completed")
 	frappe.db.commit()
 
-	# Create sample
+
 	sample = frappe.get_doc({
-		"doctype": "Sample",
-		"experiment": experiment_name,
-		"item": item_code,
-		"name_of_sample": "Test Delete Guard Sample",
-		"qty": 1.0
+	 "doctype": "Sample",
+	 "experiment": experiment_name,
+	 "item": item_code,
+	 "name_of_sample": "Test Delete Guard Sample",
+	 "qty": 1.0
 	})
 	sample.insert(ignore_permissions=True, ignore_links=True)
 	sample_name = sample.name
 	print(f"Created test sample: {sample_name} linking to experiment")
 
-	# Try to delete the experiment (Should fail)
+
 	try:
 		experiment.delete()
 		print("FAIL: Experiment deleted despite having linked Sample!")
@@ -233,12 +225,12 @@ def run_tests():
 	except Exception as e:
 		print(f"FAIL: Unexpected exception during experiment delete: {type(e).__name__} | {str(e)}")
 
-	# Clean up Sample
+
 	frappe.delete_doc("Sample", sample_name, force=True)
 	frappe.db.commit()
 	print(f"Deleted sample: {sample_name}")
 
-	# Try to delete experiment again (Should pass)
+
 	try:
 		experiment.delete(ignore_permissions=True)
 		print("SUCCESS: Experiment deleted successfully after linked Sample was deleted.")
@@ -252,60 +244,59 @@ def run_tests():
 
 def run_permission_tests(elab_notebook):
 	print("\n=== STARTING SCHEMATIC PERMISSION ISOLATION TESTS ===")
-	
+
 	test_segment = frappe.db.get_value("Segment", {}, "name")
 	test_cost_center = frappe.db.get_value("Cost Center", {}, "name")
-	
-	# Use existing database records to avoid mandatory field failures
+
+
 	head = "jayesh.desale@microcrispr.com"
 	part_a = "chaitali.pathak@microcrispr.com"
 	part_b = "denna.prabhin@microcrispr.com"
-	
+
 	project_a = "PLTP-2025-0023"
 	project_b = "PLTP-2025-0001"
 	emp_func = "VP-LTP-ADL-001"
 
-	# Clean up any existing test teams or experiments for our test participants
+
 	frappe.db.delete("Experiment Team", {"project": ["in", [project_a, project_b]], "employee_function": emp_func})
 	frappe.db.delete("Experiment", {"project": ["in", [project_a, project_b]], "employee_function": emp_func})
 
-	# 1. Create Experiment Teams
-	# Ask head to be the creator/owner
+
 	frappe.set_user(head)
-	
+
 	team_a = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": project_a,
-		"employee_function": emp_func,
-		"participants": [{"user": part_a}],
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": project_a,
+	 "employee_function": emp_func,
+	 "participants": [{"user": part_a}],
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	team_a.insert(ignore_permissions=True)
 	team_a_name = team_a.name
-	
+
 	team_b = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": project_b,
-		"employee_function": emp_func,
-		"participants": [{"user": part_b}],
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": project_b,
+	 "employee_function": emp_func,
+	 "participants": [{"user": part_b}],
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	team_b.insert(ignore_permissions=True)
 	team_b_name = team_b.name
-	
+
 	print(f"Created Team A: {team_a_name} | Team B: {team_b_name}")
 
-	# 2. Create Experiments
+
 	template_name = frappe.db.get_value("Lab Experiment Template", {}, "name")
 	if not template_name:
-		# Create a fallback dummy template
+
 		tmp_doc = frappe.get_doc({
-			"doctype": "Lab Experiment Template",
-			"project": project_a,
-			"employee_function": emp_func,
-			"template_name": "Fallback ISO Test Template"
+		 "doctype": "Lab Experiment Template",
+		 "project": project_a,
+		 "employee_function": emp_func,
+		 "template_name": "Fallback ISO Test Template"
 		})
 		tmp_doc.insert(ignore_permissions=True)
 		template_name = tmp_doc.name
@@ -313,50 +304,50 @@ def run_permission_tests(elab_notebook):
 	emp_a = frappe.db.get_value("Employee", {"user_id": part_a}, "name")
 	emp_b = frappe.db.get_value("Employee", {"user_id": part_b}, "name")
 
-	# Experiment A (owned by part_a)
+
 	frappe.set_user(part_a)
 	exp_a = frappe.get_doc({
-		"doctype": "Experiment",
-		"project": project_a,
-		"employee_function": emp_func,
-		"elab_notebook": elab_notebook,
-		"title": template_name,
-		"experiment_template": template_name,
-		"aim": "Aim of Experiment A",
-		"sub_aim": "Sub Aim of Experiment A",
-		"employee_code": emp_a,
-		"status": "Draft",
-		"workflow_state": "Draft"
+	 "doctype": "Experiment",
+	 "project": project_a,
+	 "employee_function": emp_func,
+	 "elab_notebook": elab_notebook,
+	 "title": template_name,
+	 "experiment_template": template_name,
+	 "aim": "Aim of Experiment A",
+	 "sub_aim": "Sub Aim of Experiment A",
+	 "employee_code": emp_a,
+	 "status": "Draft",
+	 "workflow_state": "Draft"
 	})
 	exp_a.insert(ignore_permissions=True)
 	exp_a_name = exp_a.name
-	
-	# Experiment B (owned by part_b)
+
+
 	frappe.set_user(part_b)
 	exp_b = frappe.get_doc({
-		"doctype": "Experiment",
-		"project": project_b,
-		"employee_function": emp_func,
-		"elab_notebook": elab_notebook,
-		"title": template_name,
-		"experiment_template": template_name,
-		"aim": "Aim of Experiment B",
-		"sub_aim": "Sub Aim of Experiment B",
-		"employee_code": emp_b,
-		"status": "Draft",
-		"workflow_state": "Draft"
+	 "doctype": "Experiment",
+	 "project": project_b,
+	 "employee_function": emp_func,
+	 "elab_notebook": elab_notebook,
+	 "title": template_name,
+	 "experiment_template": template_name,
+	 "aim": "Aim of Experiment B",
+	 "sub_aim": "Sub Aim of Experiment B",
+	 "employee_code": emp_b,
+	 "status": "Draft",
+	 "workflow_state": "Draft"
 	})
 	exp_b.insert(ignore_permissions=True)
 	exp_b_name = exp_b.name
-	
+
 	print(f"Created Exp A: {exp_a_name} (owned by {part_a}) | Exp B: {exp_b_name} (owned by {part_b})")
 
-	# Commit to ensure DB updates are read in queries
+
 	frappe.db.commit()
 
 	from elab_notebook.permissions import get_experiment_permission_query_conditions
-	
-	# 3. Verify List View isolation for Participant A
+
+
 	frappe.set_user(part_a)
 	list_a = frappe.get_list("Experiment", filters={"project": ["in", [project_a, project_b]]})
 	exp_names_a = [e.name for e in list_a]
@@ -364,8 +355,8 @@ def run_permission_tests(elab_notebook):
 		print("SUCCESS: Participant A sees only Experiment A, and NOT Experiment B!")
 	else:
 		print(f"FAIL: Participant A list view is wrong: {exp_names_a}")
-		
-	# 4. Verify List View isolation for Participant B
+
+
 	frappe.set_user(part_b)
 	list_b = frappe.get_list("Experiment", filters={"project": ["in", [project_a, project_b]]})
 	exp_names_b = [e.name for e in list_b]
@@ -374,7 +365,7 @@ def run_permission_tests(elab_notebook):
 	else:
 		print(f"FAIL: Participant B list view is wrong: {exp_names_b}")
 
-	# 5. Verify Function Head list view
+
 	frappe.set_user(head)
 	list_head = frappe.get_list("Experiment", filters={"project": ["in", [project_a, project_b]]})
 	exp_names_head = [e.name for e in list_head]
@@ -383,7 +374,7 @@ def run_permission_tests(elab_notebook):
 	else:
 		print(f"FAIL: Function Head list view is wrong: {exp_names_head}")
 
-	# 6. Verify Edit access pre-approval for Lead
+
 	try:
 		exp_a_doc = frappe.get_doc("Experiment", exp_a_name)
 		exp_a_doc.aim = "Lead modified aim pre-approval"
@@ -394,11 +385,10 @@ def run_permission_tests(elab_notebook):
 		print(f"FAIL: Lead was blocked from editing pre-approval: {type(e).__name__} | {str(e)}")
 		print(traceback.format_exc())
 
-	# 7. Verify Post-approval lock
-	# Set state to Approved
+
 	frappe.db.set_value("Experiment", exp_a_name, "workflow_state", "Approved")
 	frappe.db.commit()
-	
+
 	try:
 		exp_a_doc = frappe.get_doc("Experiment", exp_a_name)
 		exp_a_doc.aim = "Lead trying to edit post-approval"
@@ -412,82 +402,82 @@ def run_permission_tests(elab_notebook):
 	except Exception as e:
 		print(f"SUCCESS: Blocked lead from editing approved Experiment (Exception: {type(e).__name__} | {str(e)})")
 
-	# 8. Verify direct document get/save permissions for Participant A on Participant B's Experiment
+
 	frappe.set_user(part_a)
 	has_read_b = frappe.has_permission("Experiment", "read", exp_b_name, user=part_a)
 	if has_read_b:
 		print(f"FAIL: Participant A was allowed to read Participant B's Experiment {exp_b_name} directly!")
 	else:
 		print("SUCCESS: Participant A blocked from reading Participant B's Experiment directly.")
-		
+
 	has_write_b = frappe.has_permission("Experiment", "write", exp_b_name, user=part_a)
 	if has_write_b:
 		print(f"FAIL: Participant A was allowed to write Participant B's Experiment {exp_b_name} directly!")
 	else:
 		print("SUCCESS: Participant A blocked from writing Participant B's Experiment directly.")
 
-	# Clean up everything created
+
 	frappe.set_user("Administrator")
 	frappe.db.delete("Experiment", {"project": ["in", [project_a, project_b]], "employee_function": emp_func})
 	frappe.db.delete("Experiment Team", {"project": ["in", [project_a, project_b]], "employee_function": emp_func})
-	
+
 	print("=== PERMISSION ISOLATION TESTS COMPLETED ===")
 
 
 def run_experiment_team_tests(elab_notebook):
 	print("\n--- TEST 4: Experiment Team Naming and Roster Validation ---")
-	
+
 	test_segment = frappe.db.get_value("Segment", {}, "name")
 	test_cost_center = frappe.db.get_value("Cost Center", {}, "name")
 	emp_func = "VP-LTP-ADL-001"
 	head = "jayesh.desale@microcrispr.com"
-	
+
 	test_project_t4 = "PRJ-TEST-T4"
 	custom_division = frappe.db.get_value("Project", "PLTP-2025-0023", "custom_division")
-	
-	# Cleanup existing project and teams
+
+
 	existing_t4 = frappe.db.get_value("Project", {"project_name": test_project_t4}, "name")
 	if existing_t4:
 		frappe.delete_doc("Project", existing_t4, force=True)
 		frappe.db.commit()
-		
+
 	frappe.db.delete("Experiment Team", {"project": test_project_t4})
 	frappe.db.delete("Experiment Team Participant", {"parent": ["like", "ETM-PRJ-TEST-T4-%"]})
 	frappe.db.commit()
-	
-	# Insert test project
+
+
 	p_t4 = frappe.get_doc({
-		"doctype": "Project",
-		"name": test_project_t4,
-		"project_name": test_project_t4,
-		"status": "Active",
-		"custom_division": custom_division
+	 "doctype": "Project",
+	 "name": test_project_t4,
+	 "project_name": test_project_t4,
+	 "status": "Active",
+	 "custom_division": custom_division
 	})
 	p_t4.insert(ignore_permissions=True)
-	
-	# Link project to function
+
+
 	ef_t4 = frappe.get_doc("Employee Function", emp_func)
 	if not any(row.projects == test_project_t4 for row in ef_t4.project_list):
 		ef_t4.append("project_list", {"projects": test_project_t4})
 		ef_t4.save(ignore_permissions=True)
-		
-	# Users
+
+
 	user_a = "chaitali.pathak@microcrispr.com"
 	user_b = "denna.prabhin@microcrispr.com"
 	user_c = "dhara.patel@microcrispr.com"
 	user_d = "harsh.patel@microcrispr.com"
-	
-	# Set creator to head
+
+
 	frappe.set_user(head)
-	
-	# Create Team 1: participants A, B -> ends with 000001
+
+
 	team1 = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": test_project_t4,
-		"employee_function": emp_func,
-		"participants": [{"user": user_a}, {"user": user_b}],
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": test_project_t4,
+	 "employee_function": emp_func,
+	 "participants": [{"user": user_a}, {"user": user_b}],
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	team1.insert(ignore_permissions=True)
 	team1_name = team1.name
@@ -496,15 +486,15 @@ def run_experiment_team_tests(elab_notebook):
 		print(f"FAIL: Team 1 name {team1_name} does not end with 000001")
 	else:
 		print("SUCCESS: Team 1 ID ends with 000001.")
-		
-	# Create Team 2: participants C, D -> ends with 000002
+
+
 	team2 = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": test_project_t4,
-		"employee_function": emp_func,
-		"participants": [{"user": user_c}, {"user": user_d}],
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": test_project_t4,
+	 "employee_function": emp_func,
+	 "participants": [{"user": user_c}, {"user": user_d}],
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	team2.insert(ignore_permissions=True)
 	team2_name = team2.name
@@ -513,8 +503,8 @@ def run_experiment_team_tests(elab_notebook):
 		print(f"FAIL: Team 2 name {team2_name} does not end with 000002")
 	else:
 		print("SUCCESS: Team 2 ID ends with 000002.")
-		
-	# Verify Team 1's roster is completely untouched (still A, B)
+
+
 	t1_reloaded = frappe.get_doc("Experiment Team", team1_name)
 	t1_users = sorted([p.user for p in t1_reloaded.participants])
 	expected_t1 = sorted([user_a, user_b])
@@ -522,15 +512,15 @@ def run_experiment_team_tests(elab_notebook):
 		print(f"FAIL: Team 1's roster was modified: {t1_users}")
 	else:
 		print("SUCCESS: Team 1's roster is untouched.")
-		
-	# Create Team 3: participants A, B again -> ends with 000003
+
+
 	team3 = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": test_project_t4,
-		"employee_function": emp_func,
-		"participants": [{"user": user_a}, {"user": user_b}],
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": test_project_t4,
+	 "employee_function": emp_func,
+	 "participants": [{"user": user_a}, {"user": user_b}],
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	team3.insert(ignore_permissions=True)
 	team3_name = team3.name
@@ -539,21 +529,21 @@ def run_experiment_team_tests(elab_notebook):
 		print(f"FAIL: Team 3 name {team3_name} does not end with 000003")
 	else:
 		print("SUCCESS: Team 3 ID ends with 000003.")
-		
-	# Confirm it's a distinct row from Team 1
+
+
 	if team1_name == team3_name:
 		print("FAIL: Team 3 name is identical to Team 1 name.")
 	else:
 		print("SUCCESS: Team 3 is a distinct DB row from Team 1.")
-		
-	# Attempt adding participant A twice within one team's roster in a single save -> confirm validate() throws
+
+
 	duplicate_team = frappe.get_doc({
-		"doctype": "Experiment Team",
-		"project": test_project_t4,
-		"employee_function": emp_func,
-		"participants": [{"user": user_a}, {"user": user_a}],
-		"segment": test_segment,
-		"cost_center": test_cost_center
+	 "doctype": "Experiment Team",
+	 "project": test_project_t4,
+	 "employee_function": emp_func,
+	 "participants": [{"user": user_a}, {"user": user_a}],
+	 "segment": test_segment,
+	 "cost_center": test_cost_center
 	})
 	try:
 		duplicate_team.insert(ignore_permissions=True)
@@ -565,16 +555,16 @@ def run_experiment_team_tests(elab_notebook):
 			print(f"FAIL: Blocked, but error message was unexpected: {str(e)}")
 	except Exception as e:
 		print(f"FAIL: Unexpected exception during duplicate participant validate: {type(e).__name__} | {str(e)}")
-		
-	# Confirm participant A exists in both Team 1 and Team 3 at the same time with no error
+
+
 	t3_reloaded = frappe.get_doc("Experiment Team", team3_name)
 	t3_users = [p.user for p in t3_reloaded.participants]
 	if user_a in t1_users and user_a in t3_users:
 		print("SUCCESS: Participant A belongs to multiple teams simultaneously.")
 	else:
 		print("FAIL: Participant A is missing from Team 1 or Team 3 rosters.")
-		
-	# Clean up Test 4 data
+
+
 	frappe.set_user("Administrator")
 	frappe.db.delete("Experiment Team", {"project": test_project_t4})
 	frappe.db.delete("Experiment Team Participant", {"parent": ["like", "ETM-PRJ-TEST-T4-%"]})

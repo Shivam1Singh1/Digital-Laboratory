@@ -1,16 +1,4 @@
-/* =============================================================================
- * Add-row control
- *
- * Styles for components/common/AddRow.vue - the one control every editable
- * child table uses to append a row. Declared here rather than scoped to the
- * component so it is bundled once and so the two host shapes below (a
- * .grid-table flex column, and a real <table>) can position it without each
- * page inventing its own spacing.
- *
- * Deliberately quiet: a dashed outline and muted text, so it reads as an empty
- * slot waiting to be filled rather than as a fifth primary button on the page.
- * It only takes on the accent colour on hover.
- * ========================================================================== */
+
 
 .add-row {
   display: inline-flex;
@@ -48,21 +36,13 @@
   flex-shrink: 0;
 }
 
-/* --- Host: .grid-table (display: flex; flex-direction: column) ------------ */
 
-/* Flex children stretch by default, which would run the control the full width
-   of the table; align-self pulls it back to its own width at the right edge,
-   under the row's delete column. */
 .grid-table > .add-row {
   align-self: flex-end;
   margin: 0.5rem 0.6rem;
 }
 
-/* --- Host: a real <table> ------------------------------------------------- */
 
-/* One full-width cell under the last row, with the control itself right-aligned
-   inside it. The cell drops the usual row rule and hover wash so only the
-   dashed outline shows. */
 .add-row-tr td {
   padding: 0.5rem 0.6rem;
   text-align: right;

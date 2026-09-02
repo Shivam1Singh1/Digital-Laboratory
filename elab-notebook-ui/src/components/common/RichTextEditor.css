@@ -1,27 +1,15 @@
-/**
- * Styles the editor owns, imported by RichTextEditor.vue so they load wherever
- * it does. The older .rich-text / .rich-text-surface rules still live in
- * components/templates/TemplateDetail.css and are untouched - this file only
- * adds what those never covered.
- *
- * Tables need rules here because the content is Frappe HTML: the Result tab's
- * tables carry class="table table-bordered", a Bootstrap convention the desk
- * styles for free. This app has no Bootstrap, so without the below a seeded
- * readings table renders as borderless run-together text.
- */
+
 
 .rich-text-surface table {
   width: 100%;
   border-collapse: collapse;
   margin: 0.4rem 0;
   font-size: var(--fs-sm);
-  /* The readings table is ten columns wide. Without this the cells compress to
-     unreadable slivers on a narrow pane instead of letting the wrapper scroll. */
+
   min-width: 640px;
 }
 
-/* Paired with the min-width above: the surface, not the page, takes the
-   overflow, so a wide table never pushes the form's own layout sideways. */
+
 .rich-text-surface {
   overflow-x: auto;
 }
@@ -32,14 +20,11 @@
   padding: 0.35rem 0.5rem;
   text-align: left;
   vertical-align: top;
-  /* Cells are typed into directly; without a floor an empty one collapses to a
-     line the pointer cannot reliably land in. */
+
   min-width: 60px;
 }
 
-/* The seeded tables mark their header row with <strong> rather than <th>: the
-   desk's Quill 2 table format has no <th> and would rewrite it to <td> on first
-   edit, so the bold cell is what both editors can agree to keep. */
+
 .rich-text-surface tr:first-child td {
   background-color: var(--bg-elevated);
   color: var(--text-primary);
@@ -56,11 +41,6 @@
   cursor: default;
 }
 
-/* ---------------------------------------------------------------- Quill path
-   Only rendered when the "tables" prop is on. Quill ships its own snow theme;
-   these rules re-tint it to the app's tokens so a table editor does not arrive
-   as a white rectangle in the dark theme, and nothing here touches the plain
-   contenteditable path above. */
 
 .rich-text-quill {
   border: 1px solid var(--border);
@@ -76,8 +56,7 @@
   padding: 0.35rem 0.5rem;
 }
 
-/* Quill draws its icons as inline SVG with hard-coded strokes, so the tint has
-   to reach into them - setting colour on the button alone does nothing. */
+
 .rich-text-quill-toolbar.ql-snow .ql-stroke {
   stroke: var(--text-muted);
 }
@@ -96,47 +75,24 @@
   fill: var(--accent);
 }
 
-/* Quill hard-codes `font-size:14px; font-weight:500` on every .ql-picker, so
-   the size dropdown - the only actual text in this toolbar, the rest being
-   icons - sat two steps above every control beside it, in a weight the app does
-   not otherwise use. Brought onto the control step, the same one .btn and the
-   inputs it shares a row with already use.
 
-   The repeated .ql-snow is load-bearing: the library's rule is `.ql-snow
-   .ql-picker`, so a single class here would tie on specificity and then lose on
-   source order. */
 .rich-text-quill-toolbar.ql-snow .ql-picker {
   font-size: var(--fs-lg);
   font-weight: var(--fw-medium);
 }
 
-/* The font-size dropdown's labels.
 
-   Quill's snow stylesheet hard-codes the text of every .ql-size picker entry:
-      .ql-snow .ql-picker.ql-size .ql-picker-label::before,
-      .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: 'Normal' }
-   with overrides only for its own small/large/huge buckets. This editor
-   whitelists px values instead (see FONT_SIZES), which match none of those
-   overrides - so every item in the menu read "Normal", and the label went on
-   reading "Normal" after a size was picked. The size was being applied; there
-   was simply nothing on screen that said so.
-
-   attr(data-value) puts the px value back. Quill only sets data-value from an
-   <option value>, so the deliberately blank first option - "default size" -
-   has no attribute and keeps the word Normal. */
 .rich-text-quill-toolbar.ql-snow .ql-picker.ql-size .ql-picker-label[data-value]::before,
 .rich-text-quill-toolbar.ql-snow .ql-picker.ql-size .ql-picker-item[data-value]::before {
   content: attr(data-value);
 }
 
-/* Wide enough for "Normal" so the toolbar does not reflow as sizes are picked. */
+
 .rich-text-quill-toolbar.ql-snow .ql-picker.ql-size {
   width: 68px;
 }
 
-/* The two custom buttons carry their own SVG, which inherits currentColor - so
-   the tint is set on the button and the icon follows. Quill's .ql-stroke rules
-   above do not apply to them; those target its own icon markup. */
+
 .rich-text-quill-toolbar .ql-better-table,
 .rich-text-quill-toolbar .ql-table-menu,
 .rich-text-quill-toolbar .ql-attach {
@@ -150,9 +106,7 @@
   color: var(--accent);
 }
 
-/* Outside a table there is nothing for it to act on. Dimmed rather than hidden,
-   so the control does not appear and vanish as the caret moves - its tooltip
-   says what to do to enable it. */
+
 .rich-text-quill-toolbar .ql-table-menu:disabled {
   opacity: 0.35;
   cursor: default;
@@ -182,9 +136,7 @@
   overflow-x: auto;
 }
 
-/* Inline images render as thumbnails. A lab screenshot at natural size filled
-   the whole field and pushed the write-up off screen; capped, it sits in the
-   text like a figure. Click opens the full picture - see .rte-lightbox. */
+
 .rich-text-quill-host .ql-editor img {
   max-width: 220px;
   max-height: 160px;
@@ -220,16 +172,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-/* quill-better-table's right-click menu, which it mounts on document.body -
-   outside this component's tree, hence the unscoped selector.
 
-   It ships z-index:100. This app's scale runs to 10000, with the shell sidebar
-   and every modal overlay at 1000, so at its own value the menu opens BEHIND
-   them. Raised above the app's maximum so it is on top of whatever it is
-   summoned over.
-
-   Also themed here rather than left at the library's white default, since it
-   opens over a dark surface. */
 .qlbt-operation-menu {
   z-index: 10001;
   background-color: var(--bg-surface);
@@ -255,16 +198,7 @@
   background-color: var(--border);
 }
 
-/* The library sets a single 14px across the whole menu, so its group subtitles
-   and the commands under them come out at exactly the same size and the menu
-   reads as one flat list with no way in. Commands drop to the app's body step;
-   the subtitle takes the overline treatment th and h6 already use, which is
-   what actually separates the two.
 
-   The doubled class is deliberate. This stylesheet is imported statically,
-   while the library's own is pulled in on demand (see the dynamic import of
-   quill-better-table.css in RichTextEditor.vue), so the vendor rules are
-   injected *after* this file - at equal specificity they would win on order. */
 .qlbt-operation-menu.qlbt-operation-menu {
   font-size: var(--fs-md);
   line-height: var(--lh-normal);
@@ -284,36 +218,16 @@
   text-transform: uppercase;
 }
 
-/* --------------------------------------------------- Quill table appearance
-   quill-better-table ships almost no visual styling: a hairline outline and
-   nothing else, which reads as a static grid rather than something you can
-   right-click. These rules give every cell a border, shade the first row, and
-   light the cell under the pointer so the table announces itself as editable. */
 
 .rich-text-quill-host .quill-better-table {
   border-collapse: collapse;
-  /* The left margin is the row-number lane. It has to be margin on the table
-     rather than padding on .quill-better-table-wrapper, because the wrapper is
-     overflow-x:auto and would clip anything hanging off the table's left edge -
-     inside the table's own margin the numbers are within the scroll area. */
+
   margin: 0.5rem 0 0.5rem 1.75rem;
-  /* No font-size here. It used to shrink table text to 0.85rem, a size the
-     author never chose and could only see the effect of by comparing a cell
-     against the prose around it. Tables now inherit the editor's own size, and
-     the size dropdown is the only thing that changes it. */
+
   counter-reset: qlbt-row -1;
 }
 
-/* ------------------------------------------------------------- Row numbers
-   A CSS counter on a pseudo-element rather than markup: the gutter must not
-   enter the stored HTML, and ::before cannot be typed into, selected, copied,
-   or left behind in a cell after a merge.
 
-   The first row is the header shaded below, so it is not numbered - which is
-   why the counter starts at -1, leaving the first data row as 1. To number
-   every row instead, reset the counter to 0 and delete the tr:first-child
-   rule. A row whose first cell is swallowed by a rowspan has no :first-child
-   to hang the number on and is skipped. */
 .rich-text-quill-host .quill-better-table tr {
   counter-increment: qlbt-row;
 }
@@ -325,12 +239,9 @@
 .rich-text-quill-host .quill-better-table td:first-child::before {
   content: counter(qlbt-row);
   position: absolute;
-  /* Flush against the cell's left border. The containing block of an absolutely
-     positioned box inside a td is its padding box, which sits inside the 1px
-     border - hence the extra pixel, or the header would sit on top of it. */
+
   right: calc(100% + 1px);
-  /* Pulled over the cell's own borders so the header box is exactly as tall as
-     the row it labels, the way a spreadsheet's row header is. */
+
   top: -1px;
   bottom: -1px;
   width: 1.6rem;
@@ -344,14 +255,10 @@
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
   user-select: none;
-  /* Deliberately hit-testable, not pointer-events:none. A pseudo-element hands
-     its events to the td that owns it, so hovering the bottom edge of a row
-     header arms the row resize through the ordinary path in borderUnder -
-     dragging the header boundary works exactly as it does in a spreadsheet,
-     with no extra code. */
+
 }
 
-/* No number against the header row. */
+
 .rich-text-quill-host .quill-better-table tr:first-child td:first-child::before {
   content: none;
 }
@@ -360,48 +267,27 @@
   border: 1px solid var(--border);
   padding: 0.4rem 0.6rem;
   vertical-align: top;
-  /* An empty cell with no floor collapses to a line the pointer cannot land in,
-     which makes an empty table effectively unusable. */
+
   min-width: 64px;
   transition: background-color 0.12s ease;
 }
 
-/* First row reads as a header without needing <th>, which better-table does not
-   produce.
 
-   Shading only. It used to force font-weight: 600 as well, which meant the
-   header row was bold whether or not the author asked for it - the B button
-   appeared to do nothing there, and text set back to normal weight still came
-   out bold. Weight, size and everything else in the row now belong to whoever
-   is typing; this rule only marks which row is the header. */
 .rich-text-quill-host .quill-better-table tr:first-child td {
   background-color: var(--bg-elevated);
 }
 
-/* The affordance: a cell lights up under the pointer, so it is obvious the grid
-   responds to the mouse and is worth right-clicking. */
+
 .rich-text-quill-host .quill-better-table td:hover {
   background-color: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-/* The column strip above a table - better-table's resize handles.
 
-   Hidden: one bordered cell per column, sitting detached above the table, reads
-   as a stray second table rather than as a control, and nothing labels it. The
-   cost is drag-to-resize columns, which is the only thing the strip does; column
-   width is otherwise left to the browser. Delete this rule to bring it back -
-   the styling that follows keeps it in the app's palette, since the library
-   hard-codes background:#fff and 1px solid #000 (the black bar it used to be).
-
-   It is position:absolute, so hiding it shifts nothing. */
 .rich-text-quill-host .qlbt-col-tool {
   display: none;
 }
 
-/* The extra `.qlbt-col-tool` in these selectors is not decoration: the library's
-   own rules are `.qlbt-col-tool .qlbt-col-tool-cell`, the same specificity as a
-   two-class selector here, so without the third class it comes down to import
-   order - and the library was winning. */
+
 .rich-text-quill-host .qlbt-col-tool .qlbt-col-tool-cell {
   background-color: var(--bg-elevated);
   border-top: 1px solid var(--border);
@@ -413,8 +299,7 @@
   border-left: 1px solid var(--border);
 }
 
-/* The drag target between two columns. Transparent until hovered by design;
-   only the hover colour needs to match the app. */
+
 .rich-text-quill-host .qlbt-col-tool .qlbt-col-tool-cell-holder:hover {
   background-color: var(--accent);
 }
@@ -423,11 +308,7 @@
   background-color: var(--accent);
 }
 
-/* The line that marks the border about to be dragged. Without it the resize is
-   invisible - the cursor changes, but only after the pointer is already on the
-   two-pixel band that triggers it, which is not something anyone finds by
-   accident. It lives in .ql-container, outside the editable root, so it stays
-   out of the stored HTML. */
+
 .rich-text-quill-host .rte-resize-guide {
   position: absolute;
   z-index: 100;
@@ -436,22 +317,7 @@
   pointer-events: none;
 }
 
-/* The resize pointers, drawn as Excel draws them: a double-headed arrow split
-   by the bar it is about to move, so the pointer itself says which way the
-   border travels.
 
-   Defined here rather than left to the col-resize / row-resize keywords because
-   those render differently on every platform - a plain double arrow with no bar
-   on macOS and most Linux themes, which is the part that carries the meaning.
-   The keyword stays on as the fallback for anywhere the data URI is refused.
-
-   Each path is stroked twice, white and wide underneath, black and narrow on
-   top: that halo is what keeps the pointer readable over the shaded header
-   cells and the accent-coloured guide line. `cursor` inherits, so setting it on
-   the editable root covers every cell inside it.
-
-   The markup is percent-encoded (%3C / %3E for the angle brackets) because a
-   raw < inside a CSS url() is only tolerated by some parsers. */
 .rich-text-quill-host .ql-editor.rte-col-resize {
   cursor:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v16M8 12H2m3-3-3 3 3 3M16 12h6m-3-3 3 3-3 3' stroke='white' stroke-width='3'/%3E%3Cpath d='M12 4v16M8 12H2m3-3-3 3 3 3M16 12h6m-3-3 3 3-3 3' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3C/svg%3E")
@@ -466,9 +332,7 @@
     row-resize;
 }
 
-/* The live caption: which way the border is going, and the size it is at. Only
-   filled during a drag - :empty keeps it out of the way on hover, where the
-   arrowheads alone are the whole message. */
+
 .rich-text-quill-host .rte-resize-readout {
   position: absolute;
   padding: 0.1rem 0.35rem;
@@ -486,8 +350,7 @@
   display: none;
 }
 
-/* Offset off the line rather than centred on it, so the caption never covers
-   the border being judged by eye. */
+
 .rich-text-quill-host .rte-resize-guide.is-col .rte-resize-readout {
   left: 0.5rem;
   top: 0;
@@ -498,7 +361,6 @@
   left: 0;
 }
 
-/* ------------------------------------------------------------- Attachments */
 
 .rte-attachments {
   border-top: 1px solid var(--border);
@@ -550,7 +412,7 @@
 .rte-attachment-name {
   color: var(--accent);
   text-decoration: none;
-  /* A long filename should not push the size and remove control off the row. */
+
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -582,9 +444,7 @@
   color: var(--danger);
 }
 
-/* Toolbar icon sizing. Quill sizes its own SVGs through .ql-snow button svg;
-   the two custom buttons carry their own markup and need the same treatment or
-   they render at the browser's default SVG size. */
+
 .rich-text-quill-toolbar .ql-better-table svg,
 .rich-text-quill-toolbar .ql-table-menu svg,
 .rich-text-quill-toolbar .ql-attach svg {
@@ -600,9 +460,7 @@
   color: var(--text-muted);
 }
 
-/* ---------------------------------------------------------------- Lightbox
-   Teleported to body, so it sits above the app rather than inside the pane it
-   was opened from. Same z-index band as better-table's menu. */
+
 .rte-lightbox {
   position: fixed;
   inset: 0;
@@ -621,8 +479,7 @@
   object-fit: contain;
   border-radius: 6px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
-  /* Overrides the thumbnail rule above, which would otherwise cap the full
-     view at 220px too. */
+
   cursor: default;
 }
 

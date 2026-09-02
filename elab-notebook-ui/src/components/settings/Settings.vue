@@ -1,15 +1,5 @@
 <script setup>
-/**
- * Settings — profile photo, theme, and signing out.
- *
- * Deliberately four things and no more. Name, role and department come from the
- * HR record and are shown read-only: this page is not a second, quieter way to
- * edit an Employee, and a field that looks editable but is overwritten by the
- * next HR sync is worse than one that is plainly locked.
- *
- * Everything that can be changed here persists somewhere real - the photo onto
- * the User record, the theme and the project preference into this browser.
- */
+
 import { ref, computed } from 'vue'
 import axios from 'axios'
 import { useUserStore } from '../../stores/user'
@@ -19,41 +9,26 @@ import './Settings.css'
 
 const userStore = useUserStore()
 
-// ---------------------------------------------------------------------- photo
+
 const fileInput = ref(null)
 const uploading = ref(false)
 const photoError = ref('')
 const photoNotice = ref('')
-// The sidebar avatar carries the same guard: a user_image that 404s should fall
-// back to initials rather than render a broken-image glyph.
+
+
 const avatarFailed = ref(false)
 
 const hasPhoto = computed(
   () => Boolean(userStore.user.user_image) && !avatarFailed.value
 )
 
-// The avatar is drawn at 96px here and at 30-32px in the shell, so anything past
-// 512 square is detail nobody will ever see. A photo straight off a phone is
-// 4-12 megapixels and several MB; stored as-is it would be re-downloaded at full
-// size on every screen that shows the sidebar, which is all of them.
-//
-// So the file is resized in the browser before it is uploaded rather than being
-// rejected for being too big - telling a user to go and shrink their own
-// photograph is not a thing this page should do. What lands on the server is
-// ~40-80 KB whatever they picked.
+
 const AVATAR_PX = 512
 
-// Only a backstop against something absurd being read into memory. Ordinary
-// camera photos are far below this and are handled by the resize, not by a
-// refusal.
+
 const MAX_SOURCE_BYTES = 20 * 1024 * 1024
 
-/**
- * Centre cover-crop to a square and re-encode.
- *
- * Cropped from the middle rather than squashed to fit: a portrait photo scaled
- * to a square stretches the face, which is the one thing an avatar must not do.
- */
+
 const resizeToSquare = (file) =>
   new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
@@ -74,8 +49,8 @@ const resizeToSquare = (file) =>
       canvas.height = out
 
       const ctx = canvas.getContext('2d')
-      // A transparent PNG drawn onto an empty canvas encodes to JPEG with a
-      // black background. Painting white first lands the alpha on white instead.
+
+
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, out, out)
       ctx.imageSmoothingQuality = 'high'
@@ -114,7 +89,7 @@ const pickPhoto = () => {
 
 const onPhotoChosen = async (event) => {
   const file = event.target.files?.[0]
-  // Cleared immediately so choosing the same file twice in a row still fires.
+
   event.target.value = ''
   if (!file) return
 
@@ -134,12 +109,7 @@ const onPhotoChosen = async (event) => {
   try {
     const square = await resizeToSquare(file)
 
-    // Public, not private: the avatar renders in a plain <img> on every screen,
-    // and a private file would need a session check on each one.
-    //
-    // A fixed name, not the original: what is uploaded is a re-encoded square
-    // JPEG, so carrying over `holiday-photo.png` would describe neither its
-    // format nor its contents.
+
     const form = new FormData()
     form.append('file', square, 'profile-photo.jpg')
     form.append('is_private', '0')
@@ -190,7 +160,7 @@ const removePhoto = async () => {
   }
 }
 
-// -------------------------------------------------------------------- profile
+
 const department = computed(() => {
   const names = userStore.employeeScope.function_names || []
   return names.length ? names.join(', ') : 'Not assigned'
@@ -203,7 +173,7 @@ const projectAccess = computed(() => {
   return n === 1 ? '1 project' : `${n} projects`
 })
 
-// --------------------------------------------------------------------- logout
+
 const signingOut = ref(false)
 
 const signOut = async () => {
@@ -213,9 +183,8 @@ const signOut = async () => {
   } catch (err) {
     console.error('Logout failed', err)
   }
-  // The login page, not login_redirect directly: the session has just been
-  // ended, so sending the browser to the landing hop would only bounce it
-  // straight back here to be refused. Same helper the shell's Sign out uses.
+
+
   window.location.href = loginUrl()
 }
 </script>

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp ../elab_notebook/public/elab/index.html ../elab_notebook/www/elab.html",
     "preview": "vite preview",
     "test": "node --test tests/*.test.js"
   },

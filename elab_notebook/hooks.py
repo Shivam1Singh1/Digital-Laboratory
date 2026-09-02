@@ -76,6 +76,16 @@ doctype_js = {"Stock Entry": ["public/js/stock_entry.js", "public/js/stock_entry
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
 
+# Website
+# ----------
+
+# The Vue SPA is served from /elab (www/elab.html is its built shell). This rule
+# hands every client-side route below it back to that same shell, so a direct
+# link or a refresh on /elab/experiments/<name> loads the app instead of 404ing.
+website_route_rules = [
+	{"from_route": "/elab/<path:app_path>", "to_route": "elab"},
+]
+
 # Jinja
 # ----------
 

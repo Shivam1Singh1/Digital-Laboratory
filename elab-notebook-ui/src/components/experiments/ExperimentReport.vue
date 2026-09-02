@@ -1,42 +1,14 @@
 <script setup>
-/**
- * Full-subtree detail report: a run and everything linked below it, in full.
- *
- * The nodes arrive flat from api/hierarchy.get_full_subtree_report, each already
- * carrying its `parent_experiment` and a `depth` (root = 0), and are rendered in
- * the order the server returned them - parent immediately before its children.
- * The hierarchy is drawn from `depth` alone: one indent step and one guide rail
- * per level, using the same --tree-indent step ExperimentTree.css uses, so a
- * level sits at the same x in both views.
- *
- * Emptiness is handled at two scales, which is deliberate. The three short
- * scalar fields - Aim, Sub Aim, Rationale - still render when blank, with a
- * muted dash: they cost one line each, and "nobody recorded an aim" is itself a
- * finding that hiding the row would make indistinguishable from a field this
- * view forgot to ask for. The four heavy sections are dropped instead when they
- * have nothing in them - see showsMaterial / showsMethodology / showsObservation
- * and the Conclusion block - because a heading with a single dash under it is
- * not a finding, it is furniture, and four of them per node across a deep report
- * is most of the page.
- *
- * The rich-text fields have their file references made absolute on arrival, or
- * every embedded figure 404s when the report is read from the Vite dev server -
- * see resolveFileUrls in utils/frappeUrl.js.
- *
- * Level is encoded twice over: once as position (indent + guide rails, at the
- * same x as ExperimentTree's) and once as identity (the card's coloured,
- * textured left rail and its matching badge). Position answers "where does this
- * sit", identity answers "what is it" - in a branch that skips a level those are
- * different questions.
- *
- * Only offered at Master Experiment and Experiment (utils/reportTab.js). The
- * endpoint enforces the same rule itself and throws for any other level.
- */
+
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { readServerError } from '../../utils/serverError'
 import { resolveFileUrls } from '../../utils/frappeUrl'
+import ImageLightbox from '../common/ImageLightbox.vue'
+import RichContent from '../common/RichContent.vue'
+import ReportTable from './ReportTable.vue'
+import { richHasContent, splitStored, joinStored } from '../../utils/richText'
 import './ExperimentReport.css'
 
 const API = 'elab_notebook.elab_notebook.api.hierarchy'
@@ -51,20 +23,40 @@ const loading = ref(true)
 const error = ref('')
 const nodes = ref([])
 
+
+const lightboxSrc = ref('')
+
+const onReportClick = (evt) => {
+  const img = evt.target
+  if (!img || img.tagName !== 'IMG') return
+  if (!img.closest('.rep-rich')) return
+  lightboxSrc.value = img.getAttribute('src') || ''
+}
+
 const descendantCount = computed(() => Math.max(nodes.value.length - 1, 0))
 
-// Every Text Editor field this view renders through v-html. Their file
-// references are made absolute once, on arrival, rather than on each render -
-// see resolveFileUrls. `observations[].observation` is the odd one out because
-// it is a column inside a child table rather than a field on the node.
-const RICH_FIELDS = ['conclusion', 'methodology_comments', 'observation_comments']
+
+const RICH_FIELDS = [
+  'procedure',
+  'results',
+  'observation_and_conclusion',
+  'conclusion',
+  'methodology_comments',
+  'observation_comments',
+]
+
+
+const resolveRich = (raw) => {
+  const { body, files } = splitStored(raw)
+  return joinStored(resolveFileUrls(body), files)
+}
 
 const resolveNodeFileUrls = (node) => {
   for (const field of RICH_FIELDS) {
-    if (node[field]) node[field] = resolveFileUrls(node[field])
+    if (node[field]) node[field] = resolveRich(node[field])
   }
   for (const row of node.observations || []) {
-    if (row.observation) row.observation = resolveFileUrls(row.observation)
+    if (row.observation) row.observation = resolveRich(row.observation)
   }
   return node
 }
@@ -89,9 +81,6 @@ const load = async () => {
 watch(() => props.experimentId, load)
 onMounted(load)
 
-// ---------------------------------------------------------------------------
-// Presentation
-// ---------------------------------------------------------------------------
 
 const CATEGORY_SLUGS = {
   'Master Experiment': 'master',
@@ -100,15 +89,10 @@ const CATEGORY_SLUGS = {
   'Sub Sub Experiment': 'subsub',
 }
 
-// Same slugs ExperimentTree uses, so a level is the same colour in both views.
-// The slug picks a .rep-cat-* class in ExperimentReport.css, which is where the
-// level's colour and its rail texture are defined - one class per level, set on
-// the card, read by both the rail and the badge inside it.
+
 const categorySlug = (node) => CATEGORY_SLUGS[node.experiment_category] || 'other'
 
-// Exact names from the "Lab Experiment Workflow" record, with a substring pass
-// beneath them for states written by its predecessor, which still appear on runs
-// that have not moved since.
+
 const STATE_CLASSES = {
   Start: 'rep-state-draft',
   'In Progress': 'rep-state-running',
@@ -131,53 +115,20 @@ const stateClass = (node) => {
   return 'rep-state-draft'
 }
 
-/**
- * Whether a value is worth printing, so the dash placeholder can stand in when
- * it is not.
- *
- * Rich fields need more than a truthiness test: an emptied Quill editor stores
- * "<p><br></p>", a non-empty string describing nothing. Tags are stripped before
- * measuring, but only for the decision - what renders is the original markup.
- * Mirrors `_has_text` in api/hierarchy.py, which makes the same call server-side
- * when it chooses between a run's observation and its template's.
- */
+
 const hasText = (value, rich = false) => {
   if (value === null || value === undefined) return false
-  const raw = String(value)
-  if (!rich) return raw.trim() !== ''
-  const text = raw.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
-  // A field holding only an image or a table has no text but is not empty.
-  return text !== '' || /<(img|table)\b/i.test(raw)
+  if (rich) return richHasContent(String(value))
+  return String(value).trim() !== ''
 }
 
-/**
- * The run's own page, as a real href so the id can open in a new tab.
- *
- * Resolved through the router rather than assembled as a string: that is what
- * applies the router's base, so the link is correct wherever the SPA is mounted.
- * It has to be an href on an <a> and not a router-link click handler, because
- * ctrl/cmd-click, middle-click and "Open in new tab" are the browser's to
- * handle - a handler that calls router.push intercepts all three and drops the
- * reader back onto the same page they were reading.
- */
+
 const experimentHref = (name) =>
   router.resolve({ name: 'ExperimentDetail', params: { id: name } }).href
 
 const rows = (node, fieldname) => node[fieldname] || []
 
-/**
- * Whether a table-backed section is worth a heading on this node.
- *
- * The dash placeholder is right for a one-line field - it says "nobody recorded
- * this", which is a finding. A whole section reduced to a heading and a dash is
- * not: three of them stacked on a node that only ever carried an aim is noise,
- * multiplied by every node in a deep report.
- *
- * A section is shown when *any* of its parts has content - the comments alone
- * are enough to justify the heading, which is why Methodology and Observation
- * test both halves rather than only their table. Conclusion applies the same
- * rule inline, in the template, having only one part to test.
- */
+
 const showsMaterial = (node) => rows(node, 'material_required').length > 0
 
 const showsMethodology = (node) =>
@@ -186,12 +137,7 @@ const showsMethodology = (node) =>
 const showsObservation = (node) =>
   rows(node, 'observations').length > 0 || hasText(node.observation_comments, true)
 
-// Column order and labels per table, taken from the child doctypes. `rich` marks
-// the one column that holds markup - the observation row's Description, which is
-// a Text Editor. Every other column is interpolated as text and cannot inject.
-//
-// The columns the endpoint fetches are listed in _REPORT_TABLES in
-// api/hierarchy.py; a column added there also needs a line here to be printed.
+
 const MATERIAL_COLUMNS = [
   { key: 'item_code', label: 'Item Code' },
   { key: 'item_name', label: 'Item Name' },
@@ -213,10 +159,88 @@ const OBSERVATION_COLUMNS = [
   { key: 'observed_by', label: 'Observed By' },
   { key: 'observed_on', label: 'Observed On' },
 ]
+
+
+const ITEM_COLUMNS = [
+  { key: 'item', label: 'Item' },
+  { key: 'item_name', label: 'Item Name' },
+  { key: 'uom', label: 'UOM' },
+  { key: 'qty', label: 'Qty' },
+  { key: 'make', label: 'Make' },
+  { key: 'catalogue_no', label: 'Catalogue No.' },
+  { key: 'lot_no', label: 'Lot No' },
+  { key: 'expiry_date', label: 'Expiry' },
+  { key: 'storage', label: 'Storage' },
+  { key: 'remarks', label: 'Remarks' },
+]
+
+const EQUIPMENT_COLUMNS = [
+  { key: 'equipment_name', label: 'Equipment' },
+  { key: 'equipment_id', label: 'Equipment ID' },
+  { key: 'equipment_status', label: 'Status' },
+  { key: 'qualification', label: 'Qualification Date' },
+  { key: 'remarks', label: 'Remarks' },
+]
+
+const PROTOCOL_STEP_COLUMNS = [
+  { key: 'step_no', label: 'Step' },
+  { key: 'instruction', label: 'Instruction' },
+  { key: 'expected_duration', label: 'Expected Duration (s)' },
+  { key: 'is_critical', label: 'Critical', check: true },
+  { key: 'attachment', label: 'Attachment', attach: true },
+]
+
+const METRIC_COLUMNS = [
+  { key: 'quality_metrics', label: 'Parameter' },
+  { key: 'value', label: 'Value' },
+  { key: 'unit', label: 'Unit' },
+]
+
+const SAMPLE_COLUMNS = [
+  { key: 'sample_id', label: 'Sample ID' },
+  { key: 'sample_name', label: 'Sample Name' },
+  { key: 'batch_no', label: 'Batch No.' },
+  { key: 'warehouse', label: 'Warehouse' },
+  { key: 'sample_vol', label: 'Volume' },
+  { key: 'sample_detailsstage', label: 'Details / Stage' },
+  { key: 'item', label: 'Item' },
+  { key: 'qty', label: 'Qty' },
+  { key: 'uom', label: 'UOM' },
+  { key: 'results', label: 'Results' },
+  { key: 'sampling_date', label: 'Sampled' },
+  { key: 'date_of_analysis', label: 'Analysed' },
+  { key: 'transfered_to', label: 'Transferred To' },
+  { key: 'remarks', label: 'Remarks' },
+  { key: 'attach', label: 'Attachment', attach: true },
+]
+
+const RESULT_ATTACHMENT_COLUMNS = [
+  { key: 'name1', label: 'Name' },
+  { key: 'file', label: 'File', attach: true },
+]
+
+
+const showsResult = (node) =>
+  hasText(node.results, true) ||
+  hasText(node.result) ||
+  hasText(node.observation_and_conclusion, true) ||
+  rows(node, 'result_attachment').length > 0
+
+
+const resultClass = (value) => {
+  const v = String(value || '').toLowerCase()
+  if (v === 'pass') return 'rep-result-pass'
+  if (v === 'fail') return 'rep-result-fail'
+  return ''
+}
 </script>
 
 <template>
-  <div class="experiment-report">
+  <!-- One delegated click for every image in every write-up below; see
+       onReportClick for why it cannot be bound per image. -->
+  <div class="experiment-report" @click="onReportClick">
+    <ImageLightbox :src="lightboxSrc" @close="lightboxSrc = ''" />
+
     <div v-if="loading" class="rep-status">Building the report…</div>
 
     <div v-else-if="error" class="rep-alert">{{ error }}</div>
@@ -318,6 +342,21 @@ const OBSERVATION_COLUMNS = [
                 <p v-else class="rep-field-value rep-blank">—</p>
               </div>
 
+              <!-- PROCEDURE + PRECAUTION. The doctype's Procedure section, which
+                   the report did not carry at all until now. Section-hidden like
+                   Conclusion: procedure holds figures, and a dash where a figure
+                   would be reads as a failed render. -->
+              <div v-if="hasText(node.procedure, true)" class="rep-field">
+                <span class="rep-field-label">Procedure</span>
+                <RichContent class="rep-field-value rep-rich" :value="node.procedure" />
+              </div>
+
+              <!-- Small Text, so interpolated rather than rendered as markup. -->
+              <div v-if="hasText(node.precaution)" class="rep-field">
+                <span class="rep-field-label">Precaution</span>
+                <p class="rep-field-value">{{ node.precaution }}</p>
+              </div>
+
               <!-- MATERIAL REQUIRED. Dropped entirely when the table is empty -
                    see showsMaterial: a heading over a dash is not a finding. -->
               <div v-if="showsMaterial(node)" class="rep-field">
@@ -342,6 +381,16 @@ const OBSERVATION_COLUMNS = [
                   </table>
                 </div>
               </div>
+
+              <!-- The rest of what was consumed and used. ReportTable hides
+                   itself when its table is empty, so these cost nothing on a
+                   node that never recorded any. -->
+              <ReportTable label="Items" :rows="rows(node, 'items')" :columns="ITEM_COLUMNS" />
+              <ReportTable
+                label="Equipment"
+                :rows="rows(node, 'equipment_details')"
+                :columns="EQUIPMENT_COLUMNS"
+              />
 
               <!-- METHODOLOGY + its comments. One section, so the pair is gated
                    together: the comments alone justify the heading, which is why
@@ -380,10 +429,18 @@ const OBSERVATION_COLUMNS = [
                     Methodology Comments
                     <span class="rep-field-source">from template {{ node.template }}</span>
                   </span>
-                  <!-- eslint-disable-next-line vue/no-v-html -->
-                  <div class="rep-field-value rep-rich" v-html="node.methodology_comments"></div>
+                  <RichContent class="rep-field-value rep-rich" :value="node.methodology_comments" />
                 </div>
               </template>
+
+              <!-- PROTOCOL STEPS. The run's own numbered step list, which is
+                   where a step's attachment lives - printed as a thumbnail that
+                   opens full size, same as everywhere else. -->
+              <ReportTable
+                label="Protocol Steps"
+                :rows="rows(node, 'protocol_steps')"
+                :columns="PROTOCOL_STEP_COLUMNS"
+              />
 
               <!-- OBSERVATION + its comments, gated as one section for the same
                    reason as Methodology above. -->
@@ -402,12 +459,11 @@ const OBSERVATION_COLUMNS = [
                         <tr v-for="row in rows(node, 'observations')" :key="row.idx">
                           <td class="rep-table-idx">{{ row.idx }}</td>
                           <td v-for="col in OBSERVATION_COLUMNS" :key="col.key">
-                            <!-- eslint-disable-next-line vue/no-v-html -->
-                            <div
+                            <RichContent
                               v-if="col.rich && hasText(row[col.key], true)"
                               class="rep-rich"
-                              v-html="row[col.key]"
-                            ></div>
+                              :value="row[col.key]"
+                            />
                             <template v-else-if="!col.rich && hasText(row[col.key])">
                               {{ row[col.key] }}
                           </template>
@@ -430,9 +486,52 @@ const OBSERVATION_COLUMNS = [
                     from template {{ node.template }}
                   </span>
                 </span>
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div class="rep-field-value rep-rich" v-html="node.observation_comments"></div>
+                <RichContent class="rep-field-value rep-rich" :value="node.observation_comments" />
               </div>
+              </template>
+
+              <!-- The measured output of the run. Two separate grids on the
+                   doctype, kept separate here. -->
+              <ReportTable
+                label="Quality Metrics"
+                :rows="rows(node, 'quality_metrics')"
+                :columns="METRIC_COLUMNS"
+              />
+              <ReportTable
+                label="Sub Experiment Metrics"
+                :rows="rows(node, 'sub_metrics')"
+                :columns="METRIC_COLUMNS"
+              />
+              <ReportTable label="Samples" :rows="rows(node, 'sample')" :columns="SAMPLE_COLUMNS" />
+
+              <!-- RESULT. The doctype's whole Result tab, which the report did
+                   not carry at all - a Master Experiment that had been written
+                   up showed its aim and its conclusion and nothing of what it
+                   found. Gated as one section, like Methodology and Observation:
+                   any one part justifies the heading. -->
+              <template v-if="showsResult(node)">
+                <div v-if="hasText(node.result)" class="rep-field">
+                  <span class="rep-field-label">Result</span>
+                  <p class="rep-field-value">
+                    <span class="rep-result" :class="resultClass(node.result)">{{ node.result }}</span>
+                  </p>
+                </div>
+
+                <div v-if="hasText(node.results, true)" class="rep-field">
+                  <span class="rep-field-label">Results</span>
+                  <RichContent class="rep-field-value rep-rich" :value="node.results" />
+                </div>
+
+                <ReportTable
+                  label="Result Attachments"
+                  :rows="rows(node, 'result_attachment')"
+                  :columns="RESULT_ATTACHMENT_COLUMNS"
+                />
+
+                <div v-if="hasText(node.observation_and_conclusion, true)" class="rep-field">
+                  <span class="rep-field-label">Observation &amp; Conclusion</span>
+                  <RichContent class="rep-field-value rep-rich" :value="node.observation_and_conclusion" />
+                </div>
               </template>
 
               <!-- CONCLUSION. Section-hidden rather than dashed, like the three
@@ -444,8 +543,17 @@ const OBSERVATION_COLUMNS = [
                    image or a table with no words around it as content. -->
               <div v-if="hasText(node.conclusion, true)" class="rep-field">
                 <span class="rep-field-label">Conclusion</span>
-                <!-- eslint-disable-next-line vue/no-v-html -->
-                <div class="rep-field-value rep-rich" v-html="node.conclusion"></div>
+                <RichContent class="rep-field-value rep-rich" :value="node.conclusion" />
+              </div>
+
+              <!-- How the science came out, as opposed to where the paperwork
+                   got to - the workflow state is already on the card header. -->
+              <div v-if="hasText(node.experiment_status)" class="rep-field">
+                <span class="rep-field-label">Experiment Status</span>
+                <p class="rep-field-value">
+                  {{ node.experiment_status }}
+                  <span v-if="node.is_successful" class="rep-result rep-result-pass">Successful</span>
+                </p>
               </div>
             </div>
           </div>

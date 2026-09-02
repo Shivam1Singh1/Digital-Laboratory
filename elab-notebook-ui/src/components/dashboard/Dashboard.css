@@ -1,10 +1,7 @@
-/* ==========================================================================
-   Laboratory Dashboard — enhanced visual design with improved spacing
-   ========================================================================== */
+
 
 .dashboard-scrollable-content {
-  /* Outer gutters live in vars so the hero's full-bleed negative margins and
-     the responsive overrides below can never drift out of sync. */
+
   --dash-pad-x: 1.75rem;
   --dash-pad-y: 1.5rem;
   flex: 1;
@@ -18,17 +15,10 @@
   background: linear-gradient(135deg, var(--bg-surface) 0%, color-mix(in srgb, var(--accent-2) 4%, transparent) 100%);
 }
 
-/* Hero section — prominent greeting and stats */
+
 .dashboard-scrollable-content .page-header.dashboard-hero {
   padding: 0.9rem 1.5rem 0.85rem 1.5rem;
-  /* The hero stays full-bleed - the negative side margins below are what make its
-     bottom border run the whole way across as a band under the top bar - while
-     every other child of the page is capped at --page-max and centred
-     (styles/page-width.css). Left alone, the band's title would sit well to the
-     left of the cards under it on a wide monitor, so the same cap is re-applied
-     here as padding: the band spans the window, its contents line up with the
-     content below. max() keeps the original 1.5rem on any window narrower than
-     the cap, where the subtraction would go negative. */
+
   padding-inline: max(
     1.5rem,
     calc((100% - var(--page-max)) / 2 + var(--dash-pad-x))
@@ -98,19 +88,17 @@
   gap: 0.75rem;
 }
 
-/* Entity tiles — fixed 2x2 grid so each tile claims half the width, and rows
-   stretch to fill whatever vertical space is left instead of hugging content. */
+
 .dashboard-blocks-container {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  /* Sized to content, not to the viewport. Filling leftover height just pads the
-     tiles with empty space above and below the donut. */
+
   grid-auto-rows: auto;
   gap: 1.5rem;
   flex: 0 0 auto;
 }
 
-/* Analytics strip — cards with proper spacing */
+
 .dashboard-details-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -120,8 +108,7 @@
 }
 
 .analytics-card {
-  /* Two-tone wash (violet -> fuchsia) over the flat surface, so panels read as
-     mixed rather than solid. --accent-gradient is theme-aware. */
+
   background-image: var(--accent-gradient);
   padding: 1.5rem;
   display: flex;
@@ -255,7 +242,7 @@
   white-space: nowrap;
 }
 
-/* Responsive design */
+
 @media (max-width: 1100px) {
   .dashboard-scrollable-content {
     --dash-pad-x: 1.5rem;

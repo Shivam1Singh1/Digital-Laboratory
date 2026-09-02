@@ -16,30 +16,29 @@ def get_current_user_profile():
             "user_image": None,
             "role": "Guest"
         }
-    
+
     user_doc = frappe.get_doc("User", user)
-    
+
     first_name = user_doc.first_name or ""
     last_name = user_doc.last_name or ""
-    
+
     initials = ""
     if first_name:
         initials += first_name[0].upper()
     if last_name:
         initials += last_name[0].upper()
-        
+
     if not initials and user_doc.full_name:
         parts = user_doc.full_name.split()
         if len(parts) >= 2:
             initials = (parts[0][0] + parts[-1][0]).upper()
         elif len(parts) == 1:
             initials = parts[0][:2].upper()
-            
+
     if not initials:
         initials = user[:2].upper()
-        
-    # Experiment.employee_code is a Link to Employee, not to User, so the Employee id
-    # has to travel with the profile - the session user id is not a valid value there.
+
+
     employee = frappe.db.get_value(
         "Employee", {"user_id": user, "status": "Active"}, ["name", "employee_name"], as_dict=True
     ) or frappe.db.get_value(
@@ -56,17 +55,6 @@ def get_current_user_profile():
         "employee_name": (employee.employee_name if employee else None) or user_doc.full_name,
         "role": user_doc.get("designation") or "Laboratory Director"
     }
-
-# ---------------------------------------------------------------------------
-# Profile photo
-# ---------------------------------------------------------------------------
-#
-# Both endpoints below act on `frappe.session.user` and take no user argument.
-# That is the point: an endpoint that edits a profile is the classic place to
-# find a `user` parameter nobody checks, and the safest way not to have that bug
-# is to have no parameter to check. Changing somebody else's photo is not a
-# permission this app grants anyone, including a System Manager - the desk
-# already does that job properly.
 
 
 def _session_user_or_throw() -> str:
@@ -91,16 +79,14 @@ def set_profile_photo(file_url):
 	if not file_url:
 		frappe.throw(_("No image was supplied."))
 
-	# The field has to name a file this site actually holds. Left unchecked it
-	# would accept any string, including an address on someone else's server -
-	# which would turn every page that renders the avatar into a callback to it.
+
 	owner = frappe.db.get_value("File", {"file_url": file_url}, "owner")
 	if not owner:
 		frappe.throw(_("That image is not on file. Please upload it again."))
 
 	if owner != user and not has_bypass(user):
 		frappe.throw(
-			_("That image was uploaded by someone else."), frappe.PermissionError
+		 _("That image was uploaded by someone else."), frappe.PermissionError
 		)
 
 	frappe.db.set_value("User", user, "user_image", file_url)
@@ -197,14 +183,6 @@ def get_server_now():
     }
 
 
-# Where a user lands once Frappe's login page hands control back. Frappe's
-# `/login?redirect-to=` only accepts a same-site path, so this endpoint is the
-# hop that forwards on to the SPA.
-#
-# The destination used to be the literal `http://localhost:5173/` - the Vite dev
-# server - which meant a production login sent every user to a machine that is
-# not the server. It is read from site config so each site names its own, and
-# falls back to the app's own route rather than to somebody's laptop.
 SPA_URL_KEY = "elab_spa_url"
 SPA_URL_DEFAULT = "/elab"
 
@@ -236,18 +214,15 @@ def setup_db():
     otherwise give them - a privilege escalation dressed up as a setup script.
 
     It is a bootstrap, not an API: nothing in the app calls it, and its remaining
-    use is a one-off from a trusted console -
-
-        bench --site <site> execute \\
-            elab_notebook.elab_notebook.api.user.setup_db
-
-    which runs as Administrator and needs no HTTP surface. New schema belongs in
+    use is a one-off from a trusted console (the invocation is in
+    elab-notebook-ui/README.md under "Useful Commands"), which runs as
+    Administrator and needs no HTTP surface. New schema belongs in
     the doctype JSON and a patch (see patches/v1_0/), the way Lab Experiment is
     already done - note block 3 below, which was retired for exactly that reason.
     """
     print("1. Creating Child DocTypes...")
 
-    # 1. Template Ingredient
+
     if not frappe.db.exists("DocType", "Template Ingredient"):
         doc = frappe.get_doc({
             "doctype": "DocType",
@@ -269,7 +244,7 @@ def setup_db():
     else:
         print("Template Ingredient already exists")
 
-    # 2. Template Parameter
+
     if not frappe.db.exists("DocType", "Template Parameter"):
         doc = frappe.get_doc({
             "doctype": "DocType",
@@ -291,7 +266,7 @@ def setup_db():
     else:
         print("Template Parameter already exists")
 
-    # 3. Template Protocol Step
+
     if not frappe.db.exists("DocType", "Template Protocol Step"):
         doc = frappe.get_doc({
             "doctype": "DocType",
@@ -315,11 +290,11 @@ def setup_db():
         print("Template Protocol Step already exists")
 
     print("\n2. Updating Experiment Template...")
-    # Ensure fields exist on Experiment Template and make it non-submittable
+
     parent_temp = frappe.get_doc("DocType", "Lab Experiment Template")
     parent_temp.is_submittable = 0
-    
-    # Ensure no submit/cancel/amend permissions exist for both roles
+
+
     for perm in parent_temp.permissions:
         if perm.role in ("System Manager", "Employee"):
             perm.submit = 0
@@ -348,19 +323,14 @@ def setup_db():
     parent_temp.save(ignore_permissions=True)
     print("Updated Experiment Template DocType")
 
-    # 3. Experiment / Lab Experiment
-    # Retired. This block used to mutate the live custom `Experiment` doctype at
-    # runtime - flipping is_submittable, rewriting permission rows and appending
-    # fields. `Lab Experiment` replaces it as version-controlled code, so its
-    # schema comes from lab_experiment.json and `bench migrate`, not from here.
-    # The legacy `Experiment` doctype is deliberately left untouched.
+
     print("\n3. Skipping Experiment - superseded by the code-based Lab Experiment doctype")
 
     print("\n4. Updating Experiment Team...")
     parent_team = frappe.get_doc("DocType", "Experiment Team")
     parent_team.is_submittable = 1
-    
-    # Ensure submit/cancel/amend for System Manager and All
+
+
     for perm in parent_team.permissions:
         if perm.role in ("System Manager", "All"):
             perm.submit = 1
@@ -413,7 +383,7 @@ def setup_db():
         print("Sample DocType already exists - updating")
         parent_sample = frappe.get_doc("DocType", "Sample")
         parent_sample.is_submittable = 1
-        
+
         has_amended_from = False
         for f in parent_sample.fields:
             if f.fieldname == "amended_from":
@@ -444,7 +414,7 @@ def setup_db():
                 perm.submit = 1
                 perm.cancel = 1
                 perm.amend = 1
-                
+
         if not has_employee:
             parent_sample.append("permissions", {
                 "role": "Employee",

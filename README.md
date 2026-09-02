@@ -804,3 +804,103 @@ See **`DEPLOYMENT.md`** for the full checklist. Summary as of this pass:
 
 ## 📄 License
 MIT License
+
+
+
+
+
+# Vue 3 + Vite
+
+This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+
+Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+
+## Useful Commands
+
+Commands that used to live as comments inside the backend source files. Each one
+notes the file it came from so the code and this reference stay traceable.
+
+Substitute `<site>` with the target site name. On this bench the local site is
+`site_local` (there is also a `site.local` directory — they are different sites,
+so check which one you mean before running anything that writes).
+
+### Frontend
+
+Run from `elab-notebook-ui/`.
+
+```bash
+npm install          # first time only
+npm run dev          # vite dev server
+npm run build        # production build
+npm test             # node --test tests/*.test.js
+```
+
+### Testing
+
+**Database-free unit tests** — run from the app root
+(`apps/elab_notebook/`), not from `elab-notebook-ui/`. No site, no database, no
+bench required.
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+*Moved from `tests/test_pure_logic.py` (module docstring).*
+
+**Site-backed tests** — these need a booted site. Note that `tests/` sits
+outside the `elab_notebook/` package precisely so that `bench run-tests` does
+*not* pick up the database-free suite above.
+
+```bash
+bench --site <site> run-tests --app elab_notebook --skip-test-records
+```
+
+### Legacy data migration
+
+One-shot copy of legacy `Experiment` records into `Lab Experiment`. Deliberately
+**not** registered in `patches.txt` — it is meant to be run and inspected by
+hand, never silently on `bench migrate`. It is a copy, not a move: legacy rows
+are never modified or deleted.
+
+Run in this order, verifying between steps:
+
+```bash
+bench --site <site> execute elab_notebook.migrate_legacy_experiments.dry_run
+bench --site <site> execute elab_notebook.migrate_legacy_experiments.run
+bench --site <site> execute elab_notebook.migrate_legacy_experiments.verify
+```
+
+There is also a `backfill_titles` entrypoint in the same module. It defaults to
+`dry_run=True`, so the bare call below only reports:
+
+```bash
+bench --site <site> execute elab_notebook.migrate_legacy_experiments.backfill_titles
+```
+
+*Moved from `elab_notebook/migrate_legacy_experiments.py` (module docstring).*
+
+### One-time bootstrap
+
+`setup_db` creates the child doctypes this app grew out of. It is
+**deliberately not whitelisted** — it runs with `ignore_permissions=True` and
+rewrites permission rows, so exposing it over HTTP was a privilege-escalation
+hole. Console only, as Administrator:
+
+```bash
+bench --site <site> execute elab_notebook.elab_notebook.api.user.setup_db
+```
+
+New schema belongs in the doctype JSON plus a patch under
+`elab_notebook/patches/v1_0/`, not in this function.
+
+*Moved from `elab_notebook/elab_notebook/api/user.py` (`setup_db` docstring).*
+
+### After schema or doctype-meta changes
+
+Doctype meta is cached in Redis, so a migrate alone can leave stale behaviour in
+place:
+
+```bash
+bench --site <site> migrate
+bench --site <site> clear-cache
+```

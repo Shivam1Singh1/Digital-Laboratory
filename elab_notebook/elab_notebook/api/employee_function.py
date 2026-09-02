@@ -21,15 +21,15 @@ def get_employee_functions_for_project(project: str) -> list[str]:
 		return []
 
 	via_project_list = frappe.get_all(
-		"Project list",
-		filters={"parenttype": "Employee Function", "projects": project},
-		pluck="parent",
+	 "Project list",
+	 filters={"parenttype": "Employee Function", "projects": project},
+	 pluck="parent",
 	)
 
 	via_function_info = frappe.get_all(
-		"Employee Function Child",
-		filters={"parenttype": "Project", "parent": project},
-		pluck="function_code",
+	 "Employee Function Child",
+	 filters={"parenttype": "Project", "parent": project},
+	 pluck="function_code",
 	)
 
 	return sorted({ef for ef in (via_project_list + via_function_info) if ef})
@@ -55,13 +55,13 @@ def employee_function_query(doctype, txt, searchfield, start, page_len, filters)
 			return []
 
 	return frappe.get_all(
-		"Employee Function",
-		filters=conditions,
-		fields=["name", "function_name"],
-		order_by="name asc",
-		start=start,
-		page_length=page_len,
-		as_list=True,
+	 "Employee Function",
+	 filters=conditions,
+	 fields=["name", "function_name"],
+	 order_by="name asc",
+	 start=start,
+	 page_length=page_len,
+	 as_list=True,
 	)
 
 
@@ -89,17 +89,12 @@ def get_project_employee_function_options(project: str, txt: str | None = None):
 			return []
 
 	return frappe.get_all(
-		"Employee Function",
-		filters={"name": ("in", allowed)},
-		fields=["name", "function_name", "function_head_name"],
-		order_by="name asc",
-		limit_page_length=50,
+	 "Employee Function",
+	 filters={"name": ("in", allowed)},
+	 fields=["name", "function_name", "function_head_name"],
+	 order_by="name asc",
+	 limit_page_length=50,
 	)
-
-
-# ---------------------------------------------------------------------------
-# Reverse direction: Employee Function -> Projects
-# ---------------------------------------------------------------------------
 
 
 def get_projects_for_employee_function(employee_function: str) -> list[str]:
@@ -108,15 +103,15 @@ def get_projects_for_employee_function(employee_function: str) -> list[str]:
 		return []
 
 	via_project_list = frappe.get_all(
-		"Project list",
-		filters={"parenttype": "Employee Function", "parent": employee_function},
-		pluck="projects",
+	 "Project list",
+	 filters={"parenttype": "Employee Function", "parent": employee_function},
+	 pluck="projects",
 	)
 
 	via_function_info = frappe.get_all(
-		"Employee Function Child",
-		filters={"parenttype": "Project", "function_code": employee_function},
-		pluck="parent",
+	 "Employee Function Child",
+	 filters={"parenttype": "Project", "function_code": employee_function},
+	 pluck="parent",
 	)
 
 	return sorted({p for p in (via_project_list + via_function_info) if p})
@@ -138,34 +133,34 @@ def project_query(doctype, txt, searchfield, start, page_len, filters):
 	if txt:
 		lowered = txt.lower()
 		matched = frappe.get_all(
-			"Project",
-			filters={"name": ("in", allowed)},
-			fields=["name", "project_name"],
-			limit_page_length=0,
+		 "Project",
+		 filters={"name": ("in", allowed)},
+		 fields=["name", "project_name"],
+		 limit_page_length=0,
 		)
 		allowed = [
-			p.name
-			for p in matched
-			if lowered in (p.name or "").lower()
-			or lowered in (p.project_name or "").lower()
+		 p.name
+		 for p in matched
+		 if lowered in (p.name or "").lower()
+		 or lowered in (p.project_name or "").lower()
 		]
 		if not allowed:
 			return []
 
 	return frappe.get_all(
-		"Project",
-		filters={"name": ("in", allowed)},
-		fields=["name", "project_name"],
-		order_by="name asc",
-		start=start,
-		page_length=page_len,
-		as_list=True,
+	 "Project",
+	 filters={"name": ("in", allowed)},
+	 fields=["name", "project_name"],
+	 order_by="name asc",
+	 start=start,
+	 page_length=page_len,
+	 as_list=True,
 	)
 
 
 @frappe.whitelist()
 def get_employee_function_project_options(
-	employee_function: str, txt: str | None = None
+ employee_function: str, txt: str | None = None
 ):
 	"""Autocomplete options for the Project field, scoped to an Employee Function.
 
@@ -178,19 +173,19 @@ def get_employee_function_project_options(
 
 	filters = {"name": ("in", allowed)}
 	projects = frappe.get_all(
-		"Project",
-		filters=filters,
-		fields=["name", "project_name", "department"],
-		order_by="name asc",
-		limit_page_length=0,
+	 "Project",
+	 filters=filters,
+	 fields=["name", "project_name", "department"],
+	 order_by="name asc",
+	 limit_page_length=0,
 	)
 
 	if txt:
 		txt = txt.lower()
 		projects = [
-			p
-			for p in projects
-			if txt in (p.name or "").lower() or txt in (p.project_name or "").lower()
+		 p
+		 for p in projects
+		 if txt in (p.name or "").lower() or txt in (p.project_name or "").lower()
 		]
 
 	return projects[:50]
@@ -206,34 +201,30 @@ def get_employee_users_for_function(employee_function: str) -> list[dict]:
 	if not employee_function:
 		return []
 
-	# `ignore_permissions` is deliberate: this resolver only ever answers "who is
-	# in this function", and every caller has already been authorised (team head
-	# check, or reading a team the user belongs to). Without it an ordinary
-	# participant trips the Employee/User link permission cascade and the whole
-	# team view fails with a "linked Employee record" error.
+
 	employees = frappe.get_all(
-		"Employee Function Child",
-		filters={
-			"parenttype": "Employee",
-			"parentfield": "custom_function_code",
-			"function_code": employee_function,
-			"active": 1,
-		},
-		pluck="parent",
-		ignore_permissions=True,
+	 "Employee Function Child",
+	 filters={
+	  "parenttype": "Employee",
+	  "parentfield": "custom_function_code",
+	  "function_code": employee_function,
+	  "active": 1,
+	 },
+	 pluck="parent",
+	 ignore_permissions=True,
 	)
 	if not employees:
 		return []
 
 	rows = frappe.get_all(
-		"Employee",
-		filters={"name": ("in", employees), "user_id": ("is", "set")},
-		fields=["name as employee", "employee_name as full_name", "user_id as user"],
-		order_by="employee_name asc",
-		ignore_permissions=True,
+	 "Employee",
+	 filters={"name": ("in", employees), "user_id": ("is", "set")},
+	 fields=["name as employee", "employee_name as full_name", "user_id as user"],
+	 order_by="employee_name asc",
+	 ignore_permissions=True,
 	)
 
-	# One employee record per user; duplicates would break the participant grid.
+
 	seen, unique = set(), []
 	for row in rows:
 		if row.user in seen:
@@ -257,30 +248,30 @@ def can_see_function_roster(employee_function: str, user: str | None = None) -> 
 		return True
 
 	teams = frappe.get_all(
-		"Experiment Team",
-		filters={"employee_function": employee_function},
-		pluck="name",
-		ignore_permissions=True,
+	 "Experiment Team",
+	 filters={"employee_function": employee_function},
+	 pluck="name",
+	 ignore_permissions=True,
 	)
 	if not teams:
 		return False
 
 	return bool(
-		frappe.db.exists(
-			"Experiment Team Participant",
-			{"parenttype": "Experiment Team", "parent": ("in", teams), "user": user},
-		)
+	 frappe.db.exists(
+	  "Experiment Team Participant",
+	  {"parenttype": "Experiment Team", "parent": ("in", teams), "user": user},
+	 )
 	)
 
 
 @frappe.whitelist()
 def get_function_employees(employee_function: str, txt: str | None = None):
 	"""Autocomplete options for the Experiment Team participant picker."""
-	# The resolver below runs with ignore_permissions, so gate the public entry.
+
 	if not can_see_function_roster(employee_function):
 		frappe.throw(
-			frappe._("Not permitted to view the roster for {0}.").format(employee_function),
-			frappe.PermissionError,
+		 frappe._("Not permitted to view the roster for {0}.").format(employee_function),
+		 frappe.PermissionError,
 		)
 
 	rows = get_employee_users_for_function(employee_function)
@@ -288,16 +279,16 @@ def get_function_employees(employee_function: str, txt: str | None = None):
 	if txt:
 		txt = txt.lower()
 		rows = [
-			r
-			for r in rows
-			if txt in (r.get("user") or "").lower()
-			or txt in (r.get("full_name") or "").lower()
+		 r
+		 for r in rows
+		 if txt in (r.get("user") or "").lower()
+		 or txt in (r.get("full_name") or "").lower()
 		]
 
-	# LinkField renders `name` as the primary line.
+
 	return [
-		{"name": r["user"], "full_name": r["full_name"], "employee": r["employee"]}
-		for r in rows
+	 {"name": r["user"], "full_name": r["full_name"], "employee": r["employee"]}
+	 for r in rows
 	]
 
 
@@ -314,10 +305,10 @@ def function_employee_query(doctype, txt, searchfield, start, page_len, filters)
 	if txt:
 		lowered = txt.lower()
 		rows = [
-			r
-			for r in rows
-			if lowered in (r.get("user") or "").lower()
-			or lowered in (r.get("full_name") or "").lower()
+		 r
+		 for r in rows
+		 if lowered in (r.get("user") or "").lower()
+		 or lowered in (r.get("full_name") or "").lower()
 		]
 
 	return [(r["user"], r["full_name"]) for r in rows[start : start + page_len]]
@@ -334,21 +325,21 @@ def get_current_employee_function():
 	user = frappe.session.user
 
 	employee = frappe.db.get_value(
-		"Employee", {"user_id": user, "status": "Active"}, "name"
+	 "Employee", {"user_id": user, "status": "Active"}, "name"
 	) or frappe.db.get_value("Employee", {"user_id": user}, "name")
 
 	if not employee:
 		return {"employee": None, "functions": []}
 
 	rows = frappe.get_all(
-		"Employee Function Child",
-		filters={
-			"parenttype": "Employee",
-			"parent": employee,
-			"parentfield": "custom_function_code",
-			"active": 1,
-		},
-		pluck="function_code",
+	 "Employee Function Child",
+	 filters={
+	  "parenttype": "Employee",
+	  "parent": employee,
+	  "parentfield": "custom_function_code",
+	  "active": 1,
+	 },
+	 pluck="function_code",
 	)
 
 	codes = sorted({c for c in rows if c})
@@ -356,10 +347,10 @@ def get_current_employee_function():
 		return {"employee": employee, "functions": []}
 
 	functions = frappe.get_all(
-		"Employee Function",
-		filters={"name": ("in", codes)},
-		fields=["name", "function_name", "function_head_name", "department"],
-		order_by="name asc",
+	 "Employee Function",
+	 filters={"name": ("in", codes)},
+	 fields=["name", "function_name", "function_head_name", "department"],
+	 order_by="name asc",
 	)
 
 	return {"employee": employee, "functions": functions}

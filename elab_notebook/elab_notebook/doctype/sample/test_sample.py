@@ -1,5 +1,4 @@
-# Copyright (c) 2026, SHIVAM SINGH and Contributors
-# See license.txt
+
 
 """Sample Workflow behaviour.
 
@@ -25,7 +24,7 @@ PENDING = "Pending Approval from System Manager"
 def _role_user(role, exclude=()):
 	"""An enabled, non-Administrator user holding `role` and none of `exclude`."""
 	for user in frappe.get_all(
-		"Has Role", filters={"role": role, "parenttype": "User"}, pluck="parent"
+	 "Has Role", filters={"role": role, "parenttype": "User"}, pluck="parent"
 	):
 		if user in ("Administrator", "Guest"):
 			continue
@@ -44,24 +43,19 @@ class TestSample(FrappeTestCase):
 		super().setUpClass()
 		frappe.set_user("Administrator")
 		cls.workflow_active = bool(
-			frappe.db.get_value("Workflow", WORKFLOW, "is_active")
+		 frappe.db.get_value("Workflow", WORKFLOW, "is_active")
 		)
-		# Samples may only be written against a run in one of these states - see
-		# Sample.validate_experiment_workflow_state. Picking the run here rather
-		# than creating one keeps the test honest about the site it runs on.
+
+
 		cls.experiment = frappe.db.get_value(
-			"Lab Experiment",
-			{"workflow_state": ["in", ["Running", "Completed", PENDING]]},
-			"name",
+		 "Lab Experiment",
+		 {"workflow_state": ["in", ["Running", "Completed", PENDING]]},
+		 "name",
 		)
-		# An item already used by a Sample on this site if there is one, because
-		# that proves it survives the site's own Item server scripts. Falling
-		# back to any enabled item with an item_group: the first enabled item is
-		# not necessarily usable - one with a null item_group makes the site's
-		# "Default Warehouse Item" script throw "Item Group None not found"
-		# during Sample validate, which is a fixture problem, not a workflow one.
+
+
 		cls.item = frappe.db.get_value("Sample", {}, "item") or frappe.db.get_value(
-			"Item", {"disabled": 0, "item_group": ["is", "set"]}, "name"
+		 "Item", {"disabled": 0, "item_group": ["is", "set"]}, "name"
 		)
 		cls.sm_user = _role_user("System Manager")
 		cls.employee_user = _role_user("Employee", exclude={"System Manager"})
@@ -79,18 +73,17 @@ class TestSample(FrappeTestCase):
 
 	def _draft_sample(self):
 		doc = frappe.get_doc(
-			{
-				"doctype": "Sample",
-				"experiment": self.experiment,
-				"item": self.item,
-				"qty": 1,
-			}
+		 {
+		  "doctype": "Sample",
+		  "experiment": self.experiment,
+		  "item": self.item,
+		  "qty": 1,
+		 }
 		)
 		doc.insert(ignore_permissions=True)
 		self.assertEqual(doc.workflow_state, "Draft")
 		return doc
 
-	# -- transitions ---------------------------------------------------------
 
 	def test_draft_offers_only_send_for_approval(self):
 		"""Draft cannot jump straight to Accepted or Rejected.
@@ -111,7 +104,7 @@ class TestSample(FrappeTestCase):
 		apply_workflow(doc, "Send For Approval")
 		doc.reload()
 		self.assertEqual(doc.workflow_state, PENDING)
-		# Pending is doc_status 0: the sample is not submitted until it is judged.
+
 		self.assertEqual(doc.docstatus, 0)
 
 	def test_system_manager_can_accept(self):
@@ -127,7 +120,7 @@ class TestSample(FrappeTestCase):
 
 		doc.reload()
 		self.assertEqual(doc.workflow_state, "Accepted")
-		# Accepted is doc_status 1 - the transition submits the document.
+
 		self.assertEqual(doc.docstatus, 1)
 
 	def test_system_manager_can_reject_with_a_reason(self):
@@ -139,11 +132,8 @@ class TestSample(FrappeTestCase):
 		frappe.set_user(self.sm_user)
 		doc = frappe.get_doc("Sample", doc.name)
 		doc.rejection_reason = "Contaminated on arrival."
-		# Saved BEFORE the transition. apply_workflow calls doc.load_from_db()
-		# (frappe/model/workflow.py:102), so a reason set only in memory is
-		# discarded before validate sees it - and the reject would be refused by
-		# the very rule this test is checking. The desk form does the same thing:
-		# it saves, then fires the action.
+
+
 		doc.save()
 		apply_workflow(frappe.get_doc("Sample", doc.name), "Reject")
 		frappe.set_user("Administrator")
@@ -153,7 +143,6 @@ class TestSample(FrappeTestCase):
 		self.assertEqual(doc.docstatus, 1)
 		self.assertEqual(doc.rejection_reason, "Contaminated on arrival.")
 
-	# -- rejection reason ----------------------------------------------------
 
 	def test_reject_without_reason_is_refused(self):
 		"""The server rule, not the field's mandatory_depends_on.
@@ -178,7 +167,6 @@ class TestSample(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			apply_workflow(doc, "Reject")
 
-	# -- item / qty ----------------------------------------------------------
 
 	def test_sample_without_item_cannot_be_created_or_sent(self):
 		"""No item means no sample, so there is nothing to send for approval.
@@ -188,14 +176,14 @@ class TestSample(FrappeTestCase):
 		the floor under that, and this is the path that reaches it.
 		"""
 		doc = frappe.get_doc(
-			{"doctype": "Sample", "experiment": self.experiment, "qty": 1}
+		 {"doctype": "Sample", "experiment": self.experiment, "qty": 1}
 		)
 		with self.assertRaises(frappe.ValidationError):
 			doc.insert(ignore_permissions=True, ignore_mandatory=True)
 
 	def test_sample_with_zero_qty_cannot_be_created_or_sent(self):
 		doc = frappe.get_doc(
-			{"doctype": "Sample", "experiment": self.experiment, "item": self.item, "qty": 0}
+		 {"doctype": "Sample", "experiment": self.experiment, "item": self.item, "qty": 0}
 		)
 		with self.assertRaises(frappe.ValidationError):
 			doc.insert(ignore_permissions=True, ignore_mandatory=True)
@@ -207,11 +195,10 @@ class TestSample(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			doc.save(ignore_permissions=True)
 
-		# and the sample is still Draft, so nothing was carried forward
+
 		doc.reload()
 		self.assertEqual(doc.workflow_state, "Draft")
 
-	# -- permissions ---------------------------------------------------------
 
 	def test_employee_is_not_offered_accept_or_reject(self):
 		"""An Employee who may act on the sample still gets neither judging action.
@@ -235,8 +222,8 @@ class TestSample(FrappeTestCase):
 		except frappe.PermissionError:
 			frappe.set_user("Administrator")
 			self.skipTest(
-				"%s cannot read this sample (record-level permission), so the "
-				"transition list says nothing about their role" % self.employee_user
+			 "%s cannot read this sample (record-level permission), so the "
+			 "transition list says nothing about their role" % self.employee_user
 			)
 		finally:
 			frappe.set_user("Administrator")

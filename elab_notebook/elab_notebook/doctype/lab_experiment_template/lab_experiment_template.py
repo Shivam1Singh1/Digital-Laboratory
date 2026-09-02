@@ -34,7 +34,7 @@ def sync_parameter_master(rows) -> list[str]:
 
 	for row in rows or []:
 		name = (row.get("parameter_name") or "").strip()
-		# A blank row is a row the user has not filled in yet, not a parameter.
+
 		if not name or name.casefold() in seen:
 			continue
 		seen.add(name.casefold())
@@ -42,12 +42,9 @@ def sync_parameter_master(rows) -> list[str]:
 		if frappe.db.exists("Parameter", name):
 			continue
 
-		# ignore_permissions: this is derived data, written as a consequence of a
-		# template the user was already allowed to save. Requiring create rights
-		# on Parameter as well would make the master go stale for exactly the
-		# people authoring the templates.
+
 		frappe.get_doc({"doctype": "Parameter", "parameter": name}).insert(
-			ignore_permissions=True
+		 ignore_permissions=True
 		)
 		created.append(name)
 
@@ -56,9 +53,8 @@ def sync_parameter_master(rows) -> list[str]:
 
 class LabExperimentTemplate(Document):
 	def before_naming(self):
-		# autoname is `format:ET-{project_id}-{######}`, and set_new_name() runs before
-		# fetch_from is applied, so project_id must be resolved here or names come out
-		# as `ET--######`.
+
+
 		if self.project:
 			self.project_id = self.project
 
@@ -72,8 +68,7 @@ class LabExperimentTemplate(Document):
 		if not self.project:
 			frappe.throw(_("Please select a Project before saving the Experiment Template."))
 
-		# Never rename an existing record — a template's name is referenced by
-		# the experiments created from it.
+
 		if not self.is_new() or self.has_project_name_format():
 			return
 
@@ -86,13 +81,13 @@ class LabExperimentTemplate(Document):
 
 		prefix = f"ET-{self.project}-"
 		return self.name.startswith(prefix) and is_valid_suffix(
-			self.name[len(prefix) :]
+		 self.name[len(prefix) :]
 		)
 
 	def next_name_suffix(self):
 		"""Highest existing (letter, number) for this Project, incremented."""
 		existing = frappe.db.get_all(
-			"Lab Experiment Template", filters={"project": self.project}, pluck="name"
+		 "Lab Experiment Template", filters={"project": self.project}, pluck="name"
 		)
 
 		highest = None
@@ -101,7 +96,7 @@ class LabExperimentTemplate(Document):
 			if not is_valid_suffix(suffix):
 				continue
 
-			# Tuple compare so the letter outranks the number: B0001 > A9999.
+
 			pair = (suffix[0], int(suffix[1:]))
 			if highest is None or pair > highest:
 				highest = pair
@@ -111,19 +106,15 @@ class LabExperimentTemplate(Document):
 
 		letter, number = highest
 		if number >= 9999:
-			# Past Z9999 there is no next letter: chr(ord("Z") + 1) is "[", which
-			# is not a valid suffix, so has_project_name_format rejects the name
-			# it produces and the *next* insert scans, ignores "[0001" as
-			# malformed, and generates "[0001" again - a duplicate primary key
-			# surfacing as an opaque database error rather than as the capacity
-			# limit it actually is. Say so instead.
+
+
 			if letter >= "Z":
 				frappe.throw(
-					_(
-						"Project {0} has used every template number available "
-						"(A0001 to Z9999)."
-					).format(frappe.bold(self.project)),
-					title=_("Numbering Exhausted"),
+				 _(
+				  "Project {0} has used every template number available "
+				  "(A0001 to Z9999)."
+				 ).format(frappe.bold(self.project)),
+				 title=_("Numbering Exhausted"),
 				)
 			return f"{chr(ord(letter) + 1)}0001"
 
@@ -147,17 +138,20 @@ class LabExperimentTemplate(Document):
 			sync_parameter_master(self.get("template_parameters"))
 		except Exception:
 			frappe.log_error(
-				title="Parameter master sync failed",
-				message=f"Experiment Template {self.name}\n{frappe.get_traceback()}",
+			 title="Parameter master sync failed",
+			 message=f"Experiment Template {self.name}\n{frappe.get_traceback()}",
 			)
 
 	def validate(self):
-		self.validate_creator_identity_locked()
-		self.validate_approval_locks()
+
+
 		self.set_project_id()
 		self.set_department_from_project()
-		self.validate_employee_function_project()
 		self.set_total_duration()
+
+		self.validate_creator_identity_locked()
+		self.validate_approval_locks()
+		self.validate_employee_function_project()
 
 	def set_creator_identity(self):
 		"""Stamp who is writing this template, from the session -- never from input.
@@ -180,16 +174,12 @@ class LabExperimentTemplate(Document):
 		key.
 		"""
 		employee = frappe.db.get_value(
-			"Employee", {"user_id": frappe.session.user, "status": "Active"}, ["name", "employee_name"]
+		 "Employee", {"user_id": frappe.session.user, "status": "Active"}, ["name", "employee_name"]
 		) or frappe.db.get_value(
-			"Employee", {"user_id": frappe.session.user}, ["name", "employee_name"]
+		 "Employee", {"user_id": frappe.session.user}, ["name", "employee_name"]
 		)
 
-		# The session user and the server clock, stored outright. Frappe already
-		# keeps both as `owner` and `creation`, so this pair is a deliberate
-		# duplicate: it is what the form and the SPA read, and it stays put even
-		# if a record is ever re-owned. Both are read_only in the form and locked
-		# below, so nothing but this line ever writes them.
+
 		self.created_by = frappe.session.user
 		self.created_on = now_datetime()
 
@@ -214,30 +204,29 @@ class LabExperimentTemplate(Document):
 			return
 
 		stored = frappe.db.get_value(
-			"Lab Experiment Template",
-			self.name,
-			["employee_code", "employee_name", "created_by", "created_on"],
-			as_dict=True,
+		 "Lab Experiment Template",
+		 self.name,
+		 ["employee_code", "employee_name", "created_by", "created_on"],
+		 as_dict=True,
 		)
 		if not stored:
 			return
 
-		# Each field is checked on its own so a record that predates one of them
-		# can still be backfilled, while the ones already stamped stay frozen.
+
 		for fieldname, label in (
-			("employee_code", "Employee ID (Creator)"),
-			("created_by", "Created By"),
-			("created_on", "Created On"),
+		 ("employee_code", "Employee ID (Creator)"),
+		 ("created_by", "Created By"),
+		 ("created_on", "Created On"),
 		):
 			was = stored.get(fieldname)
 			if not was:
 				continue
 			if (self.get(fieldname) or None) != was:
 				frappe.throw(
-					_("{0} records who created {1} and cannot be changed.").format(
-						_(label), frappe.bold(self.name)
-					),
-					title=_("Creator Is Fixed"),
+				 _("{0} records who created {1} and cannot be changed.").format(
+				  _(label), frappe.bold(self.name)
+				 ),
+				 title=_("Creator Is Fixed"),
 				)
 
 	def validate_approval_locks(self):
@@ -246,28 +235,30 @@ class LabExperimentTemplate(Document):
 			db_state = frappe.db.get_value("Lab Experiment Template", self.name, "workflow_state")
 			if db_state == "Approved":
 				db_doc = frappe.get_doc("Lab Experiment Template", self.name)
-				
-				# Convert to dict and compare ignoring metadata and volatile fields
+
+
 				db_dict = db_doc.as_dict()
 				curr_dict = self.as_dict()
-				
+
 				for d in (db_dict, curr_dict):
 					for k in list(d.keys()):
 						if k in ("modified", "modified_by", "workflow_state", "times_used", "amended_from", "amendment_date"):
 							d.pop(k, None)
-					
+
 					for field in self.meta.fields:
 						if field.fieldtype == "Table" and field.fieldname in d:
 							rows = d[field.fieldname]
 							for r in rows:
 								for k in list(r.keys()):
-									if k in ("name", "owner", "parent", "modified", "creation", "parentfield", "parenttype"):
+
+
+									if k in ("name", "owner", "parent", "modified", "modified_by", "creation", "parentfield", "parenttype"):
 										r.pop(k, None)
-				
+
 				if db_dict != curr_dict:
 					frappe.throw(_("Approved templates cannot be modified."))
 
-			# Approval transition validation
+
 			if db_state != "Approved" and self.workflow_state == "Approved":
 				head = frappe.db.get_value("Employee Function", self.employee_function, "function_head")
 				if frappe.session.user != head and not has_bypass(frappe.session.user):
@@ -292,7 +283,7 @@ class LabExperimentTemplate(Document):
 
 		if not department and self.employee_function:
 			department = frappe.db.get_value(
-				"Employee Function", self.employee_function, "department"
+			 "Employee Function", self.employee_function, "department"
 			)
 
 		self.allowed_roles = department or None
@@ -305,7 +296,7 @@ class LabExperimentTemplate(Document):
 		been added or removed after the preview was rendered.
 		"""
 		self.total_duration = sum(
-			cint(row.time_to_complete) for row in (self.methodology or [])
+		 cint(row.time_to_complete) for row in (self.methodology or [])
 		)
 
 	def validate_employee_function_project(self):
@@ -314,20 +305,20 @@ class LabExperimentTemplate(Document):
 			return
 
 		from elab_notebook.elab_notebook.api.employee_function import (
-			get_employee_functions_for_project,
+		 get_employee_functions_for_project,
 		)
 
 		allowed = get_employee_functions_for_project(self.project)
 		if self.employee_function not in allowed:
 			frappe.throw(
-				_("Employee Function {0} is not mapped to Project {1}.").format(
-					frappe.bold(self.employee_function), frappe.bold(self.project)
-				),
-				title=_("Invalid Employee Function"),
+			 _("Employee Function {0} is not mapped to Project {1}.").format(
+			  frappe.bold(self.employee_function), frappe.bold(self.project)
+			 ),
+			 title=_("Invalid Employee Function"),
 			)
 
 	def on_trash(self):
 		if frappe.db.exists("Lab Experiment", {"template": self.name}) or frappe.db.exists(
-			"Lab Experiment", {"experiment_template": self.name}
+		 "Lab Experiment", {"experiment_template": self.name}
 		):
 			frappe.throw(_("Cannot delete: Experiment(s) exist using this Template."))

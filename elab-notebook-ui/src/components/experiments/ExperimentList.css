@@ -1,30 +1,22 @@
 .experiment-list-container {
-  /* Even 1.5rem, matching .team-setup-container on the reference page. */
+
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  /* No flex gap: PageHeader carries its own 24px bottom margin, and a gap
-     here would stack on top of it and make this page spacier than the other
-     three. Spacing between the filter bar and the table is .filters-row's
-     own margin, in styles/list-page.css. */
+
   box-sizing: border-box;
   flex: 1;
-  /* Without min-height:0 a flex child cannot shrink below its content, so the
-     page grows past .main-workspace (overflow:hidden) and is clipped rather
-     than scrolled. */
+
   min-height: 0;
   overflow-y: auto;
 }
 
-/* Children of a column flex parent are shrinkable by default, so the card would
-   be compressed to the container's height instead of overflowing it - nothing
-   would exceed the container, no scrollbar would appear, and every row past the
-   fold would be unreachable. Same fix as .templates-list-container. */
+
 .experiment-list-container > .meta-card {
   flex-shrink: 0;
 }
 
-/* Table Specific Text Styles */
+
 .exp-title-cell {
   font-weight: var(--fw-semibold);
   color: var(--text-primary);

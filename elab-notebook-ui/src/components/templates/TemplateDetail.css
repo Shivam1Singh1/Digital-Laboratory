@@ -1,16 +1,14 @@
 .template-detail-container {
   padding: 1.5rem;
   flex: 1;
-  /* Without min-height:0 a flex child cannot shrink below its content, so the
-     page grows past .main-workspace (overflow:hidden) and is clipped rather
-     than scrolled. */
+
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
 }
 
-/* Page Header */
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -34,9 +32,7 @@
   white-space: nowrap;
 }
 
-/* Compact header actions so the page title stays dominant. Scoped to the template
-   detail header so the list page's "Add Template" button keeps its full size, and
-   compounded to outrank the base .btn / .btn-workflow sizing. */
+
 .template-detail-container .page-header-right {
   gap: 0.5rem;
 }
@@ -138,7 +134,7 @@
   color: var(--text-muted);
 }
 
-/* Faint flask watermark subtle gradient glow behind it */
+
 .page-header-bg-icon::before {
   content: '';
   position: absolute;
@@ -152,7 +148,7 @@
   pointer-events: none;
 }
 
-/* Buttons */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -194,7 +190,6 @@
 }
 
 
-/* Server / validation error banner */
 .form-error-banner {
   display: flex;
   align-items: flex-start;
@@ -224,7 +219,7 @@
   padding: 0;
 }
 
-/* Detail Layout */
+
 .detail-layout {
   display: flex;
   flex-direction: column;
@@ -234,8 +229,7 @@
 
 .meta-card {
   background-color: var(--bg-surface);
-  /* Two-tone wash (violet -> fuchsia) over the flat surface, so panels read as
-     mixed rather than solid. --accent-gradient is theme-aware. */
+
   background-image: var(--accent-gradient);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -272,7 +266,7 @@
   grid-column: span 2;
 }
 
-/* Form inputs */
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -368,7 +362,7 @@ select.form-control:focus {
   text-align: center;
 }
 
-/* Table sections */
+
 .table-actions {
   display: flex;
   justify-content: space-between;
@@ -376,7 +370,7 @@ select.form-control:focus {
   margin-bottom: 1rem;
 }
 
-/* Flexbox-based table layout */
+
 .grid-table-container {
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -388,7 +382,7 @@ select.form-control:focus {
   z-index: 10;
 }
 
-/* Material Required table gets higher z-index when active */
+
 .material-required-grid {
   z-index: 100;
 }
@@ -399,7 +393,7 @@ select.form-control:focus {
   width: 100%;
 }
 
-/* Header Row */
+
 .grid-header-row {
   display: flex;
   width: 100%;
@@ -424,7 +418,7 @@ select.form-control:focus {
   --col-action: 48px;
 }
 
-/* Methodology grid: 3fr 1fr 48px */
+
 .methodology-grid .grid-cell:nth-child(1),
 .methodology-grid .grid-header-cell:nth-child(1) {
   flex: 3;
@@ -453,7 +447,7 @@ select.form-control:focus {
   flex-shrink: 0;
 }
 
-/* Data Row */
+
 .grid-data-row {
   display: flex;
   align-items: center;
@@ -480,7 +474,7 @@ select.form-control:focus {
   min-width: 0;
 }
 
-/* Equipment Details: 1:2:3 column ratio */
+
 .equipment-details-grid .grid-cell:nth-child(1),
 .equipment-details-grid .grid-header-cell:nth-child(1) {
   flex: 1;
@@ -611,7 +605,7 @@ select.form-control:focus {
   background-color: rgba(239, 68, 68, 0.2);
 }
 
-/* Methodology total */
+
 .total-duration-row {
   display: flex;
   align-items: baseline;
@@ -655,11 +649,6 @@ select.form-control:focus {
   font-weight: var(--fw-semibold);
 }
 
-/* ------------------------------------------------------------------ LinkField
-
-   LinkField.vue carries no styles of its own. Without these rules the browser
-   renders the options as a plain bulleted <ul> in the document flow, with the
-   name and description spans running together — "PROJ-0001Project Name". */
 
 .link-field {
   position: relative;
@@ -756,7 +745,6 @@ select.form-control:focus {
   background-color: transparent;
 }
 
-/* --------------------------------------------------------------- MinutesInput */
 
 .minutes-input {
   display: flex;
@@ -776,7 +764,6 @@ select.form-control:focus {
   white-space: nowrap;
 }
 
-/* ------------------------------------------------------------- RichTextEditor */
 
 .rich-text {
   border: 1px solid var(--border);
@@ -833,7 +820,6 @@ select.form-control:focus {
   margin: 0.4rem 0;
 }
 
-/* ---------------------------------------------------------------- Responsive */
 
 @media (max-width: 1200px) {
   .meta-form-grid {
@@ -846,8 +832,7 @@ select.form-control:focus {
   }
 }
 
-/* Below this width the columns can no longer hold an input each, so every row
-   becomes a stacked card labelled from the `data-label` on each cell. */
+
 @media (max-width: 1024px) {
   .table-scroll {
     border: none;
@@ -956,7 +941,7 @@ select.form-control:focus {
   }
 }
 
-/* Version History Timeline */
+
 .history-timeline {
   display: flex;
   flex-direction: column;
@@ -1047,7 +1032,7 @@ select.form-control:focus {
   font-style: italic;
 }
 
-/* Workflow State Badges */
+
 .workflow-state-badge {
   display: inline-flex;
   align-items: center;
@@ -1108,7 +1093,7 @@ select.form-control:focus {
   margin-right: 0.5rem;
 }
 
-/* Workflow Actions Buttons */
+
 .btn-workflow {
   font-size: var(--fs-md);
   font-weight: var(--fw-semibold);
@@ -1119,7 +1104,7 @@ select.form-control:focus {
   border: 1px solid transparent;
 }
 
-/* Approve: Primary Filled Button */
+
 .btn-success {
   background-color: var(--success);
   color: var(--bg-surface);
@@ -1134,7 +1119,7 @@ select.form-control:focus {
   box-shadow: 0 4px 15px color-mix(in srgb, var(--success) 35%, transparent);
 }
 
-/* Reject: Outlined/Ghost Button */
+
 .btn-danger {
   background-color: transparent;
   color: var(--danger);
@@ -1147,7 +1132,7 @@ select.form-control:focus {
   transform: translateY(-1px);
 }
 
-/* Send Back: Outlined/Ghost Button */
+
 .btn-warning {
   background-color: transparent;
   color: var(--warning);
@@ -1160,7 +1145,7 @@ select.form-control:focus {
   transform: translateY(-1px);
 }
 
-/* Disabled fieldset style overrides for Approved templates */
+
 fieldset[disabled] {
   opacity: 1 !important;
 }
@@ -1187,13 +1172,12 @@ fieldset[disabled] .minutes-input-wrapper {
   pointer-events: none !important;
 }
 
-/* Sticky Tab Bar Row */
+
 .template-tabs-row {
   position: sticky;
   top: -1.5rem;
   z-index: 100;
-  /* Frosted so content scrolls visibly beneath the tab bar rather than
-     disappearing under an opaque strip. */
+
   background-color: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -1265,6 +1249,5 @@ fieldset[disabled] .minutes-input-wrapper {
   margin: 2rem 0;
   border-top: 1px solid var(--border);
 }
-
 
 

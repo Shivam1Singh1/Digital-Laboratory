@@ -5,26 +5,12 @@ import axios from 'axios'
 import { useUserStore } from '../../stores/user'
 import { extractFrappeError } from '../../utils/frappeError'
 import './TeamSetup.css'
-// === DYNAMIC-PERMS-START ===
-// import { usePermissionStore } from '../../stores/permissions'
-// === DYNAMIC-PERMS-END ===
+
 
 const API = 'elab_notebook.elab_notebook.api.experiment_team'
 const route = useRoute()
 const userStore = useUserStore()
-// === DYNAMIC-PERMS-START ===
-// const permStore = usePermissionStore()
-//
-// // Record-level, so Frappe does run has_team_permission here - but verified
-// // that the hook can only restrict, never grant, so the owner of this very team
-// // still reads write=0 from the role table. ORed with the server's own can_edit
-// // for that reason: the dict may add access, it must never subtract it.
-// const canEditTeam = computed(
-//   () =>
-//     Boolean(team.value?.can_edit) ||
-//     permStore.can('Experiment Team', 'write', route.params.id)
-// )
-// === DYNAMIC-PERMS-END ===
+
 
 const loading = ref(true)
 const saving = ref(false)
@@ -72,11 +58,6 @@ const createReason = computed(() => {
   return 'You are not on this team, so you cannot create experiments for this project. Add yourself to the participants list, or ask the function head to.'
 })
 
-// createExperimentUrl was removed here. It was unreferenced - the Create
-// Experiment button above calls userStore.openCreateExperimentModal - and it
-// pointed at /app/experiment/new, the legacy Stock-module `Experiment` desk
-// form. That is a different doctype from the `Lab Experiment` this app creates,
-// so wiring it back up would have silently produced records in the wrong table.
 
 const initials = (row) =>
   String(row.full_name || row.user || '')
@@ -117,10 +98,7 @@ const fetchExperimentCount = async () => {
   }
 }
 
-// Archiving closes a team for new work without deleting it. Spelled out beside
-// each option because the consequences reach past this page - the team leaves
-// every participant's list and stops authorising new runs - and none of that is
-// guessable from the word "Archived" alone.
+
 const TEAM_STATUSES = [
   { value: 'Active', hint: 'Open for new experiments.' },
   {
@@ -133,18 +111,7 @@ const isArchived = computed(() => team.value?.status === 'Archived')
 
 const statusSaving = ref(false)
 
-/**
- * Flip the team between Active and Archived, without entering edit mode.
- *
- * Goes through update_team like every other change, so validate_head() is what
- * refuses it for a non-head - there is no separate status endpoint and no
- * separate permission check.
- *
- * The roster has to be sent even though this call is not changing it:
- * update_team replaces `participants` with whatever it receives, so omitting it
- * would empty the team. `participants` is the loaded roster here, not the
- * edit-mode `selected` set, because this button is only shown outside edit mode.
- */
+
 const setStatus = async (next) => {
   if (!team.value || statusSaving.value) return
 
@@ -403,27 +370,27 @@ onMounted(async () => {
           </div>
           <div class="form-group">
             <label class="form-label">Segment *</label>
-            <select 
-              v-if="editing" 
-              v-model="team.segment" 
+            <select
+              v-if="editing"
+              v-model="team.segment"
               class="form-control form-select attractive-select"
             >
               <option value="">Select Segment...</option>
               <option v-for="seg in segments" :key="seg" :value="seg">{{ seg }}</option>
             </select>
-            <input 
-              v-else 
-              type="text" 
-              :value="team.segment || 'None'" 
-              class="form-control readonly" 
-              readonly 
+            <input
+              v-else
+              type="text"
+              :value="team.segment || 'None'"
+              class="form-control readonly"
+              readonly
             />
           </div>
           <div class="form-group">
             <label class="form-label">Cost Centre *</label>
-            <select 
-              v-if="editing" 
-              v-model="team.cost_center" 
+            <select
+              v-if="editing"
+              v-model="team.cost_center"
               class="form-control form-select attractive-select"
             >
               <option value="">Select Cost Centre...</option>
@@ -562,6 +529,6 @@ onMounted(async () => {
         </template>
       </section>
     </div>
-    
+
   </div>
 </template>

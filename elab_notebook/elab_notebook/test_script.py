@@ -8,4 +8,3 @@ def test():
     print("child fields:", [f.fieldname for f in meta_child.fields])
 
 
-

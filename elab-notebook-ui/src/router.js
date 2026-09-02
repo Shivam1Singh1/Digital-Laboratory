@@ -79,29 +79,28 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.DEV ? '/' : '/elab'),
   routes
 })
 
 router.beforeEach(async (to, from) => {
   const userStore = useUserStore()
 
-  // Load the user profile from Frappe session if not loaded
+
   if (!userStore.user.name) {
     await userStore.fetchUserProfile()
   }
 
-  // Check state after fetch
+
   if (userStore.user.name && userStore.user.name !== 'Guest') {
-    // Load employee scope if it's the initial load
+
     if (userStore.employeeScope.scope === 'all' && userStore.employeeScope.projects.length === 0) {
       await userStore.fetchEmployeeScope()
     }
     return true
   } else {
-    // Frappe's own login page, on whichever origin is serving the desk - see
-    // loginUrl(). Written inline here with a hardcoded localhost:8000 until now,
-    // which sent every logged-out visitor in production to their own machine.
+
+
     window.location.href = loginUrl()
     return false
   }

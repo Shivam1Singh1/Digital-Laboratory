@@ -5,34 +5,27 @@ import axios from 'axios'
 const props = defineProps({
   modelValue: { type: [String, Number], default: '' },
   doctype: { type: String, default: '' },
-  // extra fields pulled back with each option, beyond `name`
+
   fields: { type: Array, default: () => [] },
-  // fields matched against the typed text
+
   searchFields: { type: Array, default: () => ['name'] },
-  // field rendered as the secondary line under each option
+
   descriptionField: { type: String, default: '' },
   filters: { type: Array, default: () => [] },
   placeholder: { type: String, default: 'Search...' },
   disabled: { type: Boolean, default: false },
-  // replaces the default frappe.client.get_list search when the mapping needs
-  // a server method (e.g. Employee Function, which has no Link to Project)
+
+
   searchFn: { type: Function, default: null },
   emptyHint: { type: String, default: 'No matches found' },
   inputClass: { type: String, default: 'form-control' },
   clearable: { type: Boolean, default: true },
-  // Leaves unmatched text in the box instead of snapping back to the last
-  // committed link on blur. For the callers where typing a name that matches no
-  // record is a real answer rather than a mistake - the text is still not a link
-  // and modelValue stays empty, so only what is on screen changes. Off by
-  // default: everywhere else, text that resolved to nothing is a failed search
-  // and leaving it there would read as a selection that had been made.
+
+
   keepTypedText: { type: Boolean, default: false }
 })
 
-// `search` carries the raw typed text, which no other event does: modelValue
-// only ever holds a committed link. A caller that offers "create the thing you
-// were looking for" needs what was typed, not what was chosen. Additive - every
-// existing call site simply does not listen for it.
+
 const emit = defineEmits(['update:modelValue', 'select', 'search'])
 
 const query = ref(props.modelValue ? String(props.modelValue) : '')
@@ -45,7 +38,7 @@ const dropdownStyle = ref({})
 
 let debounceTimer = null
 let blurTimer = null
-// Guards against a slow early request overwriting a later keystroke's results.
+
 let requestSeq = 0
 
 const updateDropdownPosition = () => {
@@ -122,7 +115,7 @@ const runSearch = () => {
 const onFocus = () => {
   if (props.disabled) return
   clearTimeout(blurTimer)
-  // Close all other dropdowns by triggering a global event
+
   document.querySelectorAll('.link-dropdown').forEach(el => {
     el.style.display = 'none'
   })
@@ -137,11 +130,11 @@ const onInput = () => {
 }
 
 const onBlur = () => {
-  // Delay so a click on an option still registers before the list closes.
+
   blurTimer = setTimeout(() => {
     open.value = false
-    // Free text is not a valid link value — snap back to the last committed one,
-    // unless the caller has said unmatched text is worth keeping on screen.
+
+
     if (props.keepTypedText) return
     query.value = props.modelValue ? String(props.modelValue) : ''
   }, 150)

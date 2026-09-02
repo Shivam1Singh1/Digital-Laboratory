@@ -33,50 +33,39 @@ import re
 import frappe
 from frappe import _
 
-# Ordered top to bottom. Index in this tuple *is* the depth.
+
 CATEGORIES = (
-	"Master Experiment",
-	"Experiment",
-	"Sub Experiment",
-	"Sub Sub Experiment",
+ "Master Experiment",
+ "Experiment",
+ "Sub Experiment",
+ "Sub Sub Experiment",
 )
 
 ROOT_CATEGORY = CATEGORIES[0]
 LEAF_CATEGORY = CATEGORIES[-1]
 
-# parent category -> the one category it may adopt. Level-skipping (a Sub Sub
-# under a Master) is impossible by construction.
+
 _CHILD_OF = dict(zip(CATEGORIES, CATEGORIES[1:]))
 
-# ---------------------------------------------------------------------------
-# Exclusivity: one parent per experiment
-# ---------------------------------------------------------------------------
-# The tree is strict for now -- a run that already has a parent is out of the
-# pool for every other parent. This is deliberately a single flag guarding a
-# single check, because relaxing it to a DAG is a known future ask: flip this to
-# False and the level/scope rules keep working unchanged, with `parent_experiment`
-# simply no longer being exclusive. Nothing else in this module or in
-# LabExperiment depends on single-parenthood.
+
 ENFORCE_SINGLE_PARENT = True
 
-# A four-level tree cannot nest deeper than four, so anything past this is a
-# data corruption (or a hand-edited cycle) rather than a legitimate depth.
+
 _MAX_DEPTH = len(CATEGORIES) + 1
 
-# Only the fields the tree UI actually renders, so a subtree of a large run does
-# not ship its Text Editor columns.
+
 _NODE_FIELDS = (
-	"name",
-	"title",
-	"aim",
-	"experiment_category",
-	"parent_experiment",
-	"workflow_state",
-	"experiment_status",
-	"status",
-	"project",
-	"employee_function",
-	"experiment_team",
+ "name",
+ "title",
+ "aim",
+ "experiment_category",
+ "parent_experiment",
+ "workflow_state",
+ "experiment_status",
+ "status",
+ "project",
+ "employee_function",
+ "experiment_team",
 )
 
 
@@ -88,9 +77,8 @@ def _a(category: str | None) -> str:
 	would otherwise say.
 	"""
 	category = category or ""
-	# A tuple, not the string "AEIOU": `x in "AEIOU"` is a *substring* test, and
-	# every string contains the empty string - so a blank category came out as
-	# "an " rather than "a ". Membership in a tuple has no such edge.
+
+
 	article = "an" if category[:1].upper() in ("A", "E", "I", "O", "U") else "a"
 	return f"{article} {category}"
 
@@ -116,28 +104,23 @@ def get_category_options() -> list[dict]:
 	being retyped in JavaScript.
 	"""
 	return [
-		{
-			"category": category,
-			"child_category": _CHILD_OF.get(category),
-			"is_leaf": category == LEAF_CATEGORY,
-			"depth": index,
-		}
-		for index, category in enumerate(CATEGORIES)
+	 {
+	  "category": category,
+	  "child_category": _CHILD_OF.get(category),
+	  "is_leaf": category == LEAF_CATEGORY,
+	  "depth": index,
+	 }
+	 for index, category in enumerate(CATEGORIES)
 	]
-
-
-# ---------------------------------------------------------------------------
-# Availability
-# ---------------------------------------------------------------------------
 
 
 @frappe.whitelist()
 def get_available_children(
-	project: str,
-	employee_function: str,
-	parent_category: str,
-	parent: str | None = None,
-	txt: str | None = None,
+ project: str,
+ employee_function: str,
+ parent_category: str,
+ parent: str | None = None,
+ txt: str | None = None,
 ) -> list[dict]:
 	"""Experiments that `parent_category` may adopt under this project/function.
 
@@ -159,24 +142,23 @@ def get_available_children(
 	"""
 	child_category = child_category_of(parent_category)
 	if not child_category:
-		# Leaf level, or a category we do not know: nothing is adoptable.
+
 		return []
 
 	if not project or not employee_function:
 		return []
 
 	filters = {
-		"experiment_category": child_category,
-		"project": project,
-		"employee_function": employee_function,
+	 "experiment_category": child_category,
+	 "project": project,
+	 "employee_function": employee_function,
 	}
 	if ENFORCE_SINGLE_PARENT:
-		# "is / not set" rather than an `in ('', None)` list: the latter compiles to
-		# `IN ('', NULL)`, which never matches a NULL row in SQL, so every run that
-		# has genuinely never been linked would be filtered out.
+
+
 		filters["parent_experiment"] = ("is", "not set")
 	if parent:
-		# A run can never be its own child, even with a corrupt category.
+
 		filters["name"] = ("!=", parent)
 
 	or_filters = None
@@ -185,21 +167,21 @@ def get_available_children(
 		or_filters = {"name": ("like", pattern), "title": ("like", pattern), "aim": ("like", pattern)}
 
 	return frappe.get_list(
-		"Lab Experiment",
-		filters=filters,
-		or_filters=or_filters,
-		fields=list(_NODE_FIELDS),
-		order_by="creation desc",
-		limit_page_length=200,
+	 "Lab Experiment",
+	 filters=filters,
+	 or_filters=or_filters,
+	 fields=list(_NODE_FIELDS),
+	 order_by="creation desc",
+	 limit_page_length=200,
 	)
 
 
 @frappe.whitelist()
 def get_parent_candidates(
-	project: str,
-	employee_function: str,
-	category: str,
-	txt: str | None = None,
+ project: str,
+ employee_function: str,
+ category: str,
+ txt: str | None = None,
 ) -> list[dict]:
 	"""Experiments a run of `category` may name as its parent.
 
@@ -224,11 +206,10 @@ def get_parent_candidates(
 	"""
 	parent_category = parent_category_of(category)
 	if not parent_category:
-		# Root level, or a category we do not know: there is nothing above.
+
 		return []
 
-	# Both scope values are required, and a blank employee_function is not
-	# matched against other blanks -- see the note in get_available_children.
+
 	if not project or not employee_function:
 		return []
 
@@ -238,30 +219,25 @@ def get_parent_candidates(
 		or_filters = {"name": ("like", pattern), "title": ("like", pattern), "aim": ("like", pattern)}
 
 	return frappe.get_list(
-		"Lab Experiment",
-		filters={
-			"experiment_category": parent_category,
-			"project": project,
-			"employee_function": employee_function,
-		},
-		or_filters=or_filters,
-		fields=list(_NODE_FIELDS),
-		order_by="creation desc",
-		limit_page_length=200,
+	 "Lab Experiment",
+	 filters={
+	  "experiment_category": parent_category,
+	  "project": project,
+	  "employee_function": employee_function,
+	 },
+	 or_filters=or_filters,
+	 fields=list(_NODE_FIELDS),
+	 order_by="creation desc",
+	 limit_page_length=200,
 	)
-
-
-# ---------------------------------------------------------------------------
-# Shared validation
-# ---------------------------------------------------------------------------
 
 
 def _fetch(name: str) -> frappe._dict | None:
 	return frappe.db.get_value(
-		"Lab Experiment",
-		name,
-		["name", "experiment_category", "parent_experiment", "project", "employee_function", "workflow_state", "status"],
-		as_dict=True,
+	 "Lab Experiment",
+	 name,
+	 ["name", "experiment_category", "parent_experiment", "project", "employee_function", "workflow_state", "status"],
+	 as_dict=True,
 	)
 
 
@@ -286,86 +262,83 @@ def assert_can_link(parent_row, child_row) -> None:
 	if not expected:
 		if parent_row.get("experiment_category") == LEAF_CATEGORY:
 			frappe.throw(
-				_("{0} is a {1} and is the lowest level -- it cannot have children.").format(
-					frappe.bold(parent_row["name"]), LEAF_CATEGORY
-				),
-				title=_("Invalid Link"),
+			 _("{0} is a {1} and is the lowest level -- it cannot have children.").format(
+			  frappe.bold(parent_row["name"]), LEAF_CATEGORY
+			 ),
+			 title=_("Invalid Link"),
 			)
 		frappe.throw(
-			_("{0} has no Experiment Category set, so nothing can be linked under it.").format(
-				frappe.bold(parent_row["name"])
-			),
-			title=_("Invalid Link"),
+		 _("{0} has no Experiment Category set, so nothing can be linked under it.").format(
+		  frappe.bold(parent_row["name"])
+		 ),
+		 title=_("Invalid Link"),
 		)
 
 	if child_row.get("experiment_category") != expected:
 		frappe.throw(
-			_("{0} is {1}. {2} can only adopt {3} -- levels cannot be skipped.").format(
-				frappe.bold(child_name),
-				frappe.bold(child_row.get("experiment_category") or _("uncategorised")),
-				_a(parent_row.get("experiment_category")).capitalize(),
-				_a(expected),
-			),
-			title=_("Wrong Level"),
+		 _("{0} is {1}. {2} can only adopt {3} -- levels cannot be skipped.").format(
+		  frappe.bold(child_name),
+		  frappe.bold(child_row.get("experiment_category") or _("uncategorised")),
+		  _a(parent_row.get("experiment_category")).capitalize(),
+		  _a(expected),
+		 ),
+		 title=_("Wrong Level"),
 		)
 
-	# Scope must match on both axes, and neither side may be blank -- see the
-	# note in get_available_children on why blanks are not matched together.
+
 	if not parent_row.get("project") or not parent_row.get("employee_function"):
 		frappe.throw(
-			_("{0} needs both a Project and an Employee Function before children can be linked to it.").format(
-				frappe.bold(parent_row["name"])
-			),
-			title=_("Missing Scope"),
+		 _("{0} needs both a Project and an Employee Function before children can be linked to it.").format(
+		  frappe.bold(parent_row["name"])
+		 ),
+		 title=_("Missing Scope"),
 		)
 
 	if child_row.get("project") != parent_row.get("project"):
 		frappe.throw(
-			_("{0} belongs to project {1}, not {2}.").format(
-				frappe.bold(child_name),
-				frappe.bold(child_row.get("project") or _("none")),
-				frappe.bold(parent_row.get("project")),
-			),
-			title=_("Different Project"),
+		 _("{0} belongs to project {1}, not {2}.").format(
+		  frappe.bold(child_name),
+		  frappe.bold(child_row.get("project") or _("none")),
+		  frappe.bold(parent_row.get("project")),
+		 ),
+		 title=_("Different Project"),
 		)
 
 	if child_row.get("employee_function") != parent_row.get("employee_function"):
 		frappe.throw(
-			_("{0} belongs to Employee Function {1}, not {2}.").format(
-				frappe.bold(child_name),
-				frappe.bold(child_row.get("employee_function") or _("none")),
-				frappe.bold(parent_row.get("employee_function")),
-			),
-			title=_("Different Employee Function"),
+		 _("{0} belongs to Employee Function {1}, not {2}.").format(
+		  frappe.bold(child_name),
+		  frappe.bold(child_row.get("employee_function") or _("none")),
+		  frappe.bold(parent_row.get("employee_function")),
+		 ),
+		 title=_("Different Employee Function"),
 		)
 
 	if ENFORCE_SINGLE_PARENT and child_row.get("parent_experiment"):
 		if child_row["parent_experiment"] == parent_row["name"]:
 			frappe.throw(
-				_("{0} is already linked under this experiment.").format(frappe.bold(child_name)),
-				title=_("Already Linked"),
+			 _("{0} is already linked under this experiment.").format(frappe.bold(child_name)),
+			 title=_("Already Linked"),
 			)
 		frappe.throw(
-			_("{0} is already linked under {1}. Unlink it there first -- a run can have only one parent.").format(
-				frappe.bold(child_name), frappe.bold(child_row["parent_experiment"])
-			),
-			title=_("Already Linked"),
+		 _("{0} is already linked under {1}. Unlink it there first -- a run can have only one parent.").format(
+		  frappe.bold(child_name), frappe.bold(child_row["parent_experiment"])
+		 ),
+		 title=_("Already Linked"),
 		)
 
-	# Approved is immutable everywhere else in this app; the tree is no exception.
-	# Checked on both ends so the failure names the right record rather than
-	# surfacing LabExperiment's generic "Approved experiments cannot be modified".
+
 	if _is_approved(parent_row):
 		frappe.throw(
-			_("{0} is Approved and its hierarchy can no longer be changed.").format(
-				frappe.bold(parent_row["name"])
-			),
-			title=_("Approved"),
+		 _("{0} is Approved and its hierarchy can no longer be changed.").format(
+		  frappe.bold(parent_row["name"])
+		 ),
+		 title=_("Approved"),
 		)
 	if _is_approved(child_row):
 		frappe.throw(
-			_("{0} is Approved and can no longer be linked to a parent.").format(frappe.bold(child_name)),
-			title=_("Approved"),
+		 _("{0} is Approved and can no longer be linked to a parent.").format(frappe.bold(child_name)),
+		 title=_("Approved"),
 		)
 
 
@@ -393,35 +366,30 @@ def assert_parent_presence(category: str | None, parent: str | None) -> None:
 	if category == ROOT_CATEGORY:
 		if parent:
 			frappe.throw(
-				_(
-					"{0} is the top of its tree and cannot have a Parent Experiment. "
-					"{1} was given as its parent -- clear it, or create this run as {2} instead."
-				).format(_a(ROOT_CATEGORY).capitalize(), frappe.bold(parent), _a(CATEGORIES[1])),
-				title=_("Master Takes No Parent"),
+			 _(
+			  "{0} is the top of its tree and cannot have a Parent Experiment. "
+			  "{1} was given as its parent -- clear it, or create this run as {2} instead."
+			 ).format(_a(ROOT_CATEGORY).capitalize(), frappe.bold(parent), _a(CATEGORIES[1])),
+			 title=_("Master Takes No Parent"),
 			)
 		return
 
 	if not parent:
 		frappe.throw(
-			_("{0} must be created under {1} -- pick its Parent Experiment.").format(
-				_a(category).capitalize(), frappe.bold(_a(parent_category_of(category)))
-			),
-			title=_("Parent Experiment Required"),
+		 _("{0} must be created under {1} -- pick its Parent Experiment.").format(
+		  _a(category).capitalize(), frappe.bold(_a(parent_category_of(category)))
+		 ),
+		 title=_("Parent Experiment Required"),
 		)
 
 
 def _require_write(name: str) -> None:
 	if not frappe.has_permission("Lab Experiment", "write", doc=name):
 		frappe.throw(
-			_("You are not permitted to modify {0}.").format(frappe.bold(name)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _("You are not permitted to modify {0}.").format(frappe.bold(name)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
-
-
-# ---------------------------------------------------------------------------
-# Mutations
-# ---------------------------------------------------------------------------
 
 
 @frappe.whitelist()
@@ -444,7 +412,7 @@ def link_child_experiments(parent: str, children) -> dict:
 
 	_require_write(parent)
 
-	# Pass 1 -- validate everything, write nothing.
+
 	child_rows = []
 	for child_name in children:
 		child_row = _fetch(child_name)
@@ -454,8 +422,7 @@ def link_child_experiments(parent: str, children) -> dict:
 		assert_can_link(parent_row, child_row)
 		child_rows.append(child_row)
 
-	# Pass 2 -- write. Full save() rather than db.set_value so the child's own
-	# controller rules still run on the change.
+
 	for child_row in child_rows:
 		child_doc = frappe.get_doc("Lab Experiment", child_row["name"])
 		child_doc.parent_experiment = parent
@@ -478,8 +445,8 @@ def unlink_child_experiment(parent: str, child: str) -> dict:
 
 	if child_row.get("parent_experiment") != parent:
 		frappe.throw(
-			_("{0} is not linked under {1}.").format(frappe.bold(child), frappe.bold(parent)),
-			title=_("Not Linked"),
+		 _("{0} is not linked under {1}.").format(frappe.bold(child), frappe.bold(parent)),
+		 title=_("Not Linked"),
 		)
 
 	_require_write(parent)
@@ -487,15 +454,15 @@ def unlink_child_experiment(parent: str, child: str) -> dict:
 
 	if _is_approved(child_row):
 		frappe.throw(
-			_("{0} is Approved and can no longer be unlinked.").format(frappe.bold(child)),
-			title=_("Approved"),
+		 _("{0} is Approved and can no longer be unlinked.").format(frappe.bold(child)),
+		 title=_("Approved"),
 		)
 
 	parent_row = _fetch(parent)
 	if parent_row and _is_approved(parent_row):
 		frappe.throw(
-			_("{0} is Approved and its hierarchy can no longer be changed.").format(frappe.bold(parent)),
-			title=_("Approved"),
+		 _("{0} is Approved and its hierarchy can no longer be changed.").format(frappe.bold(parent)),
+		 title=_("Approved"),
 		)
 
 	child_doc = frappe.get_doc("Lab Experiment", child)
@@ -513,8 +480,8 @@ def _as_name_list(children) -> list[str]:
 		children = [children]
 	if not children:
 		return []
-	# Preserve order, drop blanks and repeats -- a duplicate would otherwise fail
-	# pass 1 against itself with a confusing "already linked" message.
+
+
 	seen, names = set(), []
 	for entry in children:
 		name = (entry.get("name") if isinstance(entry, dict) else entry) or ""
@@ -523,11 +490,6 @@ def _as_name_list(children) -> list[str]:
 			seen.add(name)
 			names.append(name)
 	return names
-
-
-# ---------------------------------------------------------------------------
-# Reading the tree
-# ---------------------------------------------------------------------------
 
 
 @frappe.whitelist()
@@ -545,9 +507,9 @@ def get_experiment_subtree(experiment: str) -> dict:
 	"""
 	if not frappe.has_permission("Lab Experiment", "read", doc=experiment):
 		frappe.throw(
-			_("You are not permitted to view {0}.").format(frappe.bold(experiment)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _("You are not permitted to view {0}.").format(frappe.bold(experiment)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
 
 	root = frappe.db.get_value("Lab Experiment", experiment, list(_NODE_FIELDS), as_dict=True)
@@ -561,10 +523,10 @@ def get_experiment_subtree(experiment: str) -> dict:
 	_stamp_sample_counts(node)
 
 	return {
-		"node": node,
-		"ancestors": _ancestors(root),
-		"child_category": child_category_of(root.get("experiment_category")),
-		"can_link": _can_link_more(root),
+	 "node": node,
+	 "ancestors": _ancestors(root),
+	 "child_category": child_category_of(root.get("experiment_category")),
+	 "can_link": _can_link_more(root),
 	}
 
 
@@ -581,8 +543,8 @@ def _root_of(row) -> frappe._dict:
 
 	for _ in range(_MAX_DEPTH):
 		parent = current.get("parent_experiment")
-		# `parent in seen` is the cycle guard: a hand-edited loop would
-		# otherwise walk forever between the same two rows.
+
+
 		if not parent or parent in seen:
 			break
 		if not frappe.has_permission("Lab Experiment", "read", doc=parent):
@@ -616,9 +578,9 @@ def get_experiment_root_tree(experiment: str) -> dict:
 	"""
 	if not frappe.has_permission("Lab Experiment", "read", doc=experiment):
 		frappe.throw(
-			_("You are not permitted to view {0}.").format(frappe.bold(experiment)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _("You are not permitted to view {0}.").format(frappe.bold(experiment)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
 
 	row = frappe.db.get_value("Lab Experiment", experiment, list(_NODE_FIELDS), as_dict=True)
@@ -654,14 +616,14 @@ def _successful_descendants(root_name: str) -> list[dict]:
 	depth = 1
 
 	while frontier and depth <= _MAX_DEPTH:
-		# is_successful is applied server-side rather than filtered after the
-		# fetch, so an unreported branch costs nothing to skip.
+
+
 		rows = frappe.get_list(
-			"Lab Experiment",
-			filters={"parent_experiment": ["in", frontier], "is_successful": 1},
-			fields=list(_NODE_FIELDS) + ["is_successful"],
-			order_by="creation asc",
-			limit_page_length=0,
+		 "Lab Experiment",
+		 filters={"parent_experiment": ["in", frontier], "is_successful": 1},
+		 fields=list(_NODE_FIELDS) + ["is_successful"],
+		 order_by="creation asc",
+		 limit_page_length=0,
 		)
 
 		frontier = []
@@ -707,13 +669,13 @@ def get_successful_subtree(experiment_name: str) -> dict:
 	"""
 	if not frappe.has_permission("Lab Experiment", "read", doc=experiment_name):
 		frappe.throw(
-			_("You are not permitted to view {0}.").format(frappe.bold(experiment_name)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _("You are not permitted to view {0}.").format(frappe.bold(experiment_name)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
 
 	root = frappe.db.get_value(
-		"Lab Experiment", experiment_name, list(_NODE_FIELDS) + ["is_successful"], as_dict=True
+	 "Lab Experiment", experiment_name, list(_NODE_FIELDS) + ["is_successful"], as_dict=True
 	)
 	if not root:
 		frappe.throw(_("Experiment {0} not found.").format(frappe.bold(experiment_name)))
@@ -724,12 +686,11 @@ def get_successful_subtree(experiment_name: str) -> dict:
 	node["is_root_of_view"] = True
 
 	return {
-		"node": node,
-		"ancestors": _ancestors(root),
-		# Counted here because the caller's reason for asking is usually "how
-		# much of this programme is being reported", and walking the tree twice
-		# in the browser to find out would be the alternative.
-		"included_count": _count_nodes(node),
+	 "node": node,
+	 "ancestors": _ancestors(root),
+
+
+	 "included_count": _count_nodes(node),
 	}
 
 
@@ -738,46 +699,66 @@ def _count_nodes(node: dict) -> int:
 	return 1 + sum(_count_nodes(c) for c in node.get("children") or [])
 
 
-# The levels that own a programme, and so the only ones a full-subtree report
-# can be asked for. Read off CATEGORIES rather than spelled out, so adding a
-# level above the Master moves this with it. The frontend mirrors the same rule
-# in utils/reportTab.js to decide whether the tab appears at all; this copy is
-# the one that is enforced -- the endpoint is reachable without the SPA.
 REPORT_CATEGORIES = CATEGORIES[:2]
 
-# The scientific content the Report tab rolls up, deliberately separate from
-# _NODE_FIELDS: the tree tab ships one row per node and has no use for Text
-# Editor columns, so loading them there would make every tree render pay for a
-# view it does not have. Only the report asks for them.
-#
-# `observation` is the run's observation write-up. It is what Lab Experiment
-# carries in place of an `observation_comments` field of its own -- the doctype
-# fetches it from `template.observation_comments` and the SPA edits it from
-# there on. See `_template_comments` for the other half.
+
 _REPORT_FIELDS = (
-	"name",
-	"title",
-	"experiment_category",
-	"parent_experiment",
-	"workflow_state",
-	"aim",
-	"sub_aim",
-	"rationale",
-	"observation",
-	"conclusion",
-	"template",
+ "name",
+ "title",
+ "experiment_category",
+ "parent_experiment",
+ "workflow_state",
+ "aim",
+ "sub_aim",
+ "rationale",
+
+
+ "procedure",
+ "precaution",
+ "observation",
+
+ "results",
+ "result",
+ "observation_and_conclusion",
+ "conclusion",
+
+
+ "is_successful",
+ "experiment_status",
+ "template",
 )
 
-# fieldname -> (child doctype, columns). One entry per table the report prints,
-# in no particular order -- the reading order is the frontend's, and putting it
-# here as well would give two places to disagree about it.
+
 _REPORT_TABLES = {
+	"items": (
+		"Lab Experiment Item CT",
+		("item", "item_name", "uom", "qty", "make", "catalogue_no", "lot_no", "expiry_date", "storage", "remarks"),
+	),
 	"material_required": ("Material Required CT", ("item_code", "item_name", "uom", "qty")),
+	"equipment_details": (
+		"Lab Experiment Equipment CT",
+		("equipment_name", "equipment_id", "equipment_status", "qualification", "remarks"),
+	),
 	"methodology": ("Methodology CT", ("method", "time_to_complete")),
+	"protocol_steps": (
+		"Lab Experiment Step CT",
+		("step_no", "instruction", "expected_duration", "is_critical", "attachment"),
+	),
 	"observations": (
 		"Lab Experiment Observation CT",
 		("parameter", "unit", "expected_range", "remarks", "observation", "observed_by", "observed_on"),
 	),
+	"quality_metrics": ("Quality Metrics", ("quality_metrics", "value", "unit")),
+	"sub_metrics": ("Quality Metrics", ("quality_metrics", "value", "unit")),
+	"sample": (
+		"Lab Experiment Sample CT",
+		(
+			"sample_id", "sample_name", "batch_no", "warehouse", "sample_vol",
+			"sample_detailsstage", "item", "qty", "uom", "results",
+			"sampling_date", "date_of_analysis", "transfered_to", "remarks", "attach",
+		),
+	),
+	"result_attachment": ("Lab Experiment Result Attachment CT", ("name1", "file")),
 }
 
 
@@ -808,9 +789,9 @@ def get_full_subtree_report(experiment_name: str) -> dict:
 	"""
 	if not frappe.has_permission("Lab Experiment", "read", doc=experiment_name):
 		frappe.throw(
-			_("You are not permitted to view {0}.").format(frappe.bold(experiment_name)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _("You are not permitted to view {0}.").format(frappe.bold(experiment_name)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
 
 	root = frappe.db.get_value("Lab Experiment", experiment_name, list(_NODE_FIELDS), as_dict=True)
@@ -820,16 +801,16 @@ def get_full_subtree_report(experiment_name: str) -> dict:
 	category = root.get("experiment_category")
 	if category not in REPORT_CATEGORIES:
 		frappe.throw(
-			_(
-				"A full report can only be built for {0} or {1}. {2} is {3}, which has no "
-				"programme beneath it to roll up."
-			).format(
-				frappe.bold(REPORT_CATEGORIES[0]),
-				frappe.bold(REPORT_CATEGORIES[1]),
-				frappe.bold(experiment_name),
-				_a(category) if category else _("uncategorised"),
-			),
-			title=_("Not a Reportable Level"),
+		 _(
+		  "A full report can only be built for {0} or {1}. {2} is {3}, which has no "
+		  "programme beneath it to roll up."
+		 ).format(
+		  frappe.bold(REPORT_CATEGORIES[0]),
+		  frappe.bold(REPORT_CATEGORIES[1]),
+		  frappe.bold(experiment_name),
+		  _a(category) if category else _("uncategorised"),
+		 ),
+		 title=_("Not a Reportable Level"),
 		)
 
 	tree = dict(root)
@@ -838,32 +819,26 @@ def get_full_subtree_report(experiment_name: str) -> dict:
 	nodes = list(_flatten_with_depth(tree))
 	names = [node["name"] for node in nodes]
 
-	# Going through `get_list` a second time is not redundant: the report can
-	# only ever widen fields on rows the permission query already allowed, never
-	# reintroduce a row the walk dropped. A row it does not return keeps its
-	# identity fields and renders empty, which is the honest rendering of a run
-	# the user may see but whose body they may not.
+
 	content = {
-		row["name"]: row
-		for row in frappe.get_list(
-			"Lab Experiment",
-			filters={"name": ("in", names)},
-			fields=list(_REPORT_FIELDS),
-			limit_page_length=0,
-		)
+	 row["name"]: row
+	 for row in frappe.get_list(
+	  "Lab Experiment",
+	  filters={"name": ("in", names)},
+	  fields=list(_REPORT_FIELDS),
+	  limit_page_length=0,
+	 )
 	}
 
-	# Keyed off `content`, not `names`: a run whose body was filtered out does not
-	# get its child tables read either.
+
 	tables = _report_child_tables(list(content))
 	comments = _template_comments(content.values())
 
 	out = []
 	for node in nodes:
 		row = dict(content.get(node["name"]) or {"name": node["name"], "title": node.get("title")})
-		# From the walk, never from the enrichment: `parent_experiment` is what
-		# rebuilds the hierarchy on the other end, and depth is only meaningful
-		# relative to the root that was actually asked for.
+
+
 		row["parent_experiment"] = node["parent_experiment"]
 		row["depth"] = node["depth"]
 		row["experiment_category"] = node.get("experiment_category")
@@ -873,15 +848,11 @@ def get_full_subtree_report(experiment_name: str) -> dict:
 			row[fieldname] = tables.get(fieldname, {}).get(node["name"], [])
 
 		template_comments = comments.get(row.get("template")) or {}
-		# Blank markup is normalised to "" on the way out, both here and below, so
-		# the frontend never has to tell "<p><br></p>" from a comment: an emptied
-		# editor reads as the empty field it is, and the provenance note below
-		# cannot end up labelling a dash.
+
+
 		row["methodology_comments"] = _text_or_blank(template_comments.get("methodology_comments"))
-		# The run's own observation wins; the template's is the fallback for a run
-		# that has not been written up yet. Flagged when it is the template's,
-		# because that text is identical on every run sharing the template and a
-		# reader has to be able to tell it from an observation somebody made.
+
+
 		own_observation = _text_or_blank(row.get("observation"))
 		if own_observation:
 			row["observation_comments"] = own_observation
@@ -904,12 +875,12 @@ def _flatten_with_depth(node: dict, depth: int = 0):
 	level.
 	"""
 	yield {
-		"name": node["name"],
-		"title": node.get("title"),
-		"experiment_category": node.get("experiment_category"),
-		"workflow_state": node.get("workflow_state"),
-		"parent_experiment": node.get("parent_experiment"),
-		"depth": depth,
+	 "name": node["name"],
+	 "title": node.get("title"),
+	 "experiment_category": node.get("experiment_category"),
+	 "workflow_state": node.get("workflow_state"),
+	 "parent_experiment": node.get("parent_experiment"),
+	 "depth": depth,
 	}
 	for child in node.get("children") or []:
 		yield from _flatten_with_depth(child, depth + 1)
@@ -925,7 +896,7 @@ def _has_text(value: str | None) -> bool:
 	if not value:
 		return False
 	text = re.sub(r"<[^>]*>", "", value).replace("&nbsp;", " ").strip()
-	# A field holding only an image or a table has no text but is not empty.
+
 	return bool(text) or bool(re.search(r"<(img|table)\b", value, re.IGNORECASE))
 
 
@@ -953,13 +924,13 @@ def _report_child_tables(names: list[str]) -> dict[str, dict[str, list[dict]]]:
 	for fieldname, (doctype, columns) in _REPORT_TABLES.items():
 		by_parent: dict[str, list[dict]] = {}
 		for row in frappe.get_all(
-			doctype,
-			filters={"parent": ("in", names), "parenttype": "Lab Experiment", "parentfield": fieldname},
-			fields=["parent", "idx", *columns],
-			# The order the rows were entered in. A methodology read out of order
-			# is a different methodology.
-			order_by="parent asc, idx asc",
-			limit_page_length=0,
+		 doctype,
+		 filters={"parent": ("in", names), "parenttype": "Lab Experiment", "parentfield": fieldname},
+		 fields=["parent", "idx", *columns],
+
+
+		 order_by="parent asc, idx asc",
+		 limit_page_length=0,
 		):
 			by_parent.setdefault(row["parent"], []).append(row)
 		out[fieldname] = by_parent
@@ -983,13 +954,13 @@ def _template_comments(rows) -> dict[str, dict]:
 		return {}
 
 	return {
-		row["name"]: row
-		for row in frappe.get_list(
-			"Lab Experiment Template",
-			filters={"name": ("in", list(templates))},
-			fields=["name", "methodology_comments", "observation_comments"],
-			limit_page_length=0,
-		)
+	 row["name"]: row
+	 for row in frappe.get_list(
+	  "Lab Experiment Template",
+	  filters={"name": ("in", list(templates))},
+	  fields=["name", "methodology_comments", "observation_comments"],
+	  limit_page_length=0,
+	 )
 	}
 
 
@@ -1021,13 +992,13 @@ def _stamp_sample_counts(node: dict) -> None:
 		return
 
 	counts = {
-		row["experiment"]: row["count"]
-		for row in frappe.get_all(
-			"Sample",
-			filters={"experiment": ["in", names], "docstatus": ["!=", 2]},
-			fields=["experiment", "count(name) as count"],
-			group_by="experiment",
-		)
+	 row["experiment"]: row["count"]
+	 for row in frappe.get_all(
+	  "Sample",
+	  filters={"experiment": ["in", names], "docstatus": ["!=", 2]},
+	  fields=["experiment", "count(name) as count"],
+	  group_by="experiment",
+	 )
 	}
 
 	for n in _walk(node):
@@ -1060,17 +1031,17 @@ def _descendants(root_name: str) -> list[dict]:
 
 	while frontier and depth <= _MAX_DEPTH:
 		rows = frappe.get_list(
-			"Lab Experiment",
-			filters={"parent_experiment": ["in", frontier]},
-			fields=list(_NODE_FIELDS),
-			order_by="creation asc",
-			limit_page_length=0,
+		 "Lab Experiment",
+		 filters={"parent_experiment": ["in", frontier]},
+		 fields=list(_NODE_FIELDS),
+		 order_by="creation asc",
+		 limit_page_length=0,
 		)
 
 		frontier = []
 		for row in rows:
-			# A cycle, or a row already placed higher up: hanging it twice would
-			# duplicate a whole branch and the walk would never terminate.
+
+
 			if row["name"] in seen:
 				continue
 			seen.add(row["name"])
@@ -1084,8 +1055,7 @@ def _descendants(root_name: str) -> list[dict]:
 
 		depth += 1
 
-	# `creation asc` survives the regrouping: rows arrive ordered and are
-	# appended in that order, so siblings keep it once hung off their parent.
+
 	for parent_name, children in by_parent.items():
 		parent = index.get(parent_name)
 		if parent is not None:

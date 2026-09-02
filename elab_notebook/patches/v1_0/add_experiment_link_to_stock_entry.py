@@ -34,9 +34,8 @@ FIELD = {
 
 
 def execute():
-	# The legacy doctype is not shipped by any app - it is a UI-created custom
-	# doctype and exists only where somebody made it. A site without it gets no
-	# field rather than a Link pointing at nothing.
+
+
 	if not frappe.db.exists("DocType", "Experiment"):
 		return
 

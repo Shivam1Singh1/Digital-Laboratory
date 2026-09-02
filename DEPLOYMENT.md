@@ -25,6 +25,40 @@ developer's own machine.
 On this bench `site_local` is set to `http://localhost:5173/` for the Vite dev
 server. **A production site must not carry that value.**
 
+### How the SPA is served
+
+Three pieces, all in the repo — nothing to configure per site except the URL
+above:
+
+| Piece | Where | Value |
+|---|---|---|
+| Route base | `elab-notebook-ui/src/router.js` | `/elab` in a build, `/` under the dev server |
+| Asset base | `elab-notebook-ui/vite.config.js` | `/assets/elab_notebook/elab/` |
+| Catch-all route | `elab_notebook/hooks.py` | `website_route_rules`: `/elab/<path:app_path>` → `elab` |
+
+`npm run build` writes the bundle to `elab_notebook/public/elab/` (served by
+Frappe as `/assets/elab_notebook/elab/`) and copies the shell to
+`elab_notebook/www/elab.html`, which is what answers `/elab`. Both are
+gitignored — they are built on the server, not committed.
+
+The catch-all is what makes a **direct link or a page refresh** work. Without
+it `/elab` loads but `/elab/experiments/<name>` returns 404, and that only
+shows up when someone bookmarks a record or hits reload — not on a first
+click-through. Verify all three, not just the landing page:
+
+```bash
+curl -s -o /dev/null -w 'landing   %{http_code}\n' https://<site>/elab
+curl -s -o /dev/null -w 'deep link %{http_code}\n' https://<site>/elab/experiments
+curl -s -o /dev/null -w 'refresh   %{http_code}\n' https://<site>/elab/experiments/<real-name>
+```
+
+All three must be 200. Landing 200 with a deep-link 404 means the route rule
+was not picked up — `bench --site <site> clear-cache && bench restart`.
+
+Nothing in the bundle is host-specific (`frappeUrl.js` uses
+`window.location.origin` in a build), so the same artifact is correct on every
+site. Only `elab_spa_url` differs.
+
 ---
 
 ## 2. Configuration that must NOT reach production

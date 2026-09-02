@@ -1,26 +1,11 @@
-/* Experiment Report
- *
- * Every class here is `rep-`-prefixed and defined in this file, for the reason
- * spelled out in ExperimentTree.css: component CSS is bundled globally in this
- * app, so a shared name picks up whichever definition landed last. Only
- * `.font-mono` is borrowed from style.css, which is always loaded.
- */
+
 
 .experiment-report {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 
-  /* One colour per level of hierarchy.py CATEGORIES, in that order - the same
-     palette ExperimentTree.css gives its dots, so a level is the same colour in
-     both views.
-   *
-     Restated rather than shared: the tree's block is scoped to
-     `.experiment-tree`, and the only ways to reach it from here are to widen
-     that selector, which would leak every tree variable into every component, or
-     to lift the palette to :root, which would put five names into the global
-     namespace for two consumers. Two mirrored blocks is the smaller cost - and
-     the light-theme line below is the reason the mirror has to be exact. */
+
   --tree-dot-master: var(--warning);
   --tree-dot-experiment: #60a5fa;
   --tree-dot-sub: var(--success);
@@ -29,7 +14,7 @@
 }
 
 :root.light-theme .experiment-report {
-  --tree-dot-experiment: #2563eb; /* darkened for contrast on white surfaces */
+  --tree-dot-experiment: #2563eb;
 }
 
 .rep-status {
@@ -48,7 +33,6 @@
   color: var(--danger);
 }
 
-/* Header ----------------------------------------------------------------- */
 
 .rep-head {
   display: flex;
@@ -73,19 +57,10 @@
   color: var(--text-muted);
 }
 
-/* Hierarchy -------------------------------------------------------------- */
 
-/* One flat, scrollable column of cards. Depth is drawn rather than nested: the
-   nodes arrive flat from get_full_subtree_report, already in reading order, and
-   each carries the `depth` that positions it.
-
-   The step and the rail offset are ExperimentTree.css's values, so a level sits
-   at the same x in the report as it does in the hierarchy tab. Depth is clamped
-   at 4 in the template - past that the deepest indent repeats rather than
-   marching off the right edge. */
 .rep-nodes {
   --rep-indent: 1.5rem;
-  --rep-rail: 0.75rem; /* the rail's x inside its column: half of the indent */
+  --rep-rail: 0.75rem;
   --rep-line: color-mix(in srgb, var(--accent) 38%, var(--border));
   display: flex;
   flex-direction: column;
@@ -97,9 +72,7 @@
   padding-left: calc(var(--rep-depth, 0) * var(--rep-indent));
 }
 
-/* One rail per level above this node. It runs up through the gap to the card
-   before it, so a run of siblings reads as one branch; nothing extends below,
-   so the last child of a branch ends where its card ends. */
+
 .rep-guide {
   position: absolute;
   left: calc(var(--rep-guide-index) * var(--rep-indent) + var(--rep-rail));
@@ -108,17 +81,7 @@
   border-left: 1px solid var(--rep-line);
 }
 
-/* Category colour + texture ----------------------------------------------- */
 
-/* One --rep-cat per level, set on the node and used twice: by the card's left
-   rail and by its category badge. Defining it once is what stops the two from
-   drifting - a level is one colour, in one place.
- *
- * Colour alone, and every rail solid. An earlier pass also gave each level a
- * pattern - hatched, dashed, dotted - so the level stayed readable without
- * colour. It read as a broken border rather than as an encoding, which is worse
- * than the problem it solved: the level is already named in full on the badge
- * beside it, so nothing depends on telling the rails apart by eye. */
 .rep-cat-master {
   --rep-cat: var(--tree-dot-master);
 }
@@ -135,37 +98,23 @@
   --rep-cat: var(--tree-dot-subsub);
 }
 
-/* A run with no category, or one this app does not know. Muted: it is not a
-   fifth level, it is a level that is missing. */
+
 .rep-cat-other {
   --rep-cat: var(--tree-dot-other);
 }
 
-/* Cards ------------------------------------------------------------------ */
 
 .rep-card {
   padding: 0.9rem 1.05rem;
   border: 1px solid var(--border);
-  /* The level rail: one unbroken line in the level's own colour, running the
-     full height of the card. */
+
   border-left-width: 4px;
   border-left-color: var(--rep-cat);
   border-radius: 10px;
   background-color: var(--bg-surface);
 }
 
-/* Depth now shades the card's *fill* only. The left rail used to fade with
-   depth as well, which made it a second, weaker encoding of the same thing the
-   indent already says - and it left nothing to say which level a card is. That
-   job moved to the category rail above, which is the more useful of the two: in
-   a tree where levels nest in order they agree anyway, and where a branch skips
-   a level the rail is right and a depth fade would not be.
 
-   The root is the run whose page this is, so it keeps its ring and its lift off
-   the page. In a deep report every card looks alike, and the one you navigated
-   from is worth finding without reading ids. `border-left-color` is restated
-   because the shorthand `border-color` above it would otherwise repaint the
-   level rail in the ring's accent. */
 .rep-node-d0 > .rep-card {
   border-color: var(--accent);
   border-left-color: var(--rep-cat);
@@ -204,11 +153,7 @@
   line-height: var(--lh-snug);
 }
 
-/* The run's id, and the link to its own page in a new tab. Muted and
-   undecorated at rest so a column of these does not read as a wall of links -
-   the card's title is what the eye should land on. `width: fit-content` keeps
-   the hit area on the text: the titles column is a flex column, so a bare <a>
-   would stretch to its full width and swallow clicks either side of the id. */
+
 .rep-card-id {
   font-size: var(--fs-xs);
   color: var(--text-muted);
@@ -231,17 +176,13 @@
   gap: 0.35rem;
 }
 
-/* The parent's id, beside the badges. The indent already says where a card sits;
-   this says what it sits under, which an indent cannot once the page is long
-   enough to scroll its parent off the top. */
+
 .rep-card-parent {
   font-size: var(--fs-2xs);
   color: var(--text-muted);
 }
 
-/* Category pills. One rule rather than four, because the colour is the node's
-   own --rep-cat token - the same one the rail is drawn from, so the pill and the
-   rail beside it are always the same colour by construction. */
+
 .rep-badge {
   display: inline-block;
   padding: 0.12rem 0.5rem;
@@ -252,15 +193,11 @@
   border: 1px solid transparent;
 }
 
-/* Solid rather than the 18%-tint the category badges use: this one is not
-   another attribute of the run, it says which card you are standing on, and it
-   has to win against the category badge sitting next to it. */
+
 .rep-badge-current {
   background-color: var(--accent);
   border-color: var(--accent);
-  /* Not literal white - --accent is a light violet in dark mode, where white
-     text drops below a readable contrast ratio. Same token PageHeader.css uses
-     for text on an accent fill. */
+
   color: var(--bg-primary);
 }
 
@@ -275,7 +212,6 @@
   color: var(--text-muted);
 }
 
-/* Status pills ----------------------------------------------------------- */
 
 .rep-state-draft {
   background-color: color-mix(in srgb, var(--text-muted) 16%, transparent);
@@ -303,7 +239,29 @@
   color: var(--danger);
 }
 
-/* Body ------------------------------------------------------------------- */
+
+.rep-result {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background-color: var(--bg-elevated);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+}
+
+.rep-result-pass {
+  background-color: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
+}
+
+.rep-result-fail {
+  background-color: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
 
 .rep-fields {
   display: flex;
@@ -324,9 +282,7 @@
   margin-bottom: 0.2rem;
 }
 
-/* Provenance note on a label, for the two comment fields that can carry the
-   template's text rather than the run's. Deliberately not uppercase: it is an
-   aside on the label, not part of it. */
+
 .rep-field-source {
   margin-left: 0.4rem;
   text-transform: none;
@@ -345,19 +301,13 @@
   white-space: pre-wrap;
 }
 
-/* The placeholder for a field nobody filled in. Every section renders at every
-   node, so this is load-bearing: it is what makes "not recorded" visible rather
-   than leaving a label above a gap that reads as a rendering fault. */
+
 .rep-blank {
   color: var(--text-muted);
   opacity: 0.7;
 }
 
-/* Child tables ------------------------------------------------------------ */
 
-/* The scroll container, so a wide table scrolls inside its own card instead of
-   widening the page. `max-width: 100%` rather than a width: the wrapper must not
-   stretch a card that has nothing else wide in it. */
 .rep-table-wrap {
   max-width: 100%;
   overflow-x: auto;
@@ -367,8 +317,7 @@
 
 .rep-table {
   width: 100%;
-  /* Below this the columns stop being readable and the wrapper scrolls instead,
-     which is the intended behaviour on a narrow card at depth. */
+
   min-width: 32rem;
   border-collapse: collapse;
   font-size: var(--fs-sm);
@@ -396,22 +345,19 @@
   white-space: nowrap;
 }
 
-/* The last row's rule would double up with the wrapper's own border. */
+
 .rep-table tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* The row number, from the child row's own idx - the order the rows were
-   entered in, which for a methodology is part of the content. */
+
 .rep-table-idx {
   width: 2.5rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-/* Rich text -------------------------------------------------------------- */
 
-/* Text Editor content arrives as markup and brings its own block elements. */
 .rep-rich {
   white-space: normal;
 }
@@ -424,9 +370,34 @@
   padding-left: 1.2rem;
 }
 
+
 .rep-rich :where(img) {
-  max-width: 100%;
+  max-width: 240px;
+  max-height: 180px;
+  width: auto;
   height: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px;
+  cursor: zoom-in;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rep-rich :where(img):hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+
+@media print {
+  .rep-rich :where(img) {
+    max-width: 100%;
+    max-height: none;
+    border: none;
+    padding: 0;
+    cursor: auto;
+  }
 }
 
 .rep-rich :where(table) {
@@ -439,22 +410,11 @@
   padding: 0.3rem 0.45rem;
 }
 
-/* ------------------------------------------------- Editor tables, in report
-   Tables written in a rich-text field carry .quill-better-table. Reproducing
-   the editor's gutter here means a table reads in the report the way it read
-   while it was being written; see the matching block in RichTextEditor.css for
-   how the counter and the lane work. Display only - the report is read-only, so
-   there is no resizing to go with it.
 
-   Scoped to that class rather than every table, so legacy plain tables stay
-   unnumbered here exactly as they are in the editor. */
 .rep-rich table.quill-better-table {
-  /* Honours the <col width> the editor writes when a column is resized. Without
-     it the browser sizes columns from content and the report ignores the widths
-     the author chose. */
+
   table-layout: fixed;
-  /* The number lane comes out of the table's own width - the rule above sets
-     tables to 100%, so without this the gutter would push it past the field. */
+
   margin-left: 1.75rem;
   width: calc(100% - 1.75rem);
   counter-reset: qlbt-row -1;
@@ -464,10 +424,7 @@
   counter-increment: qlbt-row;
 }
 
-/* The first row is the header, shaded as in the editor - which is also what
-   accounts for its missing number, the counter starting at -1 so that the first
-   data row is 1. Shading only, matching the editor: the weight of the text is
-   the author's to set, not this stylesheet's to impose. */
+
 .rep-rich table.quill-better-table tr:first-child td {
   background-color: var(--bg-elevated);
 }
@@ -479,8 +436,7 @@
 .rep-rich table.quill-better-table td:first-child::before {
   content: counter(qlbt-row);
   position: absolute;
-  /* Flush to the cell's border: an absolutely positioned box inside a td is
-     placed against its padding box, which sits inside the 1px border. */
+
   right: calc(100% + 1px);
   top: -1px;
   bottom: -1px;
@@ -501,8 +457,7 @@
   content: none;
 }
 
-/* Not-yet-saved state, used by the create form's Report tab (ExperimentForm.vue)
-   rather than by this component - the report needs a saved run to roll up. */
+
 .rep-pending {
   padding: 1.5rem;
   border: 1px dashed var(--border);

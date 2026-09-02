@@ -1,5 +1,4 @@
-# Copyright (c) 2026, Elab Notebook and contributors
-# For license information, please see license.txt
+
 
 """Controller for Lab Experiment.
 
@@ -20,47 +19,51 @@ from frappe import _
 from frappe.model.document import Document
 
 from elab_notebook.elab_notebook.api.hierarchy import (
-	CATEGORIES,
-	ROOT_CATEGORY,
-	assert_can_link,
-	assert_parent_presence,
+ CATEGORIES,
+ ROOT_CATEGORY,
+ assert_can_link,
+ assert_parent_presence,
 )
 from elab_notebook.experiment_access import is_authorized_for_project
 from elab_notebook.permissions import has_bypass
 
-# Fields excluded when diffing an approved doc: workflow machinery and volatile
-# metadata are allowed to move, the scientific content is not.
+
 _LOCK_EXEMPT = (
-	"modified",
-	"modified_by",
-	"workflow_state",
-	"status",
-	"amended_from",
-	"amendment_date",
-	"biofoundary_status",
-	"material_request_for_biofoundry",
+ "modified",
+ "modified_by",
+ "workflow_state",
+ "status",
+ "amended_from",
+ "amendment_date",
+ "biofoundary_status",
+ "material_request_for_biofoundry",
 )
 
-_ROW_META = ("name", "owner", "parent", "modified", "creation", "parentfield", "parenttype")
 
-# Workflow states in which the whole record is frozen server-side. See
-# LabExperiment.validate_post_approval_lock for why `Start` is not among them
-# even though the UI treats it as read-only.
+_ROW_META = (
+ "name",
+ "owner",
+ "parent",
+ "modified",
+ "modified_by",
+ "creation",
+ "parentfield",
+ "parenttype",
+)
+
+
 _LOCKED_STATES = ("Sent for Approval", "Approved")
 
 _TERMINAL_STATES = ("Completed", "Failed")
 
-# Child tables that can receive rows cloned from an Experiment Template. Rows in
-# these tables carrying from_template = 1 are editable but must not be removed.
-# Mirrors TEMPLATE_CHILD_MAP in elab_notebook/api/template.py - the tables not
-# listed here are never populated from a template and are freely editable.
+
 _IMPORTED_ROW_TABLES = (
-	"experiment_ingredients",
-	"experiment_parameters",
-	"experiment_protocol_steps",
-	"material_required",
-	"equipment_details",
-	"methodology",
+ "experiment_ingredients",
+ "experiment_parameters",
+ "experiment_protocol_steps",
+ "material_required",
+ "equipment_details",
+ "methodology",
 )
 
 
@@ -73,8 +76,8 @@ class LabExperiment(Document):
 	def validate(self):
 		self.validate_creator_identity_locked()
 		self.populate_from_template()
-		# Hierarchy runs ahead of the approval lock so a rejected link names the
-		# rule it broke, instead of the lock's generic "cannot be modified".
+
+
 		self.validate_category()
 		self.validate_master_scope()
 		self.validate_parent_link()
@@ -86,9 +89,6 @@ class LabExperiment(Document):
 		if frappe.db.exists("Sample", {"experiment": self.name}):
 			frappe.throw(_("Cannot delete: Sample record(s) exist for this Lab Experiment."))
 
-	# ------------------------------------------------------------------
-	# Naming
-	# ------------------------------------------------------------------
 
 	def set_series(self):
 		"""Derive the run ID from its team: <team>-A0001, A0002 … B0001.
@@ -113,14 +113,14 @@ class LabExperiment(Document):
 		"""
 		if not self.experiment_team:
 			frappe.throw(
-				_("Please select an Experiment Team before saving the Lab Experiment."),
-				title=_("Missing Experiment Team"),
+			 _("Please select an Experiment Team before saving the Lab Experiment."),
+			 title=_("Missing Experiment Team"),
 			)
 
 		existing = frappe.db.get_all(
-			"Lab Experiment",
-			filters={"experiment_team": self.experiment_team},
-			pluck="name",
+		 "Lab Experiment",
+		 filters={"experiment_team": self.experiment_team},
+		 pluck="name",
 		)
 
 		max_letter, max_number = "A", 0
@@ -128,8 +128,8 @@ class LabExperiment(Document):
 			if not name or "-" not in name:
 				continue
 			suffix = name.split("-")[-1]
-			# Only the current letter+4-digit form counts; retired -000001 ids
-			# and anything else are ignored.
+
+
 			if len(suffix) != 5 or not suffix[0].isalpha() or not suffix[1:].isdigit():
 				continue
 			letter, number = suffix[0], int(suffix[1:])
@@ -143,9 +143,6 @@ class LabExperiment(Document):
 
 		self.series = f"{self.experiment_team}-{next_letter}{next_number:04d}"
 
-	# ------------------------------------------------------------------
-	# Creator identity
-	# ------------------------------------------------------------------
 
 	def set_creator_identity(self):
 		"""Stamp who is logging this run, from the session -- never from input.
@@ -166,18 +163,18 @@ class LabExperiment(Document):
 		not worth more than the error that explains why.
 		"""
 		employee = frappe.db.get_value(
-			"Employee", {"user_id": frappe.session.user, "status": "Active"}, ["name", "employee_name"]
+		 "Employee", {"user_id": frappe.session.user, "status": "Active"}, ["name", "employee_name"]
 		) or frappe.db.get_value(
-			"Employee", {"user_id": frappe.session.user}, ["name", "employee_name"]
+		 "Employee", {"user_id": frappe.session.user}, ["name", "employee_name"]
 		)
 
 		if not employee:
 			frappe.throw(
-				_(
-					"Your user account ({0}) is not linked to an Employee record, so this run "
-					"has no author to file it under. Ask HR to set the User ID on your Employee."
-				).format(frappe.bold(frappe.session.user)),
-				title=_("No Employee Record"),
+			 _(
+			  "Your user account ({0}) is not linked to an Employee record, so this run "
+			  "has no author to file it under. Ask HR to set the User ID on your Employee."
+			 ).format(frappe.bold(frappe.session.user)),
+			 title=_("No Employee Record"),
 			)
 
 		self.employee_code, self.employee_name = employee
@@ -194,32 +191,27 @@ class LabExperiment(Document):
 			return
 
 		stored = frappe.db.get_value(
-			"Lab Experiment", self.name, ["employee_code", "employee_name"], as_dict=True
+		 "Lab Experiment", self.name, ["employee_code", "employee_name"], as_dict=True
 		)
 		if not stored:
 			return
 
 		if (self.employee_code or None) != (stored.employee_code or None):
 			frappe.throw(
-				_(
-					"Employee Code records who created {0} and cannot be changed. "
-					"It is {1}; {2} was submitted."
-				).format(
-					frappe.bold(self.name),
-					frappe.bold(stored.employee_code or _("blank")),
-					frappe.bold(self.employee_code or _("blank")),
-				),
-				title=_("Creator Is Fixed"),
+			 _(
+			  "Employee Code records who created {0} and cannot be changed. "
+			  "It is {1}; {2} was submitted."
+			 ).format(
+			  frappe.bold(self.name),
+			  frappe.bold(stored.employee_code or _("blank")),
+			  frappe.bold(self.employee_code or _("blank")),
+			 ),
+			 title=_("Creator Is Fixed"),
 			)
 
-		# Kept in step with the code rather than compared against the submission:
-		# employee_name is a fetch_from, so a stale or edited value on the payload
-		# is corrected instead of rejected - the code is what carries the identity.
+
 		self.employee_name = stored.employee_name
 
-	# ------------------------------------------------------------------
-	# Authorisation
-	# ------------------------------------------------------------------
 
 	def validate_participant(self):
 		"""Block creation unless the user is on the project's Experiment Team.
@@ -232,40 +224,37 @@ class LabExperiment(Document):
 			return
 
 		if not self.project:
-			# The doctype's own mandatory-field rules cover the missing value.
+
 			return
 
 		if is_authorized_for_project(user, self.project, self.employee_function):
 			return
 
 		scope = (
-			_(" under {0}").format(frappe.bold(self.employee_function))
-			if self.employee_function
-			else ""
+		 _(" under {0}").format(frappe.bold(self.employee_function))
+		 if self.employee_function
+		 else ""
 		)
 
 		if not frappe.get_all("Experiment Team", filters={"project": self.project}, limit=1):
 			frappe.throw(
-				_(
-					"No Experiment Team has been set up for project {0}{1}. "
-					"Ask the Employee Function head to add you to the team."
-				).format(frappe.bold(self.project), scope),
-				frappe.PermissionError,
-				title=_("Not Authorized"),
+			 _(
+			  "No Experiment Team has been set up for project {0}{1}. "
+			  "Ask the Employee Function head to add you to the team."
+			 ).format(frappe.bold(self.project), scope),
+			 frappe.PermissionError,
+			 title=_("Not Authorized"),
 			)
 
 		frappe.throw(
-			_(
-				"You are not authorized to create experiments for this project. "
-				"Ask the Employee Function head to add you to the team for {0}."
-			).format(frappe.bold(self.project)),
-			frappe.PermissionError,
-			title=_("Not Authorized"),
+		 _(
+		  "You are not authorized to create experiments for this project. "
+		  "Ask the Employee Function head to add you to the team for {0}."
+		 ).format(frappe.bold(self.project)),
+		 frappe.PermissionError,
+		 title=_("Not Authorized"),
 		)
 
-	# ------------------------------------------------------------------
-	# Field rules
-	# ------------------------------------------------------------------
 
 	def populate_from_template(self):
 		"""Seed project / employee_function from the template when left blank."""
@@ -276,10 +265,10 @@ class LabExperiment(Document):
 			return
 
 		tmpl = frappe.db.get_value(
-			"Lab Experiment Template",
-			template_name,
-			["employee_function", "project"],
-			as_dict=True,
+		 "Lab Experiment Template",
+		 template_name,
+		 ["employee_function", "project"],
+		 as_dict=True,
 		)
 		if not tmpl:
 			return
@@ -289,15 +278,6 @@ class LabExperiment(Document):
 		if not self.project:
 			self.project = tmpl.project
 
-	# ------------------------------------------------------------------
-	# Category hierarchy
-	# ------------------------------------------------------------------
-	#
-	# The rules themselves live in elab_notebook.api.hierarchy, next to the
-	# whitelisted calls the UI drives. They are re-run here because
-	# `/api/resource/Lab Experiment` can write `experiment_category` and
-	# `parent_experiment` directly, and the UI's filtering is a convenience
-	# rather than the control.
 
 	def validate_category(self):
 		"""Mandatory on new runs, fixed once set.
@@ -316,30 +296,30 @@ class LabExperiment(Document):
 
 		if category and category not in CATEGORIES:
 			frappe.throw(
-				_("{0} is not a valid Experiment Category. Choose one of: {1}.").format(
-					frappe.bold(category), ", ".join(CATEGORIES)
-				),
-				title=_("Invalid Category"),
+			 _("{0} is not a valid Experiment Category. Choose one of: {1}.").format(
+			  frappe.bold(category), ", ".join(CATEGORIES)
+			 ),
+			 title=_("Invalid Category"),
 			)
 
 		if self.is_new():
 			if not category:
 				frappe.throw(
-					_("Experiment Category is required. Pick the level this run sits at: {0}.").format(
-						", ".join(CATEGORIES)
-					),
-					title=_("Missing Experiment Category"),
+				 _("Experiment Category is required. Pick the level this run sits at: {0}.").format(
+				  ", ".join(CATEGORIES)
+				 ),
+				 title=_("Missing Experiment Category"),
 				)
 			return
 
 		stored = frappe.db.get_value("Lab Experiment", self.name, "experiment_category")
 		if stored and stored != category:
 			frappe.throw(
-				_(
-					"Experiment Category is fixed at creation. {0} is a {1} and cannot be "
-					"changed to {2} - its parent and children were linked against the old level."
-				).format(frappe.bold(self.name), frappe.bold(stored), frappe.bold(category or _("blank"))),
-				title=_("Category Is Fixed"),
+			 _(
+			  "Experiment Category is fixed at creation. {0} is a {1} and cannot be "
+			  "changed to {2} - its parent and children were linked against the old level."
+			 ).format(frappe.bold(self.name), frappe.bold(stored), frappe.bold(category or _("blank"))),
+			 title=_("Category Is Fixed"),
 			)
 
 	def validate_master_scope(self):
@@ -361,11 +341,11 @@ class LabExperiment(Document):
 
 		if not self.project or not self.employee_function:
 			frappe.throw(
-				_(
-					"A {0} needs both a Project and an Employee Function - they are how the "
-					"runs below it find it."
-				).format(ROOT_CATEGORY),
-				title=_("Missing Scope"),
+			 _(
+			  "A {0} needs both a Project and an Employee Function - they are how the "
+			  "runs below it find it."
+			 ).format(ROOT_CATEGORY),
+			 title=_("Missing Scope"),
 			)
 
 	def validate_parent_link(self):
@@ -390,14 +370,14 @@ class LabExperiment(Document):
 		  deliberate steps, so it can never be a side effect of a link call.
 		"""
 		previous = (
-			None if self.is_new() else frappe.db.get_value("Lab Experiment", self.name, "parent_experiment")
+		 None if self.is_new() else frappe.db.get_value("Lab Experiment", self.name, "parent_experiment")
 		)
 		previous = previous or None
 		current = self.parent_experiment or None
 
 		if self.is_new():
-			# Runs before the identity check below, so "a Master takes no parent"
-			# is reported as itself rather than as a wrong-level link failure.
+
+
 			assert_parent_presence(self.experiment_category, current)
 
 		if previous == current:
@@ -405,52 +385,52 @@ class LabExperiment(Document):
 
 		if previous and current:
 			frappe.throw(
-				_("{0} is already linked under {1}. Unlink it there before linking it to {2}.").format(
-					frappe.bold(self.name), frappe.bold(previous), frappe.bold(current)
-				),
-				title=_("Already Linked"),
+			 _("{0} is already linked under {1}. Unlink it there before linking it to {2}.").format(
+			  frappe.bold(self.name), frappe.bold(previous), frappe.bold(current)
+			 ),
+			 title=_("Already Linked"),
 			)
 
 		if not current:
 			return
 
 		parent_row = frappe.db.get_value(
-			"Lab Experiment",
-			current,
-			[
-				"name",
-				"experiment_category",
-				"parent_experiment",
-				"project",
-				"employee_function",
-				"workflow_state",
-				"status",
-			],
-			as_dict=True,
+		 "Lab Experiment",
+		 current,
+		 [
+		  "name",
+		  "experiment_category",
+		  "parent_experiment",
+		  "project",
+		  "employee_function",
+		  "workflow_state",
+		  "status",
+		 ],
+		 as_dict=True,
 		)
 		if not parent_row:
 			frappe.throw(_("Experiment {0} not found.").format(frappe.bold(current)))
 
 		assert_can_link(
-			parent_row,
-			{
-				"name": self.name,
-				"experiment_category": self.experiment_category,
-				# The stored value, not the one being written - otherwise the
-				# exclusivity check would compare the new link against itself.
-				"parent_experiment": previous,
-				"project": self.project,
-				"employee_function": self.employee_function,
-				"workflow_state": self.workflow_state,
-				"status": self.status,
-			},
+		 parent_row,
+		 {
+		  "name": self.name,
+		  "experiment_category": self.experiment_category,
+
+
+		  "parent_experiment": previous,
+		  "project": self.project,
+		  "employee_function": self.employee_function,
+		  "workflow_state": self.workflow_state,
+		  "status": self.status,
+		 },
 		)
 
 	def validate_imported_rows_kept(self):
 		"""Rows cloned from a template may be edited, but not deleted.
 
 		Enforced by diffing the submitted child rows against what is stored, so
-		it holds for direct API and bench console writes too - the UI hiding the
+		it holds for direct API and server-side console writes too - the UI hiding the
 		delete control is a convenience, not the control.
 		"""
 		if self.is_new():
@@ -461,17 +441,14 @@ class LabExperiment(Document):
 			if not meta_field:
 				continue
 
-			# Direct SQL rather than frappe.get_all: querying a child doctype
-			# through the query builder needs a parent_doctype and is easy to get
-			# subtly wrong. The table name comes from our own doctype JSON, not
-			# from user input.
+
 			stored = frappe.db.sql_list(
-				f"""
+			 f"""
 				select name from `tab{meta_field.options}`
 				where parent = %s and parenttype = %s and parentfield = %s
 				  and from_template = 1
 				""",
-				(self.name, self.doctype, fieldname),
+			 (self.name, self.doctype, fieldname),
 			)
 			if not stored:
 				continue
@@ -480,11 +457,11 @@ class LabExperiment(Document):
 			removed = [name for name in stored if name not in submitted]
 			if removed:
 				frappe.throw(
-					_(
-						"{0} row(s) in {1} were imported from the Experiment Template "
-						"and cannot be deleted. They can still be edited."
-					).format(len(removed), frappe.bold(_(meta_field.label or fieldname))),
-					title=_("Imported Rows Are Protected"),
+				 _(
+				  "{0} row(s) in {1} were imported from the Experiment Template "
+				  "and cannot be deleted. They can still be edited."
+				 ).format(len(removed), frappe.bold(_(meta_field.label or fieldname))),
+				 title=_("Imported Rows Are Protected"),
 				)
 
 	def validate_terminal_outcome(self):
@@ -493,25 +470,25 @@ class LabExperiment(Document):
 			return
 
 		db_vals = frappe.db.get_value(
-			"Lab Experiment",
-			self.name,
-			["experiment_status", "sample_generated", "sample_not_generated"],
-			as_dict=True,
+		 "Lab Experiment",
+		 self.name,
+		 ["experiment_status", "sample_generated", "sample_not_generated"],
+		 as_dict=True,
 		)
 		if not db_vals or db_vals.experiment_status not in _TERMINAL_STATES:
 			return
 
 		changed = (
-			self.experiment_status != db_vals.experiment_status
-			or int(self.sample_generated or 0) != int(db_vals.sample_generated or 0)
-			or int(self.sample_not_generated or 0) != int(db_vals.sample_not_generated or 0)
+		 self.experiment_status != db_vals.experiment_status
+		 or int(self.sample_generated or 0) != int(db_vals.sample_generated or 0)
+		 or int(self.sample_not_generated or 0) != int(db_vals.sample_not_generated or 0)
 		)
 		if changed:
 			frappe.throw(
-				_(
-					"Terminal experiments (Completed or Failed) cannot change their "
-					"execution outcome or status fields."
-				)
+			 _(
+			  "Terminal experiments (Completed or Failed) cannot change their "
+			  "execution outcome or status fields."
+			 )
 			)
 
 	def validate_post_approval_lock(self):
@@ -534,7 +511,7 @@ class LabExperiment(Document):
 			return
 
 		db_state = frappe.db.get_value("Lab Experiment", self.name, "workflow_state") or frappe.db.get_value(
-			"Lab Experiment", self.name, "status"
+		 "Lab Experiment", self.name, "status"
 		)
 		if db_state not in _LOCKED_STATES:
 			return
@@ -552,10 +529,10 @@ class LabExperiment(Document):
 						row.pop(key, None)
 
 		if db_dict != curr_dict:
-			# Names the state, because the two are refused for different reasons and
-			# only one of them is permanent.
+
+
 			if db_state == "Approved":
 				frappe.throw(_("Approved experiments cannot be modified."))
 			frappe.throw(
-				_("This run is with an approver and cannot be modified. Ask for it to be rejected first.")
+			 _("This run is with an approver and cannot be modified. Ask for it to be rejected first.")
 			)

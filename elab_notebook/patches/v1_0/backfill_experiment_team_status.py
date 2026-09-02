@@ -24,14 +24,12 @@ def execute():
 	if not frappe.db.table_exists("Experiment Team"):
 		return
 
-	# The column arrives with the doctype sync that runs before this patch. If
-	# that has not happened - a patch re-run on an older schema - there is
-	# nothing to backfill and nothing to complain about.
+
 	if not frappe.db.has_column("Experiment Team", "status"):
 		return
 
 	frappe.db.sql(
-		"""
+	 """
 		UPDATE `tabExperiment Team`
 		SET `status` = 'Active'
 		WHERE `status` IS NULL OR `status` = ''

@@ -1,20 +1,10 @@
 <script setup>
-/**
- * The Lab Experiment "Raw Data" tab, shared by the create form and the detail
- * page so the two cannot drift.
- *
- * Field order, labels and per-field visibility come from the doctype's own
- * `attachments_tab` section - see utils/rawData.js for the depends_on
- * expressions this mirrors. Nothing here decides what a field means; it decides
- * how it is typed into.
- *
- * `experiment` is mutated in place rather than emitted back: both callers own a
- * single reactive run object that they post whole, and threading twenty fields
- * through v-model would only give the parents twenty things to forward.
- */
+
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import RichTextEditor from '../common/RichTextEditor.vue'
+import AddRow from '../common/AddRow.vue'
+import FileAttachment from '../common/FileAttachment.vue'
 import { showsNatureOfSample, showsQualityMetrics, showsSubMetrics } from '../../utils/rawData'
 import './RawDataTab.css'
 
@@ -25,16 +15,14 @@ const props = defineProps({
 
 const showNature = computed(() => showsNatureOfSample(props.experiment.experiment_category))
 const showMetrics = computed(() => showsQualityMetrics(props.experiment.nature_of_sample))
-// Scoped to the level, not to nature_of_sample - see utils/rawData.js.
+
 const showSubMetrics = computed(() => showsSubMetrics(props.experiment.experiment_category))
 
-// Link targets. Small, closed lists, so they load once and render as selects
-// rather than as another search widget.
+
 const natureOptions = ref([])
 const parameterOptions = ref([])
-// Open-ended ones stay text inputs backed by a datalist: Item and Warehouse run
-// to thousands of rows on this site, and a select would have to load all of
-// them to be honest about what is pickable.
+
+
 const itemOptions = ref([])
 const warehouseOptions = ref([])
 const employeeOptions = ref([])
@@ -51,18 +39,14 @@ const loadOptions = async (doctype, target, extra = {}) => {
     })
     target.value = (res.data.message || []).map((r) => r.name)
   } catch (err) {
-    // A missing option list must not take the tab down with it - the field
-    // stays typeable, it just loses its suggestions.
+
+
     console.error(`Failed to load ${doctype} options:`, err)
     target.value = []
   }
 }
 
-// Nature of sample is autonamed `hash`, so its `name` is a random string like
-// i1c34r8rf5 and the doctype sets no title_field. Loading only `name` - which is
-// what every other list here needs - put that hash in front of the user as the
-// option label. The readable value lives in the `nature_of_sample` field, so
-// this one list carries both: the id is still what gets stored.
+
 const loadNatureOptions = async () => {
   try {
     const res = await axios.get('/api/method/frappe.client.get_list', {
@@ -90,8 +74,7 @@ onMounted(() => {
   loadOptions('Employee', employeeOptions, { limit_page_length: 500 })
 })
 
-// Child tables arrive absent on a new run and as arrays on a saved one; the
-// grids below write into them either way.
+
 const rows = (fieldname) => {
   if (!Array.isArray(props.experiment[fieldname])) props.experiment[fieldname] = []
   return props.experiment[fieldname]
@@ -109,9 +92,7 @@ const BLANK_SAMPLE = {
   results: '',
 }
 
-// Mirrors the doctype's fetch_from on uom (item.stock_uom). Frappe fills it
-// server-side on save either way; doing it here means the row does not sit
-// blank until then.
+
 const onSampleItem = async (row) => {
   if (!row.item) {
     row.uom = ''
@@ -134,9 +115,6 @@ const onSampleItem = async (row) => {
     <div class="rd-block">
       <div class="rd-block-head">
         <h3 class="rd-block-title">Result Attachment</h3>
-        <button v-if="!readonly" class="btn btn-secondary btn-sm" @click="addRow('result_attachment', BLANK_ATTACHMENT)">
-          + Add Row
-        </button>
       </div>
       <div class="table-container">
         <table>
@@ -152,13 +130,16 @@ const onSampleItem = async (row) => {
             <tr v-for="(row, i) in rows('result_attachment')" :key="i">
               <td class="rd-num">{{ i + 1 }}</td>
               <td><input v-model="row.name1" type="text" class="form-control table-input" :readonly="readonly" /></td>
-              <td><input v-model="row.file" type="text" class="form-control table-input" placeholder="/files/…" :readonly="readonly" /></td>
+              <td><FileAttachment v-model="row.file" :disabled="readonly" /></td>
               <td v-if="!readonly" class="actions-col">
                 <button class="rd-remove" title="Remove row" @click="removeRow('result_attachment', i)">×</button>
               </td>
             </tr>
             <tr v-if="!rows('result_attachment').length">
               <td :colspan="readonly ? 3 : 4" class="rd-empty">No attachments yet.</td>
+            </tr>
+            <tr v-if="!readonly" class="add-row-tr">
+              <td colspan="4"><AddRow label="Add Attachment" @add="addRow('result_attachment', BLANK_ATTACHMENT)" /></td>
             </tr>
           </tbody>
         </table>
@@ -245,9 +226,6 @@ const onSampleItem = async (row) => {
     <div v-if="showMetrics" class="rd-block">
       <div class="rd-block-head">
         <h3 class="rd-block-title">Quality Metrics</h3>
-        <button v-if="!readonly" class="btn btn-secondary btn-sm" @click="addRow('quality_metrics', BLANK_METRIC)">
-          + Add Row
-        </button>
       </div>
       <div class="table-container">
         <table>
@@ -278,6 +256,9 @@ const onSampleItem = async (row) => {
             <tr v-if="!rows('quality_metrics').length">
               <td :colspan="readonly ? 4 : 5" class="rd-empty">No metrics recorded yet.</td>
             </tr>
+            <tr v-if="!readonly" class="add-row-tr">
+              <td colspan="5"><AddRow label="Add Metric" @add="addRow('quality_metrics', BLANK_METRIC)" /></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -289,9 +270,6 @@ const onSampleItem = async (row) => {
     <div v-if="showSubMetrics" class="rd-block">
       <div class="rd-block-head">
         <h3 class="rd-block-title">Sub Experiment Metrics</h3>
-        <button v-if="!readonly" class="btn btn-secondary btn-sm" @click="addRow('sub_metrics', BLANK_METRIC)">
-          + Add Row
-        </button>
       </div>
       <div class="table-container">
         <table>
@@ -322,6 +300,9 @@ const onSampleItem = async (row) => {
             <tr v-if="!rows('sub_metrics').length">
               <td :colspan="readonly ? 4 : 5" class="rd-empty">No Data</td>
             </tr>
+            <tr v-if="!readonly" class="add-row-tr">
+              <td colspan="5"><AddRow label="Add Metric" @add="addRow('sub_metrics', BLANK_METRIC)" /></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -331,9 +312,6 @@ const onSampleItem = async (row) => {
     <div class="rd-block">
       <div class="rd-block-head">
         <h3 class="rd-block-title">Sample</h3>
-        <button v-if="!readonly" class="btn btn-secondary btn-sm" @click="addRow('sample', BLANK_SAMPLE)">
-          + Add Row
-        </button>
       </div>
       <!-- Sixteen columns: wider than the pane, so the container scrolls
            sideways rather than the row wrapping into an unreadable block. -->
@@ -382,7 +360,7 @@ const onSampleItem = async (row) => {
               <td><input v-model="row.qty" type="text" class="form-control table-input" :readonly="readonly" /></td>
               <!-- Fetched from the Item, like the doctype's fetch_from. -->
               <td><input v-model="row.uom" type="text" class="form-control table-input readonly" readonly /></td>
-              <td><input v-model="row.attach" type="text" class="form-control table-input" placeholder="/files/…" :readonly="readonly" /></td>
+              <td><FileAttachment v-model="row.attach" :disabled="readonly" /></td>
               <td>
                 <input v-model="row.transfered_to" type="text" list="rd-employees" class="form-control table-input" :readonly="readonly" />
               </td>
@@ -395,6 +373,9 @@ const onSampleItem = async (row) => {
             </tr>
             <tr v-if="!rows('sample').length">
               <td :colspan="readonly ? 17 : 18" class="rd-empty">No samples recorded yet.</td>
+            </tr>
+            <tr v-if="!readonly" class="add-row-tr">
+              <td colspan="18"><AddRow label="Add Sample" @add="addRow('sample', BLANK_SAMPLE)" /></td>
             </tr>
           </tbody>
         </table>

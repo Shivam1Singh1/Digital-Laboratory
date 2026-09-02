@@ -29,7 +29,6 @@ def has_bypass(user: str) -> bool:
 	return bool(BYPASS_ROLES & set(frappe.get_roles(user)))
 
 
-# Kept as a private alias so existing imports keep working.
 _has_bypass = has_bypass
 
 
@@ -37,25 +36,25 @@ def get_user_employee_function(user: str) -> str | None:
 	"""Get the active employee function for a user via their Employee record."""
 	try:
 		employee = frappe.db.get_value(
-			"Employee", {"user_id": user, "status": "Active"}, "name"
+		 "Employee", {"user_id": user, "status": "Active"}, "name"
 		) or frappe.db.get_value("Employee", {"user_id": user}, "name")
 
 		if not employee:
 			return None
 
-		# Get active function mappings from Employee Function Child
+
 		functions = frappe.get_all(
-			"Employee Function Child",
-			filters={
-				"parenttype": "Employee",
-				"parent": employee,
-				"parentfield": "custom_function_code",
-				"active": 1,
-			},
-			pluck="function_code",
+		 "Employee Function Child",
+		 filters={
+		  "parenttype": "Employee",
+		  "parent": employee,
+		  "parentfield": "custom_function_code",
+		  "active": 1,
+		 },
+		 pluck="function_code",
 		)
 
-		# Return the first active function (most common case: one function per employee)
+
 		return functions[0] if functions else None
 	except Exception:
 		return None
@@ -65,11 +64,6 @@ def is_function_head(employee_function: str | None, user: str) -> bool:
 	if not employee_function or not user:
 		return False
 	return frappe.db.get_value("Employee Function", employee_function, "function_head") == user
-
-
-# ---------------------------------------------------------------------------
-# Experiment Template — function-wide visibility
-# ---------------------------------------------------------------------------
 
 
 def get_permission_query_conditions(user: str | None = None) -> str:
@@ -91,7 +85,7 @@ def get_permission_query_conditions(user: str | None = None) -> str:
 	user_func = get_user_employee_function(user)
 	headed_funcs = frappe.get_all("Employee Function", filters={"function_head": user}, pluck="name")
 
-	# Collect all functions this user is part of (as member or head)
+
 	functions = set()
 	if user_func:
 		functions.add(user_func)
@@ -99,7 +93,7 @@ def get_permission_query_conditions(user: str | None = None) -> str:
 		functions.update(headed_funcs)
 
 	if not functions:
-		return "1 = 0"  # No function membership → no access
+		return "1 = 0"
 
 	joined_funcs = ", ".join(frappe.db.escape(f) for f in functions)
 	return f"`tabLab Experiment Template`.`employee_function` IN ({joined_funcs})"
@@ -120,40 +114,25 @@ def has_permission(doc, ptype=None, user=None) -> bool:
 	if has_bypass(user):
 		return True
 
-	# Function membership check: user must be in the same function
+
 	employee_function = doc.get("employee_function")
 	user_func = get_user_employee_function(user)
 
-	# Allow access if user is in this function
+
 	if user_func and user_func == employee_function:
 		return True
 
-	# Allow access if user heads this function
+
 	if is_function_head(employee_function, user):
 		return True
 
-	# No access: different function
+
 	return False
 
 
-# ---------------------------------------------------------------------------
-# Experiment Team — head isolation
-# ---------------------------------------------------------------------------
-
-
-# Read-ish actions a participant may perform on the team that authorises them.
-# Anything not listed here (write, create, delete, submit, …) stays head-only.
 PARTICIPANT_READ_PTYPES = {"read", "print", "email", "share", "select", "report", "export"}
 
-# Experiment Team.status. Archiving closes a team for new work without deleting
-# it: it leaves the pickers, stops authorising new Lab Experiments, and drops off
-# its participants' team lists. The owner/head keeps seeing it, because somebody
-# has to be able to reopen it.
-#
-# They live here rather than on the doctype controller because permissions.py is
-# the one module every consumer of the rule already imports - the controller,
-# experiment_access and the team API all depend on it, and none of them depend on
-# each other. Defining them the other way round would be a cycle.
+
 STATUS_ACTIVE = "Active"
 STATUS_ARCHIVED = "Archived"
 TEAM_STATUSES = (STATUS_ACTIVE, STATUS_ARCHIVED)
@@ -161,10 +140,10 @@ TEAM_STATUSES = (STATUS_ACTIVE, STATUS_ARCHIVED)
 
 def _teams_where_participant(user: str) -> list[str]:
 	return frappe.get_all(
-		"Experiment Team Participant",
-		filters={"parenttype": "Experiment Team", "user": user},
-		pluck="parent",
-		ignore_permissions=True,
+	 "Experiment Team Participant",
+	 filters={"parenttype": "Experiment Team", "user": user},
+	 pluck="parent",
+	 ignore_permissions=True,
 	)
 
 
@@ -194,8 +173,8 @@ def get_team_permission_query_conditions(user: str | None = None) -> str:
 	if teams:
 		joined = ", ".join(frappe.db.escape(t) for t in teams)
 		clauses.append(
-			f"(`tabExperiment Team`.`name` in ({joined})"
-			f" and `tabExperiment Team`.`status` = {frappe.db.escape(STATUS_ACTIVE)})"
+		 f"(`tabExperiment Team`.`name` in ({joined})"
+		 f" and `tabExperiment Team`.`status` = {frappe.db.escape(STATUS_ACTIVE)})"
 		)
 
 	return f"({' or '.join(clauses)})"
@@ -224,7 +203,7 @@ def is_team_active(doc) -> bool:
 def is_team_participant(doc, user: str) -> bool:
 	rows = doc.get("participants") if hasattr(doc, "get") else None
 
-	# An in-memory doc carries its rows; a bare reference needs a lookup.
+
 	if rows:
 		return any(getattr(r, "user", None) == user for r in rows)
 
@@ -233,10 +212,10 @@ def is_team_participant(doc, user: str) -> bool:
 		return False
 
 	return bool(
-		frappe.db.exists(
-			"Experiment Team Participant",
-			{"parenttype": "Experiment Team", "parent": name, "user": user},
-		)
+	 frappe.db.exists(
+	  "Experiment Team Participant",
+	  {"parenttype": "Experiment Team", "parent": name, "user": user},
+	 )
 	)
 
 
@@ -257,22 +236,11 @@ def has_team_permission(doc, ptype=None, user=None) -> bool:
 	if doc.owner == user:
 		return True
 
-	# `ptype` is None on some generic checks — treat that as a read.
+
 	if (ptype or "read") in PARTICIPANT_READ_PTYPES and ptype not in ("write", "save", "delete"):
 		return is_team_active(doc) and is_team_participant(doc, user)
 
 	return False
-
-
-# ---------------------------------------------------------------------------
-# Lab Experiment / Experiment — isolation & lead hierarchy
-# ---------------------------------------------------------------------------
-#
-# The rules are identical for the code-based `Lab Experiment` and the legacy
-# `Experiment` it replaces, so they are written once against a table name and
-# registered twice in hooks.py. Legacy stays registered deliberately: it still
-# holds data, and dropping its hook would make every legacy record readable by
-# any Employee until it is retired.
 
 
 def _experiment_query_conditions(table: str, user: str) -> str:
@@ -288,19 +256,19 @@ def _experiment_query_conditions(table: str, user: str) -> str:
 		clauses.append(f"`tab{table}`.`employee_function` in ({joined_funcs})")
 
 	participant_teams = frappe.get_all(
-		"Experiment Team Participant",
-		filters={"parenttype": "Experiment Team", "user": user},
-		pluck="parent",
-		ignore_permissions=True,
+	 "Experiment Team Participant",
+	 filters={"parenttype": "Experiment Team", "user": user},
+	 pluck="parent",
+	 ignore_permissions=True,
 	)
 
 	active_projects = []
 	if participant_teams:
 		active_projects = frappe.get_all(
-			"Experiment Team",
-			filters={"name": ("in", participant_teams)},
-			pluck="project",
-			ignore_permissions=True,
+		 "Experiment Team",
+		 filters={"name": ("in", participant_teams)},
+		 pluck="project",
+		 ignore_permissions=True,
 		)
 
 	participant_clauses = [f"`tab{table}`.`owner` = {frappe.db.escape(user)}"]
@@ -337,7 +305,7 @@ def has_experiment_permission(doc, ptype=None, user=None) -> bool:
 	"""
 	user = user or frappe.session.user
 
-	# Approved lock on delete for everyone
+
 	is_approved = doc.get("workflow_state") == "Approved" or doc.get("status") == "Approved"
 	if is_approved and ptype == "delete":
 		return False
@@ -345,39 +313,34 @@ def has_experiment_permission(doc, ptype=None, user=None) -> bool:
 	if has_bypass(user):
 		return True
 
-	# Approved lock on writes for everyone
+
 	if is_approved and ptype in ("write", "save", "delete"):
 		return False
 
-	# Lead has access pre-approval
+
 	employee_function = doc.get("employee_function")
 	if is_function_head(employee_function, user):
 		return True
 
-	# Participant check: owner AND active project member
+
 	if (doc.owner or "") == user:
 		project = doc.get("project")
 		if project:
 			participant_teams = frappe.get_all(
-				"Experiment Team Participant",
-				filters={"parenttype": "Experiment Team", "user": user},
-				pluck="parent",
-				ignore_permissions=True,
+			 "Experiment Team Participant",
+			 filters={"parenttype": "Experiment Team", "user": user},
+			 pluck="parent",
+			 ignore_permissions=True,
 			)
 			if participant_teams:
 				is_active_project = frappe.db.exists(
-					"Experiment Team",
-					{"name": ("in", participant_teams), "project": project}
+				 "Experiment Team",
+				 {"name": ("in", participant_teams), "project": project}
 				)
 				if is_active_project:
 					return True
-					
+
 	return False
-
-
-# ---------------------------------------------------------------------------
-# Sample — parent experiment authorization
-# ---------------------------------------------------------------------------
 
 
 def get_sample_permission_query_conditions(user: str | None = None) -> str:
@@ -403,7 +366,7 @@ def has_sample_permission(doc, ptype=None, user=None) -> bool:
 		return True
 
 	if not frappe.db.exists("Lab Experiment", experiment):
-		# Sample rows created against the legacy parent before the cut-over.
+
 		return True
 
 	exp_doc = frappe.get_doc("Lab Experiment", experiment)

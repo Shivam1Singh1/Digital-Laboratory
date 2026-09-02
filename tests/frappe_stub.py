@@ -13,7 +13,7 @@ does not implement raises rather than silently returning a Mock that makes an
 assertion pass for the wrong reason.
 
 Tests that genuinely need the database belong in the doctype test files and run
-under `bench run-tests`; they are a different thing from this.
+under the site-backed suite; they are a different thing from this.
 """
 
 import sys
@@ -80,7 +80,7 @@ class _DB:
 	def __getattr__(self, name):
 		def _unstubbed(*args, **kwargs):
 			raise AssertionError(
-				f"frappe.db.{name}() was called but this test did not stub it"
+			 f"frappe.db.{name}() was called but this test did not stub it"
 			)
 
 		return _unstubbed
@@ -89,7 +89,7 @@ class _DB:
 def install():
 	"""Put the stub into sys.modules. Idempotent."""
 	if isinstance(sys.modules.get("frappe"), types.ModuleType) and getattr(
-		sys.modules["frappe"], "_is_elab_test_stub", False
+	 sys.modules["frappe"], "_is_elab_test_stub", False
 	):
 		return sys.modules["frappe"]
 
@@ -108,9 +108,7 @@ def install():
 	session = types.SimpleNamespace(user="tester@example.com")
 	frappe.session = session
 
-	# frappe.model.document.Document - a bare base class. The controllers only
-	# need something to inherit from; none of the logic under test calls up into
-	# Frappe's Document.
+
 	model = types.ModuleType("frappe.model")
 	document = types.ModuleType("frappe.model.document")
 
@@ -121,7 +119,7 @@ def install():
 	model.document = document
 	frappe.model = model
 
-	# frappe.utils - only the handful the controllers import.
+
 	utils = types.ModuleType("frappe.utils")
 
 	def cint(value, default=0):

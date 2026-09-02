@@ -3,19 +3,13 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  /* Was height:100vh + overflow:hidden. The pane is already 100vh minus the
-     56px top bar, so a full-viewport child overflowed it AND hid the overflow,
-     making the tail of the form unreachable. */
+
   flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
 
-/* Tabs Selection */
-/* Wraps rather than scrolls. A Sub Sub Experiment on the detail view carries ten
-   tabs - the four defaults, the four template-only ones, Samples and History -
-   and at that count a horizontal scroller hides the last two behind an edge with
-   no visible affordance. A second row is plainly there. */
+
 .form-tabs-row {
   display: flex;
   flex-wrap: wrap;
@@ -32,7 +26,7 @@
   color: var(--text-muted);
   font-size: var(--fs-xl);
   font-weight: var(--fw-semibold);
-  /* Never compressed to fit: a squeezed label is harder to read than a wrap. */
+
   flex-shrink: 0;
   padding: 1rem 1.5rem;
   cursor: pointer;
@@ -63,7 +57,7 @@
   border-radius: 2px;
 }
 
-/* Content panes */
+
 .tab-content {
   flex: 1;
   overflow-y: auto;
@@ -137,12 +131,12 @@
   flex: 1;
 }
 
-/* Single form-group in a row should take full width */
+
 .pane-grid > .form-group {
   grid-column: 1 / -1;
 }
 
-/* Template Details Section */
+
 .template-details-section {
   display: flex;
   flex-direction: column;
@@ -168,7 +162,7 @@
   margin: 0;
 }
 
-/* Checklist step styling */
+
 .protocol-steps-list {
   display: flex;
   flex-direction: column;
@@ -242,7 +236,7 @@
   border: 1px dashed var(--border);
 }
 
-/* Table inputs */
+
 .table-input {
   padding: 0.35rem 0.5rem;
   font-size: var(--fs-md);
@@ -268,7 +262,7 @@
   text-align: center;
 }
 
-/* Read-only Table Cell */
+
 .readonly-cell {
   padding: 0.75rem !important;
   background-color: var(--bg-elevated);
@@ -280,7 +274,7 @@
   border-radius: 4px;
 }
 
-/* Search Field Styling */
+
 .search-field-wrapper {
   position: relative;
 }
@@ -329,7 +323,7 @@
   margin-top: 0.25rem;
 }
 
-/* Template Row Styling */
+
 .template-row {
   background-color: color-mix(in srgb, var(--accent) 5%, transparent);
   opacity: 0.9;
@@ -347,7 +341,7 @@
   box-shadow: none;
 }
 
-/* History Row Styling */
+
 .history-row {
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 4%, transparent) 0%, transparent 100%);
   border-top: 1px dashed color-mix(in srgb, var(--accent) 20%, transparent) !important;
@@ -365,7 +359,6 @@
 }
 
 
-/* Form Controls Styling */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -430,7 +423,7 @@ textarea.form-control.readonly:focus {
   background-color: var(--bg-surface);
 }
 
-/* Page Header Styling */
+
 .page-header {
   display: flex;
   align-items: flex-start;
@@ -492,7 +485,7 @@ textarea.form-control.readonly:focus {
   margin: 0;
 }
 
-/* Card styling */
+
 .card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
@@ -505,7 +498,7 @@ textarea.form-control.readonly:focus {
   overflow: hidden;
 }
 
-/* Buttons */
+
 .btn {
   padding: 0.875rem 1.75rem;
   border: none;
@@ -546,19 +539,14 @@ textarea.form-control.readonly:focus {
   transform: none;
 }
 
-/* .imported-row-lock is defined once in ExperimentDetail.css - these stylesheets
-   are plain global imports, so both forms pick it up. */
 
-/* The team-originated create path refuses to continue without a notebook, so the
-   hint has to read as a blocker rather than an aside. */
 .field-hint-error {
   color: var(--danger);
   font-style: normal;
   font-weight: var(--fw-semibold);
 }
 
-/* Recovery actions shown under the ELab Notebook field when the team-flow block
-   fires. Sits with the error hint, not the form's main action row. */
+
 .team-recovery {
   display: flex;
   flex-wrap: wrap;
@@ -571,16 +559,7 @@ textarea.form-control.readonly:focus {
   text-decoration: none;
 }
 
-/* Experiment Hierarchy tab: category + the child-experiment picker.
- *
- * The pane's frame (.meta-card / .pane-subtitle / .stacked-field) is the same
- * one the Observation pane uses, so only the picker's own parts are styled here.
- *
- * Own class prefix rather than reusing `.candidate*` from TeamSetup.css. Every
- * component's CSS here is imported globally, so a shared name resolves to
- * whichever file the bundler emitted last - which is how the team dialog's
- * filter input ended up 320px tall.
- */
+
 .hierarchy-status,
 .hierarchy-empty {
   margin-top: 0.6rem;

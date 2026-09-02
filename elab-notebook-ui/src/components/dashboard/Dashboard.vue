@@ -11,12 +11,12 @@ const templatesData = ref([])
 const teamsData = ref([])
 const loading = ref(true)
 
-// Pagination state
+
 const templatesCurrentPage = ref(0)
 const teamsCurrentPage = ref(0)
 const itemsPerPage = 5
 
-// Computed properties for pagination
+
 const templatesPageCount = computed(() => Math.ceil(templatesData.value.length / itemsPerPage))
 const teamsPageCount = computed(() => Math.ceil(teamsData.value.length / itemsPerPage))
 
@@ -32,7 +32,7 @@ const paginatedTeams = computed(() => {
   return teamsData.value.slice(start, end)
 })
 
-// Pagination handlers
+
 const nextTemplatesPage = () => {
   if (templatesCurrentPage.value < templatesPageCount.value - 1) {
     templatesCurrentPage.value++
@@ -100,12 +100,12 @@ onMounted(() => {
 
     <!-- Restructured Entity Blocks -->
     <div class="dashboard-blocks-container">
-      <EntityStatsBlock 
-        entityName="Experiment Templates" 
-        doctype="Lab Experiment Template" 
-        statusField="status" 
+      <EntityStatsBlock
+        entityName="Experiment Templates"
+        doctype="Lab Experiment Template"
+        statusField="status"
       />
-      
+
       <!-- `status`, not `docstatus`: Experiment Team is not submittable, so the
            docstatus buckets read Draft / Submitted / Cancelled with every team
            filed under Draft forever. Active / Archived is the distinction this
@@ -117,17 +117,17 @@ onMounted(() => {
         doctype="Experiment Team"
         statusField="status"
       />
-      
-      <EntityStatsBlock 
-        entityName="Experiments" 
-        doctype="Lab Experiment" 
-        statusField="workflow_state" 
+
+      <EntityStatsBlock
+        entityName="Experiments"
+        doctype="Lab Experiment"
+        statusField="workflow_state"
       />
-      
-      <EntityStatsBlock 
-        entityName="Instruments" 
-        doctype="Workstation" 
-        statusField="status" 
+
+      <EntityStatsBlock
+        entityName="Instruments"
+        doctype="Workstation"
+        statusField="status"
       />
     </div>
 

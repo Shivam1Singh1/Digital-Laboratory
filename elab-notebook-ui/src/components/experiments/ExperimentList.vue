@@ -33,7 +33,7 @@ const fetchExperiments = async () => {
       params: {
         project: userStore.currentProject,
         workflow_state: statusFilter.value || undefined,
-        // Blank means every level, so it is dropped rather than sent as ''.
+
         experiment_category: categoryFilter.value || undefined
       }
     })
@@ -50,9 +50,7 @@ const navigateToDetail = (id) => {
   router.push(`/experiments/${encodeURIComponent(id)}`)
 }
 
-// Fills the type filter, so the four levels and their order come from
-// api/hierarchy rather than being retyped as a literal list here - the filter
-// cannot drift out of step with the hierarchy the server enforces.
+
 const categoryOptions = ref([])
 
 const loadCategoryOptions = async () => {
@@ -67,25 +65,12 @@ const loadCategoryOptions = async () => {
   }
 }
 
-// A run started from nothing. The level is left blank for the author to pick:
-// this used to open pre-set to the root level, which put
-// ?experiment_category=Master+Experiment in the URL and had the form open on a
-// choice nobody had made. Starting from the list does not imply starting at the
-// top of the tree - the form's own picker is where the level gets decided.
-//
-// The other entry points still seed it, and should: the tree's Add Child button
-// and a run's own Create button both start a *specific* level below a known
-// parent, which is a level the user has effectively already chosen.
-//
-// It opens the create form directly. There is no setup dialog in front of it any
-// more: Project and Employee Function are fields on the form itself, the latter
-// resolved from the signed-in user, so there is nothing left for an intermediate
-// step to collect.
+
 const startNewExperiment = () => {
   router.push('/experiments/new')
 }
 
-// Watchers
+
 watch(() => userStore.currentProject, () => {
   currentPage.value = 1
   fetchExperiments()
@@ -195,9 +180,9 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr 
-              v-for="exp in paginatedExperiments" 
-              :key="exp.name" 
+            <tr
+              v-for="exp in paginatedExperiments"
+              :key="exp.name"
               class="clickable-row"
               @click="navigateToDetail(exp.name)"
             >
@@ -213,13 +198,13 @@ onMounted(() => {
                 {{ exp.experiment_category || '—' }}
               </td>
               <td>
-                <span 
+                <span
                   class="status-pill"
                   :class="getWorkflowStateClass(exp.workflow_state)"
                 >
                   {{ exp.workflow_state || 'Draft' }}
                 </span>
-                <span 
+                <span
                   v-if="exp.experiment_status"
                   class="status-pill"
                   :class="getExperimentStatusClass(exp.experiment_status)"
@@ -236,9 +221,9 @@ onMounted(() => {
 
       <!-- Pagination Controls -->
         <div v-if="totalPages > 1" class="pagination-controls" style="display: flex; align-items: center; justify-content: center; gap: 1rem; margin-top: 1.5rem; padding-bottom: 0.5rem;">
-          <button 
-            class="btn btn-secondary btn-sm" 
-            :disabled="currentPage === 1" 
+          <button
+            class="btn btn-secondary btn-sm"
+            :disabled="currentPage === 1"
             @click="currentPage--"
           >
             Previous
@@ -246,9 +231,9 @@ onMounted(() => {
           <span class="pagination-info" style="font-size: var(--fs-lg); color: var(--text-muted); font-weight: var(--fw-medium);">
             Page {{ currentPage }} of {{ totalPages }}
           </span>
-          <button 
-            class="btn btn-secondary btn-sm" 
-            :disabled="currentPage === totalPages" 
+          <button
+            class="btn btn-secondary btn-sm"
+            :disabled="currentPage === totalPages"
             @click="currentPage++"
           >
             Next

@@ -6,7 +6,7 @@
   overflow: hidden;
 }
 
-/* Sidebar Layout */
+
 .left-sidebar {
   width: 216px;
   min-width: 216px;
@@ -26,15 +26,7 @@
   pointer-events: none;
 }
 
-/* Kept in lockstep with .top-bar's height - the logo block and the search row
-   sit side by side, so they share a baseline. */
-/* A router-link, not a div: the masthead is the way back to the Dashboard.
- *
- * `color` and `text-decoration` are reset explicitly because style.css paints
- * every bare <a> in accent violet and re-tints it on :hover - which on this
- * element would recolour the product name the moment the pointer crossed it.
- * The children set their own colours, so inherit here simply means "leave them
- * alone". */
+
 .sidebar-header {
   height: 46px;
   min-height: 46px;
@@ -53,14 +45,12 @@
   background-color: var(--bg-elevated);
 }
 
-/* Enough of a change to read as clickable without the masthead flashing a
-   different colour every time the pointer passes over it on its way to the nav. */
+
 .sidebar-header:hover .app-name {
   color: var(--accent);
 }
 
-/* Inset, because the header sits flush against the sidebar's own edge and an
-   outward ring would be clipped by it. */
+
 .sidebar-header:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
@@ -267,7 +257,7 @@
   text-overflow: ellipsis;
 }
 
-/* Main Workspace */
+
 .main-workspace {
   flex: 1;
   display: flex;
@@ -276,11 +266,9 @@
   overflow: hidden;
 }
 
-/* Top Bar */
+
 .top-bar {
-  /* Every control on the bar shares this height so tops/bottoms line up - and
-     so the whole bar can be resized from these two values alone. Keep
-     .sidebar-header's height in step with the bar height. */
+
   --topbar-control-h: 30px;
   height: 46px;
   min-height: 46px;
@@ -294,7 +282,7 @@
   gap: 1rem;
 }
 
-/* Toggle + search travel together on the left; everything stays on one row */
+
 .top-bar-left {
   display: flex;
   align-items: center;

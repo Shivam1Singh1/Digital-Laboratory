@@ -1,14 +1,7 @@
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-# Template Ingredient / Parameter / Protocol Step are created at runtime by
-# api/user.py setup_db() and have no doctype JSON in this app to extend, so the
-# flag has to go on as a Custom Field. The other three tables in scope
-# (Material Required CT, Methodology CT, Lab Experiment Equipment CT) declare it
-# natively in their JSON.
-#
-# These three are SHARED with Experiment Template. Its own rows keep the default
-# 0 and nothing reads the flag there, so the column is inert on that side.
+
 DOCTYPES = ["Template Ingredient", "Template Parameter", "Template Protocol Step"]
 
 FIELD = {

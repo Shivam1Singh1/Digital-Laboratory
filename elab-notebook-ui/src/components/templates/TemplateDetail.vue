@@ -28,17 +28,17 @@ const loading = ref(false)
 const saving = ref(false)
 const formError = ref('')
 
-// Dirty state tracking
+
 const isDirty = ref(false)
 const initialFormState = ref({})
 
-// Workflow state and actions
+
 const workflowState = ref('')
 const workflowActions = ref([])
 const loadingWorkflowActions = ref(false)
 const runningWorkflowAction = ref(false)
 
-// Button visibility logic based on workflow and dirty state
+
 const isReadOnly = computed(() => {
   const state = workflowState.value
   return state === 'Approved' || state === 'Pending from System Manager' || state === 'Pending For Approval'
@@ -51,21 +51,21 @@ const showSaveButton = computed(() => {
 })
 
 const showWorkflowActions = computed(() => {
-  // Show workflow actions only when not dirty and not in new state
+
   return !isDirty.value && !isNew.value
 })
 
 const showStatusBadge = computed(() => {
   return !isNew.value && workflowState.value !== 'Draft'
 })
-// --- Section 1: General Info
+
 const docName = ref('')
 const title = ref('')
 const type = ref('')
 const description = ref('')
 const disable = ref(0)
 
-// --- Section 2: Ownership
+
 const employeeFunction = ref('')
 const headName = ref('')
 const allowedRoles = ref('')
@@ -73,17 +73,12 @@ const project = ref('')
 const projectId = ref('')
 const remark = ref('')
 
-// Read-only creator identity. Never posted back on save: the server discards a
-// submitted employee_code anyway, and validate_creator_identity_locked refuses a
-// change once one is stored.
+
 const createdBy = ref('')
 const creatorName = ref('')
 const createdOn = ref('')
 
-// Templates made before these fields existed carry a blank created_by. Those say
-// so plainly rather than rendering an empty box - the record is not broken, it
-// simply predates the stamp. The name is shown with the user id behind it when
-// both are known, since the id alone reads as an email and not as a person.
+
 const creatorDisplay = computed(() => {
   if (!createdBy.value) return 'Not recorded — created before this was tracked'
   return creatorName.value ? `${creatorName.value} (${createdBy.value})` : createdBy.value
@@ -93,23 +88,19 @@ const createdOnDisplay = computed(() =>
   createdOn.value ? formatAuditDate(createdOn.value) : '—'
 )
 
-// --- Section 3: Objective
+
 const activeTab = ref('ownership')
 const aim = ref('')
 const subAim = ref('')
 const rationale = ref('')
 
-// --- Sections 4-8: child tables + free-form fields
+
 const materialRequired = ref([])
 const equipmentDetails = ref([])
 const methodology = ref([])
 const methodologyComments = ref('')
-// Structured protocol steps. ExperimentForm copies these into a run's
-// experiment_protocol_steps. The table that used to author them was removed from
-// the Methodology tab, but the rows are still loaded and sent back on save: the
-// field is part of the save payload, so dropping it here would blank the steps of
-// every template that already has them the next time someone hits Save. The
-// free-form Protocol field below is what authors use now.
+
+
 const protocolSteps = ref([])
 const steps = ref('')
 const observationComments = ref('')
@@ -146,16 +137,14 @@ const loadHistory = async () => {
   }
 }
 
-// Server-computed total, refreshed from the response after every save.
+
 const storedTotalDuration = ref(0)
 
-// Live preview while rows are being edited. The authoritative value is the one
-// validate() writes on the server — this is UX only.
+
 const liveTotalDuration = computed(() =>
   methodology.value.reduce((sum, row) => sum + (Number(row.time_to_complete) || 0), 0)
 )
 
-// ---------------------------------------------------------------- data loading
 
 const resetForm = () => {
   docName.value = ''
@@ -252,11 +241,7 @@ const applyDoc = (data) => {
   projectId.value = data.project_id || data.project || ''
   remark.value = data.remark || ''
 
-  // Stamped by ExperimentTemplate.set_creator_identity at insert and fixed after,
-  // so these are displayed and never edited. Read from the stored created_by /
-  // created_on rather than Frappe's `owner` / `creation`: those are what the
-  // doctype now records deliberately, and they are the fields the desk form
-  // shows too. employee_name is kept only as the friendly label for created_by.
+
   createdBy.value = data.created_by || ''
   creatorName.value = data.employee_name || ''
   createdOn.value = data.created_on || ''
@@ -279,12 +264,7 @@ const applyDoc = (data) => {
   captureInitialState()
 }
 
-// Two independent grants feed the same button row:
-//   - role-based transitions from the workflow (System Manager, Employee, ...)
-//   - the review actions delegated to the head of this template's Employee Function
-// They are fetched together and merged by action name. Each request swallows its own
-// failure so a problem with one source can never remove the other's buttons - the
-// function-head grant is strictly additive to what System Manager already sees.
+
 const fetchWorkflowActions = async () => {
   if (isNew.value || !docName.value) {
     workflowActions.value = []
@@ -323,9 +303,7 @@ const fetchWorkflowActions = async () => {
   }
 }
 
-// `act` carries where the grant came from, so an action the user only holds as
-// function head is applied through the endpoint that checks that - the default
-// workflow endpoint would reject it on the System Manager role gate.
+
 const runWorkflowAction = async (act) => {
   if (isNew.value || !docName.value) return
   runningWorkflowAction.value = true
@@ -399,10 +377,6 @@ const fetchTemplateDetail = async () => {
 }
 
 
-// ------------------------------------------------------------- link behaviour
-
-// The employee picks their Employee Function first; Projects are then scoped to
-// the projects mapped to that function.
 const myFunctions = ref([])
 const functionsLoaded = ref(false)
 
@@ -437,12 +411,10 @@ const projectHint = computed(() =>
     : 'Select an Employee Function first'
 )
 
-// Only a small minority of Projects carry a department, whereas every Employee
-// Function does — so the function's department is the fallback rather than
-// leaving the field empty.
+
 const functionDepartment = ref('')
 
-// Head Name mirrors the function's head — never typed by hand.
+
 const applyHeadName = (opt) => {
   headName.value = opt ? opt.function_head_name || '' : ''
   functionDepartment.value = opt ? opt.department || '' : ''
@@ -450,8 +422,8 @@ const applyHeadName = (opt) => {
 
 const onEmployeeFunctionSelect = (opt) => {
   applyHeadName(opt)
-  // A Project is only valid for the function it is mapped to, so a stale
-  // selection must not survive a function change.
+
+
   project.value = ''
   projectId.value = ''
   allowedRoles.value = ''
@@ -459,13 +431,12 @@ const onEmployeeFunctionSelect = (opt) => {
 
 const onProjectSelect = (opt) => {
   projectId.value = opt ? opt.project_name || opt.name : ''
-  // Department follows the Project. The option already carries it, so no
-  // second round trip is needed.
+
+
   allowedRoles.value = opt ? opt.department || functionDepartment.value || '' : ''
 }
 
-// Load the signed-in employee's functions once, and pre-select when there is
-// exactly one — an unambiguous answer shouldn't need a click.
+
 const loadMyFunctions = async () => {
   try {
     const res = await axios.get(
@@ -486,8 +457,7 @@ const loadMyFunctions = async () => {
   }
 }
 
-// On an existing doc the function is already set, so back-fill the head name
-// from the loaded list rather than leaving the read-only field blank.
+
 watch([employeeFunction, myFunctions], () => {
   if (!employeeFunction.value || headName.value) return
   const match = myFunctions.value.find((f) => f.name === employeeFunction.value)
@@ -499,7 +469,6 @@ const onItemSelect = (row, opt) => {
   row.uom = opt ? opt.stock_uom || '' : ''
 }
 
-// ------------------------------------------------------------------ row edits
 
 const addMaterialRow = () =>
   materialRequired.value.push({ item_code: '', item_name: '', uom: '', qty: 0 })
@@ -516,11 +485,10 @@ const addMethodologyRow = () =>
 
 const removeRow = (rows, idx) => rows.splice(idx, 1)
 
-// ---------------------------------------------------------------------- saving
 
 const rowPayload = (row, fields) => {
-  // Carrying `name` through lets Frappe update the existing child row instead of
-  // dropping and recreating it.
+
+
   const out = row.name ? { name: row.name } : {}
   fields.forEach((f) => {
     out[f] = row[f]
@@ -601,8 +569,8 @@ const saveTemplate = async () => {
 
   saving.value = true
   try {
-    // Standard REST insert/update, so the doctype's own validate() runs with the
-    // caller's permissions rather than being bypassed.
+
+
     const payload = buildPayload()
     const res = isNew.value
       ? await axios.post(`/api/resource/${encodeURIComponent(DOCTYPE)}`, payload)
@@ -629,7 +597,7 @@ const saveTemplate = async () => {
   }
 }
 
-// Watch for form field changes to set dirty state
+
 watch([
   title,
   type,
@@ -649,7 +617,7 @@ watch([
   checkFormDirty()
 }, { immediate: false })
 
-// Deep watch for array changes
+
 watch([materialRequired, equipmentDetails, methodology], () => {
   checkFormDirty()
 }, { deep: true, immediate: false })
@@ -767,9 +735,9 @@ onMounted(async () => {
     <div v-else class="detail-layout">
       <!-- 5-Tab Bar -->
       <div class="template-tabs-row">
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'ownership' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'ownership' }"
           @click="activeTab = 'ownership'"
         >
           <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -778,9 +746,9 @@ onMounted(async () => {
           </svg>
           Ownership
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'objective' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'objective' }"
           @click="activeTab = 'objective'"
         >
           <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -790,9 +758,9 @@ onMounted(async () => {
           </svg>
           Objective
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'requirements' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'requirements' }"
           @click="activeTab = 'requirements'"
         >
           <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -801,9 +769,9 @@ onMounted(async () => {
           </svg>
           Requirements
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'methodology' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'methodology' }"
           @click="activeTab = 'methodology'"
         >
           <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -811,9 +779,9 @@ onMounted(async () => {
           </svg>
           Methodology
         </button>
-        <button 
-          class="tab-btn" 
-          :class="{ active: activeTab === 'observation' }" 
+        <button
+          class="tab-btn"
+          :class="{ active: activeTab === 'observation' }"
           @click="activeTab = 'observation'"
         >
           <svg class="tab-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1200,7 +1168,7 @@ onMounted(async () => {
         <!-- AUDIT HISTORY LOG -->
         <section class="meta-card" style="margin-top: 1.5rem;" v-if="!isNew">
           <h3 class="section-title">Audit History Log (Timing, Editor, Changes)</h3>
-          
+
           <div class="history-timeline">
             <div v-for="ver in historyList" :key="ver.name" class="timeline-item">
               <div class="timeline-dot"></div>
@@ -1209,12 +1177,12 @@ onMounted(async () => {
                   <span class="timeline-author">Edited by: <strong>{{ ver.owner }}</strong></span>
                   <span class="timeline-time">{{ ver.creation?.split('.')[0] }}</span>
                 </div>
-                
+
                 <!-- If fields changed -->
                 <ul class="timeline-changes" v-if="ver.parsedData && ver.parsedData.changed && ver.parsedData.changed.length > 0">
                   <li v-for="(change, cIdx) in ver.parsedData.changed" :key="cIdx">
-                    Field <strong>{{ change[0] }}</strong> updated: 
-                    <span class="old-val">"{{ change[1] || 'Empty' }}"</span> &rarr; 
+                    Field <strong>{{ change[0] }}</strong> updated:
+                    <span class="old-val">"{{ change[1] || 'Empty' }}"</span> &rarr;
                     <span class="new-val">"{{ change[2] || 'Empty' }}"</span>
                   </li>
                 </ul>
@@ -1228,7 +1196,7 @@ onMounted(async () => {
                     Removed rows from child tables
                   </li>
                 </ul>
-                
+
                 <!-- Fallback description -->
                 <p class="timeline-desc" v-if="!ver.parsedData || (!ver.parsedData.changed && !ver.parsedData.added && !ver.parsedData.removed)">
                   Updated template settings.

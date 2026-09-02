@@ -1,16 +1,12 @@
 """Database-free tests for the app's pure logic.
 
-Run with:
-
-    python3 -m unittest discover -s tests -v
-
-from the app root. No site, no database, no bench - which is the point: these
-cover the rules that are easiest to break and cheapest to check, so there is no
-excuse not to run them.
+The run command is in elab-notebook-ui/README.md under "Useful Commands". No
+site, no database, no bench - which is the point: these cover the rules that are
+easiest to break and cheapest to check, so there is no excuse not to run them.
 
 Scope is deliberately limited to logic that is genuinely pure. Anything that
-needs permissions, a workflow or real records belongs under `bench run-tests`
-against a site.
+needs permissions, a workflow or real records belongs under the site-backed
+suite.
 """
 
 import os
@@ -19,12 +15,12 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests import frappe_stub  # noqa: E402
+from tests import frappe_stub
 
 frappe = frappe_stub.install()
 
-from elab_notebook.elab_notebook.api import hierarchy  # noqa: E402
-from elab_notebook.elab_notebook.doctype.lab_experiment_template import (  # noqa: E402
+from elab_notebook.elab_notebook.api import hierarchy
+from elab_notebook.elab_notebook.doctype.lab_experiment_template import (
 	lab_experiment_template as template_mod,
 )
 
@@ -34,13 +30,13 @@ class TestCategoryLadder(unittest.TestCase):
 
 	def test_ladder_is_four_levels_top_down(self):
 		self.assertEqual(
-			hierarchy.CATEGORIES,
-			(
-				"Master Experiment",
-				"Experiment",
-				"Sub Experiment",
-				"Sub Sub Experiment",
-			),
+		 hierarchy.CATEGORIES,
+		 (
+		  "Master Experiment",
+		  "Experiment",
+		  "Sub Experiment",
+		  "Sub Sub Experiment",
+		 ),
 		)
 		self.assertEqual(hierarchy.ROOT_CATEGORY, "Master Experiment")
 		self.assertEqual(hierarchy.LEAF_CATEGORY, "Sub Sub Experiment")
@@ -49,7 +45,7 @@ class TestCategoryLadder(unittest.TestCase):
 		self.assertEqual(hierarchy.child_category_of("Master Experiment"), "Experiment")
 		self.assertEqual(hierarchy.child_category_of("Experiment"), "Sub Experiment")
 		self.assertEqual(
-			hierarchy.child_category_of("Sub Experiment"), "Sub Sub Experiment"
+		 hierarchy.child_category_of("Sub Experiment"), "Sub Sub Experiment"
 		)
 
 	def test_the_leaf_adopts_nothing(self):
@@ -59,8 +55,8 @@ class TestCategoryLadder(unittest.TestCase):
 		self.assertIsNone(hierarchy.parent_category_of("Master Experiment"))
 
 	def test_parent_of_is_the_exact_inverse_of_child_of(self):
-		# Level-skipping is meant to be impossible by construction, so the two
-		# directions must agree at every level rather than only where tested.
+
+
 		for category in hierarchy.CATEGORIES:
 			child = hierarchy.child_category_of(category)
 			if child is not None:
@@ -91,7 +87,7 @@ class TestIndefiniteArticle(unittest.TestCase):
 		self.assertEqual(hierarchy._a("Experiment"), "an Experiment")
 
 	def test_empty_input_does_not_crash(self):
-		# category[:1] on "" is "", which must not raise on the .upper() lookup.
+
 		self.assertEqual(hierarchy._a(""), "a ")
 		self.assertEqual(hierarchy._a(None), "a ")
 
@@ -137,13 +133,13 @@ class TestTemplateNumbering(unittest.TestCase):
 		self.assertEqual(self._suffix_for(["ET-PROJ-001-A0041"]), "A0042")
 
 	def test_takes_the_highest_not_the_last(self):
-		# get_all's order is not guaranteed, so the maximum has to be computed.
+
 		names = ["ET-PROJ-001-A0007", "ET-PROJ-001-A0003", "ET-PROJ-001-A0005"]
 		self.assertEqual(self._suffix_for(names), "A0008")
 
 	def test_the_letter_outranks_the_number(self):
-		# B0001 is later than A9999, so a plain string or numeric compare on the
-		# digits alone would pick the wrong maximum.
+
+
 		names = ["ET-PROJ-001-A9999", "ET-PROJ-001-B0001"]
 		self.assertEqual(self._suffix_for(names), "B0002")
 
@@ -153,19 +149,18 @@ class TestTemplateNumbering(unittest.TestCase):
 
 	def test_malformed_and_legacy_names_are_ignored_not_crashed_on(self):
 		names = [
-			"ET-PROJ-001-A0001",
-			"ET-PROJ-001-",          # empty suffix
-			"legacy-template-name",  # never followed the scheme
-			"ET-PROJ-001-a0002",     # lowercase, not ours
-			"",
-			None,
+		 "ET-PROJ-001-A0001",
+		 "ET-PROJ-001-",
+		 "legacy-template-name",
+		 "ET-PROJ-001-a0002",
+		 "",
+		 None,
 		]
 		self.assertEqual(self._suffix_for(names), "A0002")
 
 	def test_exhausting_the_sequence_says_so_instead_of_producing_a_bad_name(self):
-		# Past Z9999 the old code returned "[0001" - chr(ord("Z") + 1) - which is
-		# not a valid suffix, so the next insert regenerated the same string and
-		# the failure surfaced as a duplicate primary key.
+
+
 		with self.assertRaises(frappe_stub.ValidationError) as caught:
 			self._suffix_for(["ET-PROJ-001-Z9999"])
 		self.assertIn("every template number", str(caught.exception))
@@ -184,8 +179,8 @@ class TestProjectNameFormat(unittest.TestCase):
 		self.assertTrue(self._doc("ET-PROJ-001-A0001").has_project_name_format())
 
 	def test_rejects_a_name_from_a_different_project(self):
-		# Guards the rename path: a template moved between projects must not be
-		# mistaken for one already correctly named.
+
+
 		self.assertFalse(self._doc("ET-OTHER-A0001").has_project_name_format())
 
 	def test_rejects_a_malformed_suffix(self):

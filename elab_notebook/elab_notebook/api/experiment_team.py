@@ -26,7 +26,7 @@ def get_headed_employee_functions(user: str | None = None) -> list[str]:
 	"""Employee Functions where `user` is the function head."""
 	user = user or frappe.session.user
 	return frappe.get_all(
-		"Employee Function", filters={"function_head": user}, pluck="name"
+	 "Employee Function", filters={"function_head": user}, pluck="name"
 	)
 
 
@@ -40,21 +40,20 @@ def get_my_head_context():
 	user = frappe.session.user
 	names = get_headed_employee_functions(user)
 
-	# System Managers have no function of their own but still need to administer,
-	# so they see every function that has a head.
+
 	if not names and has_bypass(user):
 		names = frappe.get_all(
-			"Employee Function", filters={"function_head": ("is", "set")}, pluck="name"
+		 "Employee Function", filters={"function_head": ("is", "set")}, pluck="name"
 		)
 
 	if not names:
 		return {"is_head": False, "functions": []}
 
 	functions = frappe.get_all(
-		"Employee Function",
-		filters={"name": ("in", names)},
-		fields=["name", "function_name", "function_head", "function_head_name"],
-		order_by="name asc",
+	 "Employee Function",
+	 filters={"name": ("in", names)},
+	 fields=["name", "function_name", "function_head", "function_head_name"],
+	 order_by="name asc",
 	)
 
 	return {"is_head": True, "functions": functions}
@@ -70,20 +69,20 @@ def get_function_projects(employee_function: str):
 		return []
 
 	projects = frappe.get_all(
-		"Project",
-		filters={"name": ("in", names)},
-		fields=["name", "project_name"],
-		order_by="name asc",
+	 "Project",
+	 filters={"name": ("in", names)},
+	 fields=["name", "project_name"],
+	 order_by="name asc",
 	)
 
-	# A project can carry many teams now, so report how many rather than which.
+
 	counts = {}
 	for row in frappe.get_all(
-		"Experiment Team",
-		filters={"employee_function": employee_function, "project": ("in", names)},
-		fields=["project", "count(name) as total"],
-		group_by="project",
-		ignore_permissions=True,
+	 "Experiment Team",
+	 filters={"employee_function": employee_function, "project": ("in", names)},
+	 fields=["project", "count(name) as total"],
+	 group_by="project",
+	 ignore_permissions=True,
 	):
 		counts[row.project] = row.total
 
@@ -117,17 +116,17 @@ def save_team(employee_function: str, project: str, participants=None, team_name
 	"""
 	_assert_head(employee_function)
 
-	# Team name is required — user must provide it
+
 	if not team_name or not team_name.strip():
 		frappe.throw(
-			_("Team Name is required. Please provide a friendly label for this team."),
-			title=_("Missing Team Name"),
+		 _("Team Name is required. Please provide a friendly label for this team."),
+		 title=_("Missing Team Name"),
 		)
 
 	participants = _as_dict(participants) or []
 	users = [p.get("user") if isinstance(p, dict) else p for p in participants]
 
-	# Always create a new document — never lookup/update existing teams
+
 	doc = frappe.new_doc("Experiment Team")
 	doc.employee_function = employee_function
 	doc.project = project
@@ -147,11 +146,11 @@ def save_team(employee_function: str, project: str, participants=None, team_name
 	frappe.db.commit()
 
 	return {
-		"name": doc.name,
-		"team_name": doc.team_name,
-		"count": len(doc.participants),
-		"project": doc.project,
-		"created": True,
+	 "name": doc.name,
+	 "team_name": doc.team_name,
+	 "count": len(doc.participants),
+	 "project": doc.project,
+	 "created": True,
 	}
 
 
@@ -172,12 +171,12 @@ def update_team(team_id: str, participants=None, team_name: str | None = None, s
 	doc = frappe.get_doc("Experiment Team", team_id)
 	doc.check_permission("write")
 
-	# Update team_name if provided
+
 	if team_name is not None:
 		if not team_name or not team_name.strip():
 			frappe.throw(
-				_("Team Name cannot be empty."),
-				title=_("Invalid Team Name"),
+			 _("Team Name cannot be empty."),
+			 title=_("Invalid Team Name"),
 			)
 		doc.team_name = team_name.strip()
 
@@ -194,20 +193,19 @@ def update_team(team_id: str, participants=None, team_name: str | None = None, s
 	if cost_center is not None:
 		doc.cost_center = cost_center
 	if status is not None:
-		# Left as given: validate_status() on the controller is what rejects a
-		# value that is neither Active nor Archived, so a bad one fails the same
-		# way whether it arrived from this endpoint or straight over REST.
+
+
 		doc.status = status
 
 	doc.save()
 	frappe.db.commit()
 
 	return {
-		"name": doc.name,
-		"team_name": doc.team_name,
-		"count": len(doc.participants),
-		"project": doc.project,
-		"status": doc.status,
+	 "name": doc.name,
+	 "team_name": doc.team_name,
+	 "count": len(doc.participants),
+	 "project": doc.project,
+	 "status": doc.status,
 	}
 
 
@@ -226,16 +224,16 @@ def get_my_teams():
 	layer agree about what a participant can see.
 	"""
 	user = frappe.session.user
-	# Note: team_name field may not exist in database if migration hasn't run yet
-	# Try to select it, but fall back if column doesn't exist
+
+
 	fields = ["name", "employee_function", "project", "project_id", "modified", "segment", "cost_center", "status"]
 
-	# Try to add team_name if column exists
+
 	try:
 		test_query = frappe.db.sql_list("SELECT team_name FROM `tabExperiment Team` LIMIT 1")
 		fields.insert(1, "team_name")
 	except:
-		# Column doesn't exist yet, will use name as fallback
+
 		pass
 
 	functions = get_headed_employee_functions(user)
@@ -245,38 +243,38 @@ def get_my_teams():
 		headed = {t.name for t in teams}
 	else:
 		headed_teams = (
-			frappe.get_all(
-				"Experiment Team",
-				filters={"employee_function": ("in", functions)},
-				fields=fields,
-				order_by="modified desc",
-			)
-			if functions
-			else []
+		 frappe.get_all(
+		  "Experiment Team",
+		  filters={"employee_function": ("in", functions)},
+		  fields=fields,
+		  order_by="modified desc",
+		 )
+		 if functions
+		 else []
 		)
 		headed = {t.name for t in headed_teams}
 
 		member_names = [
-			n
-			for n in frappe.get_all(
-				"Experiment Team Participant",
-				filters={"parenttype": "Experiment Team", "user": user},
-				pluck="parent",
-				ignore_permissions=True,
-			)
-			if n not in headed
+		 n
+		 for n in frappe.get_all(
+		  "Experiment Team Participant",
+		  filters={"parenttype": "Experiment Team", "user": user},
+		  pluck="parent",
+		  ignore_permissions=True,
+		 )
+		 if n not in headed
 		]
 		member_teams = (
-			frappe.get_all(
-				"Experiment Team",
-				# Participant rows only. The headed list above is deliberately
-				# unfiltered - see the docstring.
-				filters={"name": ("in", member_names), "status": STATUS_ACTIVE},
-				fields=fields,
-				order_by="modified desc",
-			)
-			if member_names
-			else []
+		 frappe.get_all(
+		  "Experiment Team",
+
+
+		  filters={"name": ("in", member_names), "status": STATUS_ACTIVE},
+		  fields=fields,
+		  order_by="modified desc",
+		 )
+		 if member_names
+		 else []
 		)
 
 		teams = headed_teams + member_teams
@@ -287,32 +285,30 @@ def get_my_teams():
 	for t in teams:
 		t["role"] = "head" if t.name in headed else "participant"
 
-	# One query for all rosters rather than one per row. Access to each team was
-	# already established above, so the child rows need no second check.
+
 	rosters = {}
 	for row in frappe.get_all(
-		"Experiment Team Participant",
-		filters={"parenttype": "Experiment Team", "parent": ("in", [t.name for t in teams])},
-		fields=["parent", "full_name", "user"],
-		order_by="idx asc",
-		ignore_permissions=True,
+	 "Experiment Team Participant",
+	 filters={"parenttype": "Experiment Team", "parent": ("in", [t.name for t in teams])},
+	 fields=["parent", "full_name", "user"],
+	 order_by="idx asc",
+	 ignore_permissions=True,
 	):
 		rosters.setdefault(row.parent, []).append(row.full_name or row.user)
 
 	for t in teams:
 		names = rosters.get(t.name, [])
-		# A row that predates the field reads as Active, matching
-		# permissions.is_team_active and the backfill patch.
+
+
 		t["status"] = t.get("status") or STATUS_ACTIVE
-		# Every archived row in this list belongs to a head by construction, so
-		# the flag is what the badge renders from - the participant's list has
-		# none to mark.
+
+
 		t["is_archived"] = t["status"] == STATUS_ARCHIVED
 		t["participant_count"] = len(names)
-		# Two teams can share a project and a member set, so the list shows a
-		# name preview alongside the ID to tell them apart at a glance.
+
+
 		t["participant_names"] = names
-		# Fallback team_name if column doesn't exist yet in database
+
 		if not t.get("team_name"):
 			t["team_name"] = f"Team ({t.get('project', 'Unknown')})"
 
@@ -323,51 +319,51 @@ def get_my_teams():
 def get_team_detail(team_name: str):
 	"""Full team for the detail view, plus the roster options and button state."""
 	doc = frappe.get_doc("Experiment Team", team_name)
-	# Runs the has_team_permission hook, so a head cannot open another's team.
+
 	doc.check_permission("read")
 
 	function = frappe.db.get_value(
-		"Employee Function",
-		doc.employee_function,
-		["function_name", "function_head", "function_head_name"],
-		as_dict=True,
+	 "Employee Function",
+	 doc.employee_function,
+	 ["function_name", "function_head", "function_head_name"],
+	 as_dict=True,
 	) or {}
 
 	participants = [
-		{"user": row.user, "full_name": row.full_name, "employee": row.employee}
-		for row in doc.participants
+	 {"user": row.user, "full_name": row.full_name, "employee": row.employee}
+	 for row in doc.participants
 	]
 
 	user = frappe.session.user
 	is_head = function.get("function_head") == user or has_bypass(user)
 
 	return {
-		"name": doc.name,
-		"team_name": getattr(doc, "team_name", None) or f"Team ({doc.project})",
-		"employee_function": doc.employee_function,
-		"function_name": function.get("function_name"),
-		"head": function.get("function_head"),
-		"head_name": function.get("function_head_name") or doc.head_name,
-		"project": doc.project,
-		"project_id": doc.project_id,
-		"project_name": frappe.db.get_value("Project", doc.project, "project_name"),
-		"segment": doc.segment,
-		"cost_center": doc.cost_center,
-		"participants": participants,
-		# Only the head edits the roster, so only the head needs the options.
-		"candidates": get_employee_users_for_function(doc.employee_function) if is_head else [],
-		"modified": doc.modified,
-		# Mirrors the server-side gate so the button cannot promise what the
-		# gate would refuse.
-		"can_create_experiment": is_authorized_for_project(
-			user, doc.project, doc.employee_function
-		),
-		"is_head": is_head,
-		"can_edit": is_head,
-		# The radio pair on the detail page is gated on can_edit above - there is
-		# no separate "may archive" flag, because there is no separate rule.
-		"status": doc.status or STATUS_ACTIVE,
-		"docstatus": doc.docstatus,
+	 "name": doc.name,
+	 "team_name": getattr(doc, "team_name", None) or f"Team ({doc.project})",
+	 "employee_function": doc.employee_function,
+	 "function_name": function.get("function_name"),
+	 "head": function.get("function_head"),
+	 "head_name": function.get("function_head_name") or doc.head_name,
+	 "project": doc.project,
+	 "project_id": doc.project_id,
+	 "project_name": frappe.db.get_value("Project", doc.project, "project_name"),
+	 "segment": doc.segment,
+	 "cost_center": doc.cost_center,
+	 "participants": participants,
+
+	 "candidates": get_employee_users_for_function(doc.employee_function) if is_head else [],
+	 "modified": doc.modified,
+
+
+	 "can_create_experiment": is_authorized_for_project(
+	  user, doc.project, doc.employee_function
+	 ),
+	 "is_head": is_head,
+	 "can_edit": is_head,
+
+
+	 "status": doc.status or STATUS_ACTIVE,
+	 "docstatus": doc.docstatus,
 	}
 
 
@@ -379,8 +375,8 @@ def get_segments_and_cost_centers(employee_function=None):
 			segments = [row.segment for row in doc.table_xlgh if row.segment]
 			cost_centers = [row.cost_center for row in doc.cost_center if row.cost_center]
 			return {
-				"segments": sorted(list(set(segments))),
-				"cost_centers": sorted(list(set(cost_centers)))
+			 "segments": sorted(list(set(segments))),
+			 "cost_centers": sorted(list(set(cost_centers)))
 			}
 		except Exception as e:
 			pass
@@ -388,8 +384,8 @@ def get_segments_and_cost_centers(employee_function=None):
 	segments = frappe.get_all("Segment", fields=["name"], order_by="name asc")
 	cost_centers = frappe.get_all("Cost Center", fields=["name"], order_by="name asc")
 	return {
-		"segments": [s.name for s in segments],
-		"cost_centers": [c.name for c in cost_centers]
+	 "segments": [s.name for s in segments],
+	 "cost_centers": [c.name for c in cost_centers]
 	}
 
 
@@ -417,27 +413,27 @@ def get_team_financials(project: str, employee_function: str, team: str | None =
 	"""
 	if not is_authorized_for_project(frappe.session.user, project, employee_function):
 		frappe.throw(
-			_("You are not permitted to read financials for {0} / {1}.").format(
-				project, employee_function
-			),
-			frappe.PermissionError,
+		 _("You are not permitted to read financials for {0} / {1}.").format(
+		  project, employee_function
+		 ),
+		 frappe.PermissionError,
 		)
 
 	if team:
 		team_info = frappe.db.get_value(
-			"Experiment Team",
-			{"name": team, "project": project, "employee_function": employee_function},
-			["segment", "cost_center"],
-			as_dict=True
+		 "Experiment Team",
+		 {"name": team, "project": project, "employee_function": employee_function},
+		 ["segment", "cost_center"],
+		 as_dict=True
 		)
 		if team_info:
 			return team_info
 
 	team_info = frappe.db.get_value(
-		"Experiment Team",
-		{"project": project, "employee_function": employee_function},
-		["segment", "cost_center"],
-		as_dict=True
+	 "Experiment Team",
+	 {"project": project, "employee_function": employee_function},
+	 ["segment", "cost_center"],
+	 as_dict=True
 	)
 	return team_info or {"segment": None, "cost_center": None}
 
@@ -479,24 +475,24 @@ def get_authorized_projects_for_user(
 	user = user or frappe.session.user
 
 	if has_bypass(user):
-		# Bypass is "every project", so the filter is the whole mapping for the
-		# function rather than an intersection with a list that was never bounded.
+
+
 		if employee_function:
 			allowed = get_projects_for_employee_function(employee_function)
 			if not allowed:
 				return []
 			return frappe.get_all(
-				"Project",
-				filters={"name": ("in", allowed)},
-				fields=["name", "project_name"],
-				order_by="name asc",
+			 "Project",
+			 filters={"name": ("in", allowed)},
+			 fields=["name", "project_name"],
+			 order_by="name asc",
 			)
 		return frappe.get_all("Project", fields=["name", "project_name"], order_by="name asc")
 
 	teams = frappe.get_all(
-		"Experiment Team Participant",
-		filters={"parenttype": "Experiment Team", "user": user},
-		pluck="parent",
+	 "Experiment Team Participant",
+	 filters={"parenttype": "Experiment Team", "user": user},
+	 pluck="parent",
 	)
 
 	team_filters = {"name": ("in", teams)}
@@ -504,17 +500,16 @@ def get_authorized_projects_for_user(
 		team_filters["employee_function"] = employee_function
 
 	project_names = set(
-		frappe.get_all("Experiment Team", filters=team_filters, pluck="project")
-		if teams
-		else []
+	 frappe.get_all("Experiment Team", filters=team_filters, pluck="project")
+	 if teams
+	 else []
 	)
 
-	# Heads get the whole mapping for their functions, not just the projects that
-	# already carry a team.
+
 	headed = get_headed_employee_functions(user)
 	if employee_function:
-		# Only if they head the one asked for - otherwise heading any function at
-		# all would widen the answer back out past the filter.
+
+
 		headed = [f for f in headed if f == employee_function]
 	for function in headed:
 		project_names.update(get_projects_for_employee_function(function))
@@ -523,10 +518,10 @@ def get_authorized_projects_for_user(
 		return []
 
 	return frappe.get_all(
-		"Project",
-		filters={"name": ("in", list(project_names))},
-		fields=["name", "project_name"],
-		order_by="name asc",
+	 "Project",
+	 filters={"name": ("in", list(project_names))},
+	 fields=["name", "project_name"],
+	 order_by="name asc",
 	)
 
 
@@ -536,23 +531,23 @@ def get_authorized_functions_for_project(project, user=None):
 	if has_bypass(user):
 		teams = frappe.get_all("Experiment Team", filters={"project": project}, fields=["employee_function"], distinct=1)
 		return [t.employee_function for t in teams if t.employee_function]
-		
+
 	teams = frappe.get_all(
-		"Experiment Team Participant",
-		filters={"parenttype": "Experiment Team", "user": user},
-		pluck="parent"
+	 "Experiment Team Participant",
+	 filters={"parenttype": "Experiment Team", "user": user},
+	 pluck="parent"
 	)
-	
+
 	functions = set()
 	if teams:
 		matching_teams = frappe.get_all("Experiment Team", filters={"name": ("in", teams), "project": project}, fields=["employee_function"])
 		functions.update([t.employee_function for t in matching_teams if t.employee_function])
-		
+
 	headed_funcs = get_headed_employee_functions(user)
 	if headed_funcs:
 		matching_headed = frappe.get_all("Experiment Team", filters={"employee_function": ("in", headed_funcs), "project": project}, fields=["employee_function"])
 		functions.update([t.employee_function for t in matching_headed if t.employee_function])
-		
+
 	return list(functions)
 
 
@@ -563,9 +558,9 @@ def _assert_head(employee_function: str):
 	head = frappe.db.get_value("Employee Function", employee_function, "function_head")
 	if frappe.session.user != head:
 		frappe.throw(
-			_("Only the Employee Function head can manage the team for {0}.").format(
-				frappe.bold(employee_function)
-			),
-			frappe.PermissionError,
-			title=_("Not Permitted"),
+		 _("Only the Employee Function head can manage the team for {0}.").format(
+		  frappe.bold(employee_function)
+		 ),
+		 frappe.PermissionError,
+		 title=_("Not Permitted"),
 		)

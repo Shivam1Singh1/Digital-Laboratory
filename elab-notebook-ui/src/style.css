@@ -1,55 +1,29 @@
 :root {
-  --bg-primary: #181922;      /* softer slate-dark background */
-  --bg-surface: #202230;      /* lighter slate-dark surface */
-  --bg-elevated: #2b2e40;     /* soft slate elevated hover surface */
-  --accent: #9f84f1;          /* desaturated comfortable violet for dark mode */
+  --bg-primary: #181922;
+  --bg-surface: #202230;
+  --bg-elevated: #2b2e40;
+  --accent: #9f84f1;
   --accent-hover: #b099f5;
   --accent-active: #8b6df0;
-  --text-primary: #f8f6fc;    /* soft readable white text */
-  --text-muted: #afacc4;      /* muted gray-purple text */
-  --border: rgba(159, 132, 241, 0.18); /* slate violet border */
+  --text-primary: #f8f6fc;
+  --text-muted: #afacc4;
+  --border: rgba(159, 132, 241, 0.18);
   --success: #34D399;
   --warning: #FBBF24;
   --danger: #F87171;
 
-  /* Secondary accent. Pairs with violet for gradients, chart ramps and any
-     surface that should not read as a single flat colour. Analogous to violet,
-     so it never collides with --success / --warning / --danger. */
-  --accent-2: #e879f9;         /* night fuchsia */
+
+  --accent-2: #e879f9;
   --accent-2-soft: rgba(232, 121, 249, 0.14);
 
-  /* Frosted overlay surfaces (modals, sticky headers). */
+
   --glass-bg: rgba(32, 34, 48, 0.72);
   --glass-blur: blur(14px) saturate(140%);
 
   --sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* -------------------------------------------------------------------------
-   * Typography scale
-   * -------------------------------------------------------------------------
-   * Every font-size in this app resolves to one of these eleven steps. Before
-   * this block there were thirty-six distinct sizes across the .vue/.css files
-   * - 0.62rem, 0.63rem, 0.65rem and 0.68rem all appearing within one screen of
-   * each other - which is a difference no one can see but everyone has to
-   * maintain. The steps below were chosen to sit on the clusters that were
-   * already there, so adopting them re-labels the app rather than resizing it.
-   *
-   * Sizes are rem against the 14px root set on <html> below, so the px column
-   * is what actually lands on screen:
-   *
-   *   --fs-3xs  0.65rem   9.1px   overline, chart axis, densest micro-labels
-   *   --fs-2xs  0.7rem    9.8px   badges, status pills, table headers
-   *   --fs-xs   0.75rem  10.5px   form labels, helper text, captions
-   *   --fs-sm   0.8rem   11.2px   secondary and meta text
-   *   --fs-md   0.85rem  11.9px   body copy, table cells, nav items  <- default
-   *   --fs-lg   0.9rem   12.6px   inputs, buttons, emphasised body
-   *   --fs-xl   1rem     14px     card titles
-   *   --fs-2xl  1.125rem 15.75px  subheadings
-   *   --fs-3xl  1.25rem  17.5px   section headings, dialog titles
-   *   --fs-4xl  1.5rem   21px     page titles
-   *   --fs-5xl  1.75rem  24.5px   hero figures and display numerals
-   */
+
   --fs-3xs: 0.65rem;
   --fs-2xs: 0.7rem;
   --fs-xs: 0.75rem;
@@ -62,17 +36,13 @@
   --fs-4xl: 1.5rem;
   --fs-5xl: 1.75rem;
 
-  /* Four weights, matching the four @fontsource files main.js imports. Asking
-     for any other value makes the browser synthesise it from the nearest real
-     one, which is where the smeared faux-bold came from. 800 in particular had
-     no font file behind it and is deliberately absent here. */
+
   --fw-regular: 400;
   --fw-medium: 500;
   --fw-semibold: 600;
   --fw-bold: 700;
 
-  /* Line height falls as size rises: a 24px title at 1.5 drifts apart, and
-     11px body copy at 1.2 closes up. */
+
   --lh-none: 1;
   --lh-tight: 1.2;
   --lh-snug: 1.3;
@@ -80,10 +50,7 @@
   --lh-normal: 1.5;
   --lh-relaxed: 1.6;
 
-  /* Optical tracking. Large text needs negative tracking to stop looking loose;
-     small uppercase needs positive tracking to stay readable. Expressed in em
-     so it tracks the font size - the -0.5px and -0.3px values these replace
-     stayed put while the text around them changed size. */
+
   --ls-tighter: -0.02em;
   --ls-tight: -0.01em;
   --ls-normal: 0;
@@ -91,28 +58,26 @@
   --ls-wider: 0.05em;
   --ls-widest: 0.08em;
 
-  /* Tabular figures. Inter's default numerals are proportional, so a column of
-     IDs or counts fails to line up digit over digit. Applied to table cells and
-     stat readouts, not to prose, where proportional figures read better. */
+
   --font-numeric: 'tnum' 1, 'lnum' 1;
   --accent-gradient: linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent-2) 6%, transparent));
 }
 
 :root.light-theme {
-  --bg-primary: #f6f5fc;      /* clean light-gray neutral background with a touch of purple */
-  --bg-surface: #ffffff;      /* clean white panels */
-  --bg-elevated: #f0edf8;     /* soft violet gray for hover states */
-  --accent: #6d28d9;          /* highly saturated primary violet day theme accent */
-  --accent-hover: #5b21b6;    /* darker violet on hover for readability */
-  --accent-active: #4c1d95;   /* active violet highlight */
-  --text-primary: #110e1a;    /* deep dark text for high contrast */
-  --text-muted: #5e5975;      /* soft purple-gray muted text */
-  --border: rgba(109, 40, 217, 0.15); /* light violet border */
+  --bg-primary: #f6f5fc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f0edf8;
+  --accent: #6d28d9;
+  --accent-hover: #5b21b6;
+  --accent-active: #4c1d95;
+  --text-primary: #110e1a;
+  --text-muted: #5e5975;
+  --border: rgba(109, 40, 217, 0.15);
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
 
-  --accent-2: #c026d3;         /* day fuchsia */
+  --accent-2: #c026d3;
   --accent-2-soft: rgba(192, 38, 211, 0.10);
 
   --glass-bg: rgba(255, 255, 255, 0.72);
@@ -134,24 +99,19 @@ html, body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--sans);
-  /* The rem base for the whole scale above. Left at 14px on purpose: every step
-     in that scale was sized against it, so changing this resizes the app. */
+
   font-size: 14px;
   font-weight: var(--fw-regular);
   line-height: var(--lh-normal);
   letter-spacing: var(--ls-normal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Inter ships its punctuation and quotes with contextual alternates; without
-     this they fall back to the flat default forms. */
+
   font-feature-settings: 'cv02' 1, 'cv03' 1, 'cv04' 1;
   overflow: hidden;
 }
 
-/* Controls do not inherit type from the document in any browser - each one
-   carries a UA default of ~13.33px Arial. Every form control in this app is
-   meant to read as body text, so the inheritance is granted explicitly here
-   rather than being re-declared inside each component's stylesheet. */
+
 input, select, textarea, button {
   font-family: inherit;
   letter-spacing: inherit;
@@ -164,7 +124,7 @@ input, select, textarea, button {
   border-radius: 50%;
 }
 
-/* Detail page headers layout and dashboard hero with textured gradients */
+
 .template-detail-container .page-header,
 .experiment-detail-container .page-header,
 .team-detail-container .page-header,
@@ -182,8 +142,7 @@ input, select, textarea, button {
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
-  /* overflow:hidden zeroes the automatic min-height, so inside the column-flex
-     detail containers the header would shrink and clip its title + actions. */
+
   flex-shrink: 0;
 }
 
@@ -225,14 +184,7 @@ input, select, textarea, button {
   overflow: hidden;
 }
 
-/* ---------------------------------------------------------------------------
- * Typography — element defaults
- * ---------------------------------------------------------------------------
- * The heading ladder. Only h1 and h2 were defined before, which left h3-h6 at
- * the browser's own sizes: h4 landed at 1em/bold and h5-h6 came out *smaller*
- * than the body text they introduced, so a card title could read lighter than
- * its own contents. All six are now on the scale and descend cleanly.
- */
+
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: var(--fw-semibold);
@@ -240,7 +192,7 @@ h1, h2, h3, h4, h5, h6 {
   line-height: var(--lh-heading);
 }
 
-/* Page title */
+
 h1 {
   font-size: var(--fs-4xl);
   font-weight: var(--fw-bold);
@@ -248,7 +200,7 @@ h1 {
   letter-spacing: var(--ls-tighter);
 }
 
-/* Section heading */
+
 h2 {
   font-size: var(--fs-3xl);
   font-weight: var(--fw-bold);
@@ -256,25 +208,24 @@ h2 {
   letter-spacing: var(--ls-tighter);
 }
 
-/* Subheading */
+
 h3 {
   font-size: var(--fs-2xl);
   letter-spacing: var(--ls-tight);
 }
 
-/* Card title */
+
 h4 {
   font-size: var(--fs-xl);
   letter-spacing: var(--ls-tight);
 }
 
-/* Minor heading */
+
 h5 {
   font-size: var(--fs-lg);
 }
 
-/* Overline — the smallest heading is a label, so it is tracked out and capped
-   rather than simply set small, which is what keeps it reading as a heading. */
+
 h6 {
   font-size: var(--fs-3xs);
   font-weight: var(--fw-bold);
@@ -291,16 +242,14 @@ p {
   color: var(--text-muted);
 }
 
-/* Helper text, captions and field hints. */
+
 small {
   font-size: var(--fs-xs);
   line-height: var(--lh-normal);
   color: var(--text-muted);
 }
 
-/* Form labels. Set as a label rather than as small body copy: semibold at a
-   small size with slight positive tracking reads as a field name and stops
-   competing with the value underneath it. */
+
 label {
   font-size: var(--fs-xs);
   font-weight: var(--fw-semibold);
@@ -309,16 +258,14 @@ label {
   color: var(--text-muted);
 }
 
-/* Field values sit one step above labels so the data outweighs its own
-   chrome, and at regular weight so a filled field does not read as emphasis. */
+
 input, select, textarea {
   font-size: var(--fs-lg);
   font-weight: var(--fw-regular);
   line-height: var(--lh-normal);
 }
 
-/* A placeholder is a hint, not a value - same size, lighter and never bold, so
-   an empty field is distinguishable from a filled one at a glance. */
+
 input::placeholder, textarea::placeholder {
   font-weight: var(--fw-regular);
   color: var(--text-muted);
@@ -335,7 +282,7 @@ a:hover {
   color: #c4b5fd;
 }
 
-/* Scrollbar Styling */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -354,7 +301,7 @@ a:hover {
   background: rgba(255, 255, 255, 0.24);
 }
 
-/* Base Component Classes */
+
 .card {
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
@@ -370,23 +317,19 @@ a:hover {
   border-color: var(--accent);
 }
 
-/* Shared helpers — used across list/detail views, so they live globally
-   rather than in a single page's stylesheet. */
+
 .font-mono {
   font-family: var(--mono);
 }
 
-/* Table styling */
+
 table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
 
-/* Column headers are labels, not data: small, capped and tracked out, at
-   semibold so they hold the top of the column against the rows below. They were
-   medium before, which at 10.5px uppercase rendered thin enough to disappear
-   against the muted colour they also carry. */
+
 th {
   color: var(--text-muted);
   font-weight: var(--fw-semibold);
@@ -404,8 +347,7 @@ td {
   color: var(--text-primary);
   font-size: var(--fs-md);
   line-height: var(--lh-normal);
-  /* Tabular figures: sample counts and IDs have to line up digit over digit
-     down a column, which proportional numerals do not do. */
+
   font-feature-settings: var(--font-numeric);
 }
 
@@ -413,7 +355,7 @@ tr:last-child td {
   border-bottom: none;
 }
 
-/* Badges & Pills */
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -423,8 +365,7 @@ tr:last-child td {
   font-weight: var(--fw-semibold);
   border-radius: 9999px;
   line-height: var(--lh-none);
-  /* Slight positive tracking: at 9.8px semibold inside a pill, untracked text
-     reads as a single dense mass. */
+
   letter-spacing: var(--ls-wide);
   font-feature-settings: var(--font-numeric);
 }
@@ -451,7 +392,7 @@ tr:last-child td {
   border: 1px solid var(--border);
 }
 
-/* Progress bar */
+
 .progress-bar-container {
   width: 100%;
   height: 6px;
@@ -467,18 +408,15 @@ tr:last-child td {
   transition: width 0.3s ease;
 }
 
-/* Buttons */
+
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  /* Semibold, not medium: a button label is an action and has to hold its own
-     against the filled surface behind it. Both variants below set weight again
-     for the same reason, so this is the one place it needs stating. */
+
   font-weight: var(--fw-semibold);
-  /* One step above body, matching the inputs they sit beside in every form
-     footer and filter bar - a control reads as a control. */
+
   font-size: var(--fs-lg);
   line-height: var(--lh-tight);
   letter-spacing: var(--ls-normal);
@@ -490,8 +428,6 @@ tr:last-child td {
   outline: none;
 }
 
-/* Child-table "+ Add Row" buttons sit inside dense grids, so they run smaller
-   than .btn-sm. Compounded with .btn to win over .btn-sm regardless of import order. */
 
 .btn-primary {
   background-color: var(--accent);
@@ -532,7 +468,7 @@ tr:last-child td {
   background-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Attractive Select Dropdowns */
+
 .attractive-select {
   border: 1px solid var(--border) !important;
   border-radius: 8px !important;
@@ -563,15 +499,7 @@ tr:last-child td {
   color: var(--text-primary) !important;
 }
 
-/* ---------------------------------------------------------------------------
- * Native date fields
- * ---------------------------------------------------------------------------
- * `color-scheme` is what tells the browser which theme to paint its own date UI
- * in - the calendar icon, the popup, the spin controls. Without it Chrome
- * assumes a light page, and on these dark surfaces the icon all but disappears,
- * which is why the field read as a plain text box with no way into a calendar.
- * The light theme flips it back so the popup does not arrive dark on white.
- */
+
 input[type="date"],
 input[type="datetime-local"] {
   color-scheme: dark;
@@ -582,9 +510,7 @@ input[type="datetime-local"] {
   color-scheme: light;
 }
 
-/* Clicking anywhere in the field opens the calendar (see openDatePicker in the
- * experiment form), so the whole control should look clickable rather than only
- * the icon at its end. */
+
 input[type="date"]:not([readonly]):not(:disabled),
 input[type="datetime-local"]:not([readonly]):not(:disabled) {
   cursor: pointer;
@@ -603,8 +529,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover {
   opacity: 1;
 }
 
-/* A read-only date (the run's start day) keeps the muted look of every other
-   read-only field and offers no picker to open. */
+
 input[type="date"][readonly]::-webkit-calendar-picker-indicator {
   display: none;
 }

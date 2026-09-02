@@ -23,9 +23,7 @@ const searchContainerRef = ref(null)
 
 let searchDebounceTimer = null
 
-// Mirrors MIN_QUERY_LENGTH in api/global_search.py. One or two characters match
-// most of every table, so the request is spent to render noise; the backend
-// enforces the same floor for callers that are not this input.
+
 const SEARCH_MIN_CHARS = 3
 
 const searchTooShort = computed(() => {
@@ -115,7 +113,7 @@ const handleClickOutside = (e) => {
   }
 }
 
-// Fall back to initials when there is no image, or when the image URL fails to load
+
 const showAvatarImage = computed(() => !!userStore.user.user_image && !avatarFailed.value)
 
 const userInitials = computed(() => {
@@ -140,9 +138,8 @@ const logout = async () => {
   } catch (err) {
     console.error('Logout failed', err)
   }
-  // Frappe's own login page, on whichever origin is serving the desk - see
-  // loginUrl(). This was a hardcoded localhost:8000, so signing out in
-  // production sent the user to their own machine rather than to the login page.
+
+
   window.location.href = loginUrl()
 }
 
@@ -157,7 +154,7 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
 })
 
-// A new image URL deserves a fresh attempt before falling back to initials again
+
 watch(() => userStore.user.user_image, () => {
   avatarFailed.value = false
 })
@@ -192,7 +189,7 @@ watch(() => userStore.user.name, async (newVal) => {
         <!-- GROUP 1 -->
         <div class="nav-group">
           <div class="group-label">Workspace</div>
-          
+
           <router-link to="/" class="nav-item" active-class="active" exact-active-class="active">
             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             Dashboard
@@ -240,7 +237,7 @@ watch(() => userStore.user.name, async (newVal) => {
           <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.5 1z"/></svg>
           Settings
         </router-link>
-        
+
         <!-- Pinned User Card -->
         <div class="user-card">
           <div class="user-avatar-wrapper">
@@ -329,7 +326,7 @@ watch(() => userStore.user.name, async (newVal) => {
           <!-- Project selector -->
           <div class="project-selector">
             <span class="project-label">Active Project:</span>
-            
+
             <select v-if="userStore.employeeScope.scope === 'no_function'" class="project-select-dropdown" disabled>
               <option value="">No function assigned</option>
             </select>
@@ -389,7 +386,7 @@ watch(() => userStore.user.name, async (newVal) => {
               </div>
               <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             </div>
-            
+
             <div v-if="dropdownOpen" class="user-dropdown">
               <div class="dropdown-item header-item">
                 <strong>{{ userStore.user.full_name }}</strong>

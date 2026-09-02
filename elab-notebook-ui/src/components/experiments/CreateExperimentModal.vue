@@ -19,12 +19,12 @@ const selectedTemplate = ref(null)
 const templateSearch = ref('')
 const showDropdown = ref(false)
 
-// Determine if context is pre-filled from team page
+
 const isContextPrefilled = computed(() => {
   return !!userStore.createModalProject && !!userStore.createModalEmployeeFunction
 })
 
-// Current project to use
+
 const currentProject = computed(() => {
   return isContextPrefilled.value ? userStore.createModalProject : selectedProject.value
 })
@@ -33,7 +33,7 @@ const currentEmployeeFunction = computed(() => {
   return isContextPrefilled.value ? userStore.createModalEmployeeFunction : selectedEmployeeFunction.value
 })
 
-// Load projects (only if not pre-filled)
+
 const loadProjects = async () => {
   if (isContextPrefilled.value) return
   try {
@@ -44,7 +44,7 @@ const loadProjects = async () => {
   }
 }
 
-// Load employee functions when project changes
+
 watch(selectedProject, async (newProj) => {
   if (isContextPrefilled.value || !newProj) {
     employeeFunctions.value = []
@@ -66,7 +66,7 @@ watch(selectedProject, async (newProj) => {
   }
 })
 
-// Load active templates
+
 const loadTemplates = async () => {
   try {
     const res = await axios.get('/api/method/elab_notebook.elab_notebook.api.template.get_experiment_templates', {
@@ -82,19 +82,19 @@ const loadTemplates = async () => {
   }
 }
 
-// Filter templates based on selected project, employee function, and search query
+
 const filteredTemplates = computed(() => {
   const proj = currentProject.value
   const func = currentEmployeeFunction.value
 
   let filtered = templates.value.filter(t => {
-    // If template has employee_function, it must match selected employee function
+
     if (func && t.employee_function && t.employee_function !== func) return false
 
-    // If template is project-scoped, it must match selected project
+
     if (t.project && t.project !== proj) return false
 
-    // Search filter
+
     if (templateSearch.value && selectedTemplate.value?.name !== t.name) {
       const q = templateSearch.value.toLowerCase()
       const name = (t.template_name || t.title || t.name).toLowerCase()
@@ -120,25 +120,22 @@ const clearTemplate = () => {
   templateSearch.value = ''
 }
 
-// Watch dropdown state for debugging
+
 watch(() => showDropdown.value, (isOpen) => {
   console.log(`Dropdown ${isOpen ? 'opened' : 'closed'}. filteredTemplates count: ${filteredTemplates.value.length}, currentProject: ${currentProject.value}`)
 })
 
-// Debug currentProject changes
+
 watch(() => currentProject.value, (proj) => {
   console.log(`currentProject changed to: ${proj}. Total templates available: ${templates.value.length}. Filtered: ${filteredTemplates.value.length}`)
 })
 
-// Debug template loading
+
 watch(() => templates.value, (tmpl) => {
   console.log(`templates.value updated. Count: ${tmpl.length}. Details:`, tmpl)
 }, { deep: false })
 
-// The template is optional here because only one of the four Experiment
-// Categories can carry one, and the category is picked on the next screen. A
-// template chosen here pre-selects the form's own Template picker; picking a
-// level that takes no template drops it again.
+
 const handleProceed = () => {
   if (!currentProject.value || !currentEmployeeFunction.value) {
     return
@@ -149,15 +146,15 @@ const handleProceed = () => {
     employee_function: currentEmployeeFunction.value
   }
   if (selectedTemplate.value) params.template = selectedTemplate.value.name
-  // Only present on the team-originated path; the general New Experiment entry
-  // point omits it and keeps its existing behaviour.
+
+
   if (userStore.createModalTeam) params.experiment_team = userStore.createModalTeam
   const queryParams = new URLSearchParams(params).toString()
-  
-  // Close modal
+
+
   userStore.closeCreateExperimentModal()
-  
-  // Navigate to new experiment form route
+
+
   router.push(`/experiments/new?${queryParams}`)
 }
 
@@ -165,7 +162,7 @@ const handleCancel = () => {
   userStore.closeCreateExperimentModal()
 }
 
-// Reset selections when modal is opened/closed
+
 watch(() => userStore.createModalOpen, (isOpen) => {
   if (isOpen) {
     console.log('CreateExperimentModal opened')
@@ -236,9 +233,9 @@ watch(() => userStore.createModalOpen, (isOpen) => {
               @focus="showDropdown = true"
               :disabled="!currentProject"
             />
-            <button 
-              v-if="selectedTemplate" 
-              class="clear-btn" 
+            <button
+              v-if="selectedTemplate"
+              class="clear-btn"
               @click="clearTemplate"
             >
               ×

@@ -5,29 +5,13 @@ import axios from 'axios'
 import { formatAuditDate } from '../../utils/dateFormatter'
 import { readServerError } from '../../utils/serverError'
 import './SampleDetail.css'
-// === DYNAMIC-PERMS-START ===
-// import { usePermissionStore } from '../../stores/permissions'
-// === DYNAMIC-PERMS-END ===
+
 
 const API = 'elab_notebook.elab_notebook.api.sample'
 
 const route = useRoute()
 const router = useRouter()
-// === DYNAMIC-PERMS-START ===
-// const permStore = usePermissionStore()
-//
-// // Sample is its own doctype with its own has_sample_permission hook, so this is
-// // a real record-level answer and not an inherited one. ANDed with the parent
-// // run's lock, not ORed: comments_locked is a workflow rule that binds everyone
-// // including System Managers ("for everyone, System Managers included" in the
-// // hint below), so a write permission must not be able to reopen it. Every other
-// // gate on this page ORs; this one is the exception and the reason is the lock.
-// const canEditSampleComments = computed(
-//   () =>
-//     !commentsLocked.value &&
-//     (canEditComments.value || permStore.can('Sample', 'write', route.params.id))
-// )
-// === DYNAMIC-PERMS-END ===
+
 
 const loading = ref(true)
 const error = ref('')
@@ -109,9 +93,7 @@ const saveComments = async () => {
   }
 }
 
-// Same reuse trap as ExperimentDetail: only the :id param changes when moving
-// between samples, so the component is kept alive and would otherwise keep
-// showing the previous one.
+
 watch(
   () => route.params.id,
   (next, previous) => {
@@ -123,13 +105,7 @@ watch(
   }
 )
 
-// === DYNAMIC-PERMS-START ===
-// // Its own fetch, keyed on the Sample record - a child doctype's permissions do
-// // not cascade from the parent Lab Experiment and are not derivable from it.
-// onMounted(async () => {
-//   await Promise.all([load(), permStore.fetchAndCache('Sample', route.params.id)])
-// })
-// === DYNAMIC-PERMS-END ===
+
 onMounted(load)
 </script>
 

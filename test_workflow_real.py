@@ -16,9 +16,8 @@ def test_workflow_states():
     print("="*80)
 
     try:
-        # NOTE: the live Workflow record is literally named 'Template   Experiment'
-        # with three spaces. Do not "tidy" this to a single space - the lookup
-        # then matches nothing and this test fails silently.
+
+
         wf = frappe.get_doc('Workflow', 'Template   Experiment')
         print("✓ Workflow 'Template   Experiment' found")
         print(f"\nAvailable States:")
@@ -42,16 +41,16 @@ def test_get_transitions_api():
     print("TEST 2: Get Workflow Actions (API)")
     print("="*80)
 
-    # Get a sample experiment
+
     exp = frappe.db.get_list('Experiment', filters={'workflow_state': 'Draft'}, limit=1)
 
     if not exp:
         print("⚠ No Draft experiments found. Creating test data...")
-        # Create a test experiment
+
         test_exp = frappe.new_doc('Experiment')
         test_exp.title = 'Test Workflow Experiment'
-        test_exp.project = 'PLTP-2025-0001'  # Adjust to existing project
-        test_exp.employee_function = 'R&D'  # Adjust to existing function
+        test_exp.project = 'PLTP-2025-0001'
+        test_exp.employee_function = 'R&D'
         test_exp.workflow_state = 'Draft'
         test_exp.insert(ignore_permissions=True)
         exp_name = test_exp.name
@@ -60,7 +59,7 @@ def test_get_transitions_api():
         exp_name = exp[0]['name']
         print(f"✓ Using existing experiment: {exp_name}")
 
-    # Get transitions for this experiment
+
     exp_doc = frappe.get_doc('Experiment', exp_name)
     transitions = get_transitions(exp_doc)
 
@@ -111,18 +110,18 @@ def test_backend_permission_enforcement():
     print("TEST 4: Backend Permission Enforcement")
     print("="*80)
 
-    # Get a Pending Approval experiment or create one
+
     exp = frappe.db.get_list('Experiment',
                              filters={'workflow_state': 'Pending Approval from System Manager'},
                              limit=1)
 
     if not exp:
         print("⚠ No Pending Approval experiments found. Creating test scenario...")
-        # Get a Draft or Completed experiment and transition it
+
         test_exp = frappe.db.get_list('Experiment', filters={'workflow_state': 'Completed'}, limit=1)
         if test_exp:
             exp_doc = frappe.get_doc('Experiment', test_exp[0]['name'])
-            # Try to transition to Pending Approval
+
             try:
                 apply_workflow(exp_doc, 'Send For Approval')
                 exp_doc.save()
@@ -138,19 +137,19 @@ def test_backend_permission_enforcement():
         exp_name = exp[0]['name']
         print(f"✓ Using existing Pending Approval experiment: {exp_name}")
 
-    # Now test if backend enforces that only System Manager can approve
+
     exp_doc = frappe.get_doc('Experiment', exp_name)
 
     print(f"\nCurrent workflow_state: '{exp_doc.workflow_state}'")
     print(f"Attempting 'Approve' action...")
 
-    # Check current user
+
     current_user = frappe.session.user
     user_roles = frappe.get_roles()
     print(f"\nCurrent user: {current_user}")
     print(f"Current user roles: {user_roles}")
 
-    # Try to approve
+
     try:
         transitions = get_transitions(exp_doc)
         approve_available = any(t['action'] == 'Approve' for t in transitions)
@@ -161,7 +160,7 @@ def test_backend_permission_enforcement():
             exp_doc.save()
             print(f"✓ Approve succeeded. workflow_state: '{exp_doc.workflow_state}'")
             print("  ⚠️ WARNING: Non-System-Manager user was able to approve!")
-            return False  # This would be a security issue
+            return False
         else:
             print("✓ 'Approve' action not available for current user")
             print("  ✓ Backend correctly restricted 'Approve' action")
@@ -189,7 +188,7 @@ def test_exact_state_strings():
         wf = frappe.get_doc('Workflow', 'Template   Experiment')
         state_strings = {}
         for state in wf.states:
-            state_strings[state.state] = len(state.state)  # Show length to detect spaces
+            state_strings[state.state] = len(state.state)
 
         for state_name, length in sorted(state_strings.items()):
             print(f"'{state_name}'")
@@ -203,7 +202,7 @@ if __name__ == '__main__':
     frappe.connect()
 
     try:
-        # Run all tests
+
         test_workflow_states()
         exp_name, transitions = test_get_transitions_api()
         test_workflow_transitions(exp_name)

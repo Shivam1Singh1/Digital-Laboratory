@@ -1,4 +1,4 @@
-/* Modal Overlay */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -14,7 +14,7 @@
   animation: fadeIn 0.3s ease-out;
 }
 
-/* Modal Content Box */
+
 .modal-content {
   width: 90%;
   max-width: 750px;
@@ -81,7 +81,7 @@
   overflow: visible;
 }
 
-/* Form Groups */
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -119,7 +119,7 @@
   background-color: var(--bg-surface);
 }
 
-/* Context info pill for Team flow */
+
 .context-pill-info {
   display: flex;
   flex-direction: row;
@@ -151,7 +151,7 @@
   letter-spacing: var(--ls-tight);
 }
 
-/* Form Controls */
+
 .relative {
   position: relative;
 }
@@ -185,10 +185,7 @@
   background-color: var(--bg-elevated);
 }
 
-/* The chevron is a real <svg> overlaid on the select (a select cannot contain
-   one), so it inherits currentColor and themes on its own. It used to be a
-   background-image data: URI with the stroke baked in, which needed a duplicate
-   rule per theme and still could not follow the accent. */
+
 .select-wrapper {
   position: relative;
   display: block;
@@ -213,7 +210,7 @@
   padding-right: 2.75rem;
 }
 
-/* Dropdown list for search results */
+
 .dropdown-list {
   position: absolute;
   top: 100%;
@@ -284,7 +281,7 @@
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 2%, transparent) 0%, transparent 100%);
 }
 
-/* Template Details Card */
+
 .template-details-card {
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 5%, transparent) 0%, color-mix(in srgb, var(--accent-2) 2%, transparent) 100%);
   border: 1.5px solid color-mix(in srgb, var(--accent) 20%, transparent);
@@ -355,7 +352,7 @@
   background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 1%, transparent) 0%, transparent 100%);
 }
 
-/* Buttons */
+
 .btn {
   padding: 1rem 2.5rem;
   border: none;
@@ -396,7 +393,7 @@
   transform: none;
 }
 
-/* Animations */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

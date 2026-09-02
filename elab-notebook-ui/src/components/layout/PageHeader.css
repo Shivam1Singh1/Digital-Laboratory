@@ -1,42 +1,13 @@
-/* =============================================================================
- * PageHeader - the locked style spec
- *
- * Every value from the spec lives here and nowhere else.
- *
- * The namespace is `.app-page-header__*`, deliberately NOT `.page-header` /
- * `.page-title` / `.page-subtitle` / `.btn`: those are still declared by
- * Dashboard.css, TemplateDetail.css and ExperimentForm.css for the pages that
- * have not moved to this component, and every component stylesheet is bundled
- * app-wide. Sharing a name would put this header back to being decided by Vite
- * bundle order, which is what let the four pages drift in the first place.
- *
- * THEME TOKENS, NOT HEX. The spec lists literal colours (#7C3AED, #111827,
- * #6B7280) but also requires the header to respect the theme toggle; those two
- * cannot both hold, because the light-mode greys invert in dark mode. The
- * tokens below are the app's existing equivalents and evaluate to the specified
- * colours in light mode:
- *     --accent        #6d28d9 light / #9f84f1 dark   (spec purple-600)
- *     --text-primary  #110e1a light / #f8f6fc dark   (spec gray-900)
- *     --text-muted    #5e5975 light / #afacc4 dark   (spec gray-500)
- * ========================================================================== */
+
 
 .app-page-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  /* Pages are column flex containers, where children are shrinkable by default;
-     without this the header compresses instead of the page scrolling. Owned
-     here so no page has to know about it. */
-  flex-shrink: 0;
-  /* Gap below the header, before the content/table. Carried by the header rather
-     than by the subtitle so it is identical on a page without one (Samples).
-     Pages must not add a flex `gap` on top of this.
 
-     Was the spec's 24px. Reduced with the title below: the header is the same
-     three lines on every list page and says nothing the page has not already
-     said in its breadcrumb, so every pixel it takes is a table row the reader
-     has to scroll for. */
+  flex-shrink: 0;
+
   margin-bottom: 14px;
 }
 
@@ -46,8 +17,7 @@
   min-width: 0;
 }
 
-/* Reserves the column even when empty, so the title never shifts between a page
-   that has an action and one that does not. */
+
 .app-page-header__right {
   display: flex;
   align-items: center;
@@ -55,7 +25,6 @@
   flex-shrink: 0;
 }
 
-/* --- Breadcrumb ---------------------------------------------------------- */
 
 .app-page-header__crumbs {
   display: flex;
@@ -84,13 +53,7 @@
   opacity: 0.7;
 }
 
-/* --- Title & subtitle ---------------------------------------------------- */
 
-/* Was the spec's 28px/4px. A list page's title is the least informative thing on
-   it - the breadcrumb above and the table below both already say where you are -
-   so it was the largest type on the page carrying the least. 22px still reads as
-   the page heading against the 13px crumb and 13px subtitle around it, and the
-   tightened margin closes the gap the old size needed to breathe. */
 .app-page-header__title {
   font-size: var(--fs-4xl);
   font-weight: var(--fw-bold);
@@ -105,22 +68,11 @@
   font-weight: var(--fw-regular);
   line-height: var(--lh-heading);
   color: var(--text-muted);
-  /* The gap below sits on .app-page-header so it applies with or without a
-     subtitle. Only the 2px separating this from the title is set here. */
+
   margin: 2px 0 0;
 }
 
-/* --- Action button ------------------------------------------------------- */
 
-/* Deliberate deviation from the spec's 40px / 14px / 16px-padding / 8px-radius
-   button, applied here rather than overridden per page so the four headers using
-   this component (Experiments, Samples, Templates, Team Setup) cannot drift
-   apart again - the whole point of the namespace above.
-
-   The spec sized this button before the detail pages were compacted. At 40px it
-   was the heaviest element on a list page, outweighing the 28px title it sits
-   beside, and it no longer matched the 32px header actions on ExperimentDetail
-   and TemplateDetail. These values are those: 32px tall, 13px text. */
 .app-page-header__action {
   display: inline-flex;
   align-items: center;
@@ -141,9 +93,7 @@
 
 .app-page-header__action--primary {
   background-color: var(--accent);
-  /* Not literal white: --accent is a light violet in dark mode, where white
-     text drops below a readable contrast ratio. --bg-primary is the app's
-     existing "contrast against accent" token and reads correctly in both. */
+
   color: var(--bg-primary);
 }
 
@@ -167,16 +117,14 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
-/* Scaled with the button above; 16px in a 32px control reads as an oversized
-   glyph rather than a label prefix. */
+
 .app-page-header__action-icon {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
 
-/* Narrow viewports: the action drops under the text block rather than crushing
-   the title. Sizing is untouched. */
+
 @media (max-width: 640px) {
   .app-page-header {
     flex-direction: column;

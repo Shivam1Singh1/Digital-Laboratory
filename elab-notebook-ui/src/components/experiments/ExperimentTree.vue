@@ -14,11 +14,7 @@ const loading = ref(true)
 const error = ref('')
 const notice = ref('')
 
-// `root` is the top of the whole tree this run belongs to, not the run itself -
-// the server walks up `parent_experiment` before it walks down, so opening a Sub
-// Sub Experiment still renders its Master and everything under it. `currentName`
-// is the run whose page this is, and the only thing that distinguishes it from
-// any other row is the highlight.
+
 const root = ref(null)
 const currentName = ref('')
 const childCategory = ref('')
@@ -34,14 +30,12 @@ const findNode = (n, name) => {
   return null
 }
 
-// Everything that acts on "this run" - the Attach picker, Unlink, the summary
-// count - reads this, not `root`. Falling back to `root` keeps those controls
-// pointed at a real node if the current one is ever missing from the tree.
+
 const currentNode = computed(() => findNode(root.value, currentName.value) || root.value)
 
 const isCurrent = (name) => name === currentName.value
 
-// Attach-children picker
+
 const picking = ref(false)
 const loadingCandidates = ref(false)
 const candidates = ref([])
@@ -50,24 +44,13 @@ const candidateFilter = ref('')
 const linking = ref(false)
 const unlinkingId = ref('')
 
-// Navigating from the tree keeps you on the tree: ?tab=tree is what
-// ExperimentDetail reads to pick the open tab, so clicking a node lands on that
-// run's own tree rather than dropping back to General.
+
 const experimentUrl = (name) => ({
   path: `/experiments/${encodeURIComponent(name)}`,
   query: { tab: 'tree' },
 })
 
-/**
- * Create form, seeded to land one level below the run being viewed.
- *
- * Only seeds - it grants nothing. The form re-fetches the legal parents for the
- * seeded category and clears `parent_experiment` if this run is not among them,
- * so a stale or hand-edited URL cannot attach a child where the server would
- * refuse it. Project and Employee Function come along because they are the scope
- * a parent and child must share; the team is left for the author to pick, since
- * a child run does not necessarily belong to the parent's.
- */
+
 const newChildUrl = computed(() => ({
   path: '/experiments/new',
   query: {
@@ -78,10 +61,7 @@ const newChildUrl = computed(() => ({
   },
 }))
 
-/* Dot colour per level. The category strings are the server's -- hierarchy.py
- * CATEGORIES is the source of truth for both the names and this top-to-bottom
- * order. A value not in this list is an older or hand-set category and renders
- * grey rather than borrowing the colour of a level it is not. */
+
 const CATEGORY_LEVELS = [
   { category: 'Master Experiment', slug: 'master' },
   { category: 'Experiment', slug: 'experiment' },
@@ -92,13 +72,10 @@ const CATEGORY_LEVELS = [
 const dotClass = (category) =>
   `tree-dot-${CATEGORY_LEVELS.find((l) => l.category === category)?.slug || 'other'}`
 
-/* Which branches are open, by node name. A Set of keys rather than an `expanded`
- * flag written onto the nodes: `load()` replaces the tree wholesale on every
- * link, unlink and route change, and per-node flags would be lost with it. */
+
 const expandedKeys = ref(new Set())
 
-// Only nodes that actually have children can be expanded, so only they are ever
-// in the set - Expand All must not leave keys behind for leaves.
+
 const collectExpandable = (n, out = []) => {
   if ((n.child_count || 0) > 0) out.push(n.name)
   ;(n.children || []).forEach((child) => collectExpandable(child, out))
@@ -109,7 +86,7 @@ const expandableKeys = computed(() => (root.value ? collectExpandable(root.value
 
 const isExpanded = (name) => expandedKeys.value.has(name)
 
-// Reassigning is what Vue tracks; mutating the Set in place does not re-render.
+
 const toggleExpand = (name) => {
   const next = new Set(expandedKeys.value)
   next.has(name) ? next.delete(name) : next.add(name)
@@ -128,25 +105,7 @@ const allExpanded = computed(
   () => expandableKeys.value.length > 0 && expandableKeys.value.every(isExpanded)
 )
 
-/**
- * The subtree arrives nested, which is the honest shape for the relationship,
- * but it renders as a flat list of rows carrying their own connector geometry.
- * Flattening once here keeps the template a plain v-for: a self-recursive
- * component would need its own name resolution and gives nothing back at a
- * maximum depth of four.
- *
- * A collapsed node contributes its own row and stops - its descendants are held
- * in `node`, not dropped, so reopening it costs no round trip.
- *
- * Each row carries what it needs to draw its own share of the trunk:
- *   `hasNext`          - a sibling follows, so this row's elbow is a tee, not a
- *                        corner, and the trunk continues past it.
- *   `ancestorHasNext`  - one flag per ancestor column, true where that ancestor
- *                        still has siblings pending and its vertical line must
- *                        keep running down through this row. Without it, a
- *                        deep branch draws lines through columns that have
- *                        already closed.
- */
+
 const flatten = (node, depth = 0, ancestorHasNext = [], hasNext = false, out = []) => {
   out.push({ node, depth, ancestorHasNext, hasNext })
   if (!expandedKeys.value.has(node.name)) return out
@@ -165,9 +124,7 @@ const flatten = (node, depth = 0, ancestorHasNext = [], hasNext = false, out = [
 
 const rows = computed(() => (root.value ? flatten(root.value) : []))
 
-// Counted off the current run's own branch, not off `rows`: the summary states
-// what is linked below *this* run, which is not the whole tree now that the tree
-// starts at the root, and does not change when a branch is collapsed from view.
+
 const countDescendants = (n) =>
   (n.children || []).reduce((sum, child) => sum + 1 + countDescendants(child), 0)
 
@@ -175,8 +132,7 @@ const descendantCount = computed(() =>
   currentNode.value ? countDescendants(currentNode.value) : 0
 )
 
-// Only the run being viewed can adopt from here, so Unlink is offered on its
-// direct children alone. A grandchild's own picker lives on its own page.
+
 const directChildNames = computed(
   () => new Set((currentNode.value?.children || []).map((c) => c.name))
 )
@@ -201,9 +157,8 @@ const load = async () => {
     currentName.value = data.current || props.experimentId
     childCategory.value = data.child_category || ''
     canLink.value = Boolean(data.can_link)
-    // Open by default: the whole subtree is already in hand, and the tab drew it
-    // in full before it had controls. Collapsing is the deliberate act, not
-    // expanding. A fresh tree also drops stale keys from the run left behind.
+
+
     expandAll()
   } catch (err) {
     console.error('Failed to load experiment tree:', err)
@@ -253,7 +208,7 @@ const closePicker = () => {
 }
 
 const toggle = (name) => {
-  // Reassigning is what Vue tracks; mutating the Set in place does not re-render.
+
   const next = new Set(selected.value)
   next.has(name) ? next.delete(name) : next.add(name)
   selected.value = next
@@ -274,8 +229,8 @@ const linkSelected = async () => {
     await load()
   } catch (err) {
     console.error('Failed to link children:', err)
-    // The server rejects the whole batch and names the run at fault, so its own
-    // message is worth more here than a generic count.
+
+
     error.value = readServerError(err, 'Could not link the selected experiments. Nothing was changed.')
   } finally {
     linking.value = false

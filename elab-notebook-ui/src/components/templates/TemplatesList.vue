@@ -32,8 +32,8 @@ const getExperimentCount = (name) => {
 }
 
 const currentPage = ref(1)
-// Sized for the taller rows: roughly a screenful, so the table paginates rather
-// than running off the bottom of the page.
+
+
 const pageSize = 7
 
 const totalPages = computed(() => Math.max(Math.ceil(templates.value.length / pageSize), 1))
@@ -44,17 +44,12 @@ const paginatedTemplates = computed(() => {
   return templates.value.slice(start, end)
 })
 
-// Deleting the last row of the final page would otherwise strand the view on a
-// page that no longer exists.
+
 watch(totalPages, (pages) => {
   if (currentPage.value > pages) currentPage.value = pages
 })
 
-// Deliberately not filtered by the Active Project selector: once a template is saved
-// it must be findable here, and project-scoping this list silently hid drafts that
-// belonged to a project other than the one selected in the top bar. Function-level
-// scoping is still enforced server-side, so this only ever widens to the user's own
-// Employee Function - never across functions.
+
 const fetchTemplates = async () => {
   loading.value = true
   try {
@@ -69,9 +64,7 @@ const fetchTemplates = async () => {
   }
 }
 
-// Mirrors isReadOnly in TemplateDetail.vue: once a template is sent for approval it
-// stops being the author's to change, so the row offers View (which reviewers use to
-// open it and run Approve/Reject) instead of Edit. Draft and Rejected stay editable.
+
 const READ_ONLY_STATES = ['Pending from System Manager', 'Pending For Approval', 'Approved']
 
 const isEditable = (state) => !READ_ONLY_STATES.includes(state)
